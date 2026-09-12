@@ -2,12 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { isValidRailCode } from "@/lib/rail/code";
+import { isValidCode } from "@/lib/rail/code";
 
 export default function RailJoin() {
   const router = useRouter();
   const [code, setCode] = useState("");
-  const valid = isValidRailCode(code);
+  const valid = isValidCode(code);
   return (
     <form
       onSubmit={(e) => {
