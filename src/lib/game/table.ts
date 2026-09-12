@@ -1,7 +1,7 @@
 /**
  * Server-owned table: lobby, seating, hand loop, AI turns, turn timer, tells, per-viewer views, log.
  *
- * One Table per 4-digit code, kept on globalThis (single Node process). Clients never see the deck or
+ * One Table per 4-letter code, kept on globalThis (single Node process). Clients never see the deck or
  * other players' hole cards until showdown. `drive()` advances the table until a human must act, then
  * stops; a human action (or the turn timer) calls it again.
  */
@@ -12,6 +12,7 @@ import { applyAction, bounds, dealtSeats, legalActions, liveSeats, newHand, next
 import { monteCarloEquity, potOdds } from "@/lib/poker/equity";
 import { decide } from "@/lib/villain/brain";
 import { getProfile, resolveProfile } from "@/lib/villain/profile";
+import { pickVoice } from "@/lib/villain/voices";
 import { isSeatableModelId } from "@/lib/llm/models";
 import { appendLog, createLog, endLog, getLog, setBaseline, syncLogPlayers } from "@/lib/store";
 import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
@@ -49,6 +50,8 @@ interface Table {
   handNumber: number;
   button: number;
   tells: Record<string, PlayerTells>;
+  /** Per AI player: table-talk lines already spoken, for the no-repeat prompt. */
+  saidLines: Record<string, string[]>;
   turnDeadline?: number;
   turnTimer?: ReturnType<typeof setTimeout>;
   driving: boolean;
@@ -83,6 +86,7 @@ export async function createTable(configPatch: Partial<TableConfig>, hostName: s
     handNumber: 0,
     button: 0,
     tells: {},
+    saidLines: {},
     driving: false,
     createdAt: Date.now(),
   };
@@ -183,6 +187,8 @@ export function act(code: string, token: string, req: Omit<ActionRequest, "seat"
   if (t.phase !== "playing" || !t.hand || t.hand.over) throw new TableError("No hand in progress");
   if (t.hand.toAct !== me.seat) throw new TableError("Not your turn");
   clearTurnTimer(t);
+  // The fused read for this decision is the freshest tell data; the AIs use it on their next turn.
+  if (tells) t.tells[me.id] = { frame: t.tells[me.id]?.frame ?? null, vector: tells, at: Date.now() };
   applyAndPublish(t, { ...req, seat: me.seat }, tells);
   void drive(t);
 }
@@ -295,12 +301,14 @@ async function seatAI(t: Table, modelId: string) {
   if (seat === null || !isSeatableModelId(modelId)) return;
   const profile = await resolveProfile(modelId);
   const dupes = t.players.filter((p) => p.modelId === modelId).length;
+  const voiceId = pickVoice(modelId, profile.vendor, t.players.map((p) => p.voiceId).filter((v): v is string => !!v));
   t.players.push({
     id: `ai-${crypto.randomUUID().slice(0, 8)}`,
     seat,
     name: dupes ? `${profile.name} ${dupes + 1}` : profile.name,
     kind: "ai",
     modelId,
+    voiceId,
     stack: t.config.startingStack,
     connected: true,
     sittingOut: false,
@@ -469,6 +477,7 @@ async function aiAct(t: Table, seat: number) {
     equity: eq.equity,
     potOdds: potOdds(b.toCall, hand.pot),
     modelId: player.modelId ?? DEFAULT_TABLE.aiPlayers[0],
+    recentTalk: (t.saidLines[player.id] ?? []).slice(-4),
   });
 
   // The table may have moved on while the LLM was thinking (e.g. host ended it).
@@ -490,8 +499,14 @@ async function aiAct(t: Table, seat: number) {
   publish(t.code, { type: "ai_decision", playerId: player.id, decision, handNumber: hand.handNumber, street: hand.street });
   applyAndPublish(t, req, null);
   if (decision.tableTalk) {
+    const said = (t.saidLines[player.id] ??= []);
+    // Drop an exact repeat rather than say it twice; the prompt already asks the model not to.
+    if (said.some((l) => l.trim().toLowerCase() === decision.tableTalk.trim().toLowerCase())) decision.tableTalk = "";
+    else said.push(decision.tableTalk);
+  }
+  if (decision.tableTalk) {
     appendLog(t.code, "talk", { handNumber: hand.handNumber, playerId: player.id, text: decision.tableTalk });
-    const talk: TableEvent = { type: "talk", playerId: player.id, text: decision.tableTalk, voiceId: getProfile(player.modelId ?? DEFAULT_TABLE.aiPlayers[0]).voiceId };
+    const talk: TableEvent = { type: "talk", playerId: player.id, text: decision.tableTalk, voiceId: player.voiceId ?? getProfile(player.modelId ?? DEFAULT_TABLE.aiPlayers[0]).voiceId };
     publish(t.code, talk);
   }
 }

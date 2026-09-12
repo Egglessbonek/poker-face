@@ -2,7 +2,7 @@
 
 # Poker Face
 
-Hackathon project: a Hold'em table lobby (humans + AI players, 4-digit code) where the AIs read webcam tells. Plan lives in the repo README and the module-level TODO(phase N) comments.
+Hackathon project: a Hold'em table lobby (humans + AI players, 4-letter code) where the AIs read webcam tells. Plan lives in the repo README and the module-level TODO(phase N) comments.
 
 - `npm run dev` / `npm test` (vitest) / `npm run typecheck` / `npm run lint` / `npm run build`
 - Shared types are in `src/lib/types.ts`. Add fields there first; every module imports from it.

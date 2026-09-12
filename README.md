@@ -2,7 +2,7 @@
 
 **The only opponents who can see your pulse.**
 
-A No-Limit Hold'em table for friends and AI players. Create a table, share the 4-digit code, and sit down. Every AI at the table also gets your tells: blink rate, gaze, stillness, tension, micro-expressions, decision latency, and cursor hesitation, read from your webcam in the browser. Spectators join the **Rail** with the same code and watch the tells live. After the match, the **Reveal** shows exactly which bluffs your face captioned.
+A No-Limit Hold'em table for friends and AI players. Create a table, share the 4-letter code, and sit down. Every AI at the table also gets your tells: blink rate, gaze, stillness, tension, micro-expressions, decision latency, and cursor hesitation, read from your webcam in the browser. Spectators join the **Rail** with the same code and watch the tells live. After the match, the **Reveal** shows exactly which bluffs your face captioned.
 
 ## Stack
 
@@ -47,4 +47,16 @@ npm install
 npm run dev                  # http://localhost:3000
 npm test
 npm run simulate -- --humans 2 --ais 2 --hands 10   # scripted match against the dev server; prints rail + reveal links
+npm run e2e                                          # real Chrome with a fake webcam (see scripts/e2e-fake-camera.mjs): camera -> tells -> AI -> reveal
 ```
+
+## Deploy (Railway)
+
+Tables, streams, and turn timers live in one Node process, so the app needs a host that runs a single long-lived server. Serverless platforms (Vercel, Netlify functions) will not work: memory is not shared between invocations and streams are cut off.
+
+1. Railway → New Project → Deploy from GitHub → pick this repo. `railway.json` sets the build, start command, health check (`/api/health`), and a single replica.
+2. Variables: `OPENROUTER_API_KEY`, `ELEVENLABS_API_KEY`, the `ELEVENLABS_VOICE_*` ids, and `APP_URL` set to the public URL Railway gives you.
+3. Generate a domain under Settings → Networking. Share `https://<domain>/table/<code>` with players and `/rail/<code>` with spectators.
+
+Keep it at one replica. Scaling out would split tables across processes. A redeploy restarts the process and ends every table in progress, so deploy between demos, not during one.
+

@@ -51,9 +51,17 @@ export interface CompleteOptions<T> {
 
 export async function completeJSON<T>(opts: CompleteOptions<T>): Promise<T> {
   const p = currentProvider();
-  const raw = p === "openrouter" ? await openrouterText(opts) : p === "anthropic" ? await anthropicText(opts) : await geminiText(opts);
-  const json = extractJSON(raw);
-  return opts.schema.parse(json);
+  const run = async () => {
+    const raw = p === "openrouter" ? await openrouterText(opts) : p === "anthropic" ? await anthropicText(opts) : await geminiText(opts);
+    return opts.schema.parse(extractJSON(raw));
+  };
+  try {
+    return await run();
+  } catch (err) {
+    // Empty or truncated output is usually transient (reasoning ate the budget); one retry is cheap.
+    if (/empty response|No JSON object/.test((err as Error).message)) return run();
+    throw err;
+  }
 }
 
 async function openrouterText(opts: CompleteOptions<unknown>): Promise<string> {
@@ -75,7 +83,9 @@ async function openrouterText(opts: CompleteOptions<unknown>): Promise<string> {
         { role: "user", content: opts.user },
       ],
       temperature: opts.temperature ?? 0.7,
-      max_tokens: opts.maxTokens ?? 600,
+      max_tokens: opts.maxTokens ?? 1200,
+      // Keep hidden reasoning short so it does not consume the output budget; ignored by non-reasoning models.
+      reasoning: { effort: "low" },
     }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
@@ -83,7 +93,7 @@ async function openrouterText(opts: CompleteOptions<unknown>): Promise<string> {
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string | Array<{ type: string; text?: string }> } }>; error?: { message?: string } };
   if (data.error) throw new Error(`OpenRouter ${model}: ${data.error.message}`);
   const content = data.choices?.[0]?.message?.content;
-  if (typeof content === "string") return content;
+  if (typeof content === "string" && content.trim()) return content;
   if (Array.isArray(content)) return content.map((c) => c.text ?? "").join("");
   throw new Error(`OpenRouter ${model}: empty response`);
 }

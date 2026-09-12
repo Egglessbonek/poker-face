@@ -42,3 +42,9 @@ next-env.d.ts
 
 # keep the env template
 !.env.example
+
+# Claude Code worktrees (EnterWorktree)
+.claude/worktrees/
+
+# fake-camera e2e output
+/e2e/

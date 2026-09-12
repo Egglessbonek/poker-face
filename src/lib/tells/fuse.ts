@@ -59,7 +59,7 @@ export function fuseTells(snapshot: TellSnapshot, baseline: BaselineStats | null
   const bluffScore = evidence.filter((e) => e.direction === "bluff").reduce((a, e) => a + e.strength, 0);
   const strengthScore = evidence.filter((e) => e.direction === "strength").reduce((a, e) => a + e.strength, 0);
   const bluffLikelihood = clamp(0.5 + 0.2 * (bluffScore - strengthScore), 0.05, 0.95);
-  const arousal = clamp(50 + 20 * (blinkRatio - 1) + 60 * tensionDelta + (motionRatio < 0.4 ? 10 : 0), 0, 100);
+  const arousal = clamp(50 + clamp(20 * (blinkRatio - 1), -15, 25) + clamp(60 * tensionDelta, -20, 30) + (motionRatio < 0.4 ? 10 : 0), 0, 100);
 
   let trend: TellVector["trend"] = "stable";
   if (history.length >= 2) {

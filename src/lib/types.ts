@@ -138,6 +138,8 @@ export interface Player {
   kind: "human" | "ai";
   /** OpenRouter model id for AI seats. */
   modelId?: string;
+  /** ElevenLabs voice assigned to this seat; unique within a table. */
+  voiceId?: string;
   stack: number;
   connected: boolean;
   sittingOut: boolean;
@@ -295,6 +297,8 @@ export interface VillainDecisionInput {
   equity: number;
   potOdds: number; // 0-1
   modelId: string;
+  /** This seat's most recent table-talk lines, newest last, so it does not repeat itself. */
+  recentTalk: string[];
 }
 
 export interface VillainDecision {
