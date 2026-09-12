@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Eye, UserRound } from "lucide-react";
 import { api, lastName, saveIdentity, type Identity } from "@/lib/client/identity";
 
 export default function JoinForm({ code, onJoined }: { code: string; onJoined: (id: Identity) => void }) {
@@ -29,15 +30,23 @@ export default function JoinForm({ code, onJoined }: { code: string; onJoined: (
   };
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-16">
-      <p className="text-xs uppercase tracking-[0.3em] text-gold">Table {code}</p>
-      <h1 className="text-3xl font-semibold">Take a seat</h1>
-      <form onSubmit={submit} className="flex w-full max-w-sm flex-col gap-3">
-        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} placeholder="Your name" autoFocus className="rounded-lg border border-felt-edge bg-background px-4 py-3" />
+    <main className="flex flex-1 items-center justify-center px-6 py-16">
+      <div className="flex w-full max-w-md flex-col gap-6 rounded-3xl border border-felt-edge bg-felt/15 p-6 text-center sm:p-8">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-gold">Table {code}</p>
+          <h1 className="mt-2 text-3xl font-semibold">Take a seat</h1>
+          <p className="mt-2 text-sm text-muted">Your name is the only thing the table needs.</p>
+        </div>
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          <label className="relative">
+            <UserRound size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} placeholder="Your name" autoFocus className="w-full rounded-xl border border-felt-edge bg-background py-3 pl-11 pr-4 outline-none transition focus:border-gold" />
+          </label>
         {error && <p className="rounded-lg bg-danger/20 px-3 py-2 text-sm text-danger">{error}</p>}
-        <button disabled={busy} className="rounded-xl bg-gold py-3 font-medium text-background disabled:opacity-40">{busy ? "Joining…" : "Sit down"}</button>
-        <Link href={`/rail/${code}`} className="text-center text-xs text-muted underline">Just watch from the rail instead</Link>
-      </form>
+          <button disabled={busy} className="rounded-full bg-gold py-3 font-semibold text-background disabled:opacity-40">{busy ? "Joining…" : "Sit down"}</button>
+          <Link href={`/rail/${code}`} className="flex items-center justify-center gap-2 pt-2 text-xs text-muted hover:text-foreground"><Eye size={13} /> Just watch from the rail</Link>
+        </form>
+      </div>
     </main>
   );
 }
