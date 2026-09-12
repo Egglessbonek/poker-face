@@ -98,7 +98,7 @@ export function createDistantCards(ivory: string, red: string, blue: string) {
     materials.push(paper);
     const back = print();
     const faces = [print("A", "♠"), print("K", "♥", red), print("A", "♦", red), print("Q", "♣")];
-    const count = 72;
+    const count = 112;
     const instanced = (shape: THREE.BufferGeometry, material: THREE.Material, total: number) => {
       const mesh = new THREE.InstancedMesh(shape, material, total);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -114,8 +114,8 @@ export function createDistantCards(ivory: string, red: string, blue: string) {
     const random = (seed: number) => THREE.MathUtils.euclideanModulo(Math.sin(seed * 127.1) * 43758.5453, 1);
     const cards = Array.from({ length: count }, (_, i) => ({
       angle: i / count * Math.PI * 2 + random(i + 1) * 0.2,
-      radius: 2.55 + random(i + 2) * 0.65,
-      height: (random(i + 3) - 0.5) * 0.42,
+      radius: 3.2 + random(i + 2) * 1.25,
+      height: (random(i + 3) - 0.5) * 0.7,
       size: 0.22 + random(i + 4) ** 3 * 0.55,
       displacement: new THREE.Vector3(),
       brightness: 1,

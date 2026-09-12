@@ -156,6 +156,7 @@ export function mountBackdrop(host: HTMLDivElement): () => void {
     const ivory = material(new THREE.MeshStandardMaterial({ color: color("--card"), roughness: 0.42, metalness: 0.35 }));
     const edge = material(new THREE.MeshStandardMaterial({ color: color("--chip-red"), roughness: 0.65, metalness: 0.15 }));
     const chip = new THREE.Group();
+    chip.scale.setScalar(1.5);
     const stage = new THREE.Group();
     stage.add(chip);
     scene.add(stage);
@@ -326,7 +327,10 @@ export function mountBackdrop(host: HTMLDivElement): () => void {
       // decoration beside the copy on desktop and above it on small screens.
       const slot = host.parentElement!.getBoundingClientRect();
       const worldPerPixel = (camera.top * 2) / Math.max(1, host.clientHeight);
-      const scale = Math.min(slot.width, slot.height) * 0.92 * worldPerPixel / 7.4;
+      // Let the wider belt use the desktop gutter, while reserving room for
+      // card corners and pointer repulsion at either side of the viewport.
+      const horizontalRoom = slot.width + (host.clientWidth >= 1024 ? 48 : 0);
+      const scale = Math.min(slot.height * 0.92 / 7.4, horizontalRoom * 0.98 / 10.6) * worldPerPixel;
       stage.scale.setScalar(scale);
       stage.position.set(
         (slot.left + slot.width / 2 - host.clientWidth / 2) * worldPerPixel,
