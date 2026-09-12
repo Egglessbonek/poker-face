@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { isValidCode } from "@/lib/rail/code";
+import { isValidCode, normalizeCode } from "@/lib/rail/code";
 import PlayingCardMarks from "./PlayingCardMarks";
 import styles from "./PlayingCard.module.css";
 
@@ -25,11 +25,13 @@ export default function CodeEntry({ title, hint, hrefPrefix, label, rank, suit }
       <span className={styles.hint}>{hint}</span>
       <div className={styles.entry}>
         <input
-          inputMode="numeric"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
           maxLength={4}
           value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-          placeholder="4821"
+          onChange={(e) => setCode(normalizeCode(e.target.value))}
+          placeholder="KXTR"
           aria-label="Table code"
         />
         <button disabled={!valid}>{label}</button>

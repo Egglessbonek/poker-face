@@ -1,5 +1,5 @@
 /**
- * In-memory pub/sub for table SSE streams, keyed by 4-digit table code.
+ * In-memory pub/sub for table SSE streams, keyed by 4-letter table code.
  * Each subscriber declares who it is (a seated player or the rail) so the publisher can filter
  * events per viewer: private hole cards, tell visibility.
  * Lives on globalThis so it survives Next.js dev HMR. Requires a single Node process (Railway), not serverless.

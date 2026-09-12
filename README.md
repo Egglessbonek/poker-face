@@ -2,7 +2,7 @@
 
 **The only opponents who can see your pulse.**
 
-A No-Limit Hold'em table for friends and AI players. Create a table, share the 4-digit code, and sit down. Every AI at the table also gets your tells: blink rate, gaze, stillness, tension, micro-expressions, decision latency, and cursor hesitation, read from your webcam in the browser. Spectators join the **Rail** with the same code and watch the tells live. After the match, the **Reveal** shows exactly which bluffs your face captioned.
+A No-Limit Hold'em table for friends and AI players. Create a table, share the 4-letter code, and sit down. Every AI at the table also gets your tells: blink rate, gaze, stillness, tension, micro-expressions, decision latency, and cursor hesitation, read from your webcam in the browser. Spectators join the **Rail** with the same code and watch the tells live. After the match, the **Reveal** shows exactly which bluffs your face captioned.
 
 ## Stack
 

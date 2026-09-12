@@ -116,6 +116,7 @@
   font-size: 18px;
   letter-spacing: 0.18em;
   text-align: center;
+  text-transform: uppercase;
 }
 
 .entry input::placeholder {

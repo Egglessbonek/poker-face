@@ -27,7 +27,7 @@ export default function Landing() {
           <span className={cardStyles.title}>Create a table</span>
           <span className={cardStyles.hint}>Set the blinds, write the guest list, and decide who gets to see the tells.</span>
         </Link>
-        <CodeEntry title="Join a table" hint="Take a seat with the 4-digit code." hrefPrefix="/table/" label="Sit down" rank="K" suit="♥" />
+        <CodeEntry title="Join a table" hint="Take a seat with the 4-letter code." hrefPrefix="/table/" label="Sit down" rank="K" suit="♥" />
         <CodeEntry title="Watch from the rail" hint="See every card and every tell." hrefPrefix="/rail/" label="Watch" rank="Q" suit="♣" />
       </div>
     </main>

@@ -1,7 +1,7 @@
 /**
  * Server-owned table: lobby, seating, hand loop, AI turns, turn timer, tells, per-viewer views, log.
  *
- * One Table per 4-digit code, kept on globalThis (single Node process). Clients never see the deck or
+ * One Table per 4-letter code, kept on globalThis (single Node process). Clients never see the deck or
  * other players' hole cards until showdown. `drive()` advances the table until a human must act, then
  * stops; a human action (or the turn timer) calls it again.
  */
