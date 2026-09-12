@@ -28,7 +28,9 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    "build/port-3001/types/**/*.ts",
+    "build/port-3001/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

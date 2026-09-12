@@ -1,0 +1,52 @@
+.landing {
+  isolation: isolate;
+}
+
+.hero {
+  display: grid;
+  align-items: center;
+  gap: 2rem;
+}
+
+.copy,
+.actions {
+  position: relative;
+  z-index: 1;
+}
+
+.copy {
+  text-shadow: 0 2px 12px #0b0f0d;
+}
+
+.chipSlot {
+  order: -1;
+  height: clamp(240px, 65vw, 360px);
+}
+
+.actions {
+  display: grid;
+  width: 100%;
+  max-width: 960px;
+  grid-template-columns: minmax(0, 320px);
+  justify-content: center;
+  gap: 24px;
+  margin-inline: auto;
+}
+
+@media (min-width: 768px) {
+  .actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero {
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+  }
+
+  .chipSlot {
+    order: 0;
+    height: 520px;
+  }
+}
