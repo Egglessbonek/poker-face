@@ -111,7 +111,7 @@ function HumanSection({ h, rank }: { h: RevealPlayer; rank?: { rank: number; of:
   const graded = h.decisions.filter((d) => d.aggressive && d.tells);
   const withTells = h.decisions.filter((d) => d.tells);
   const chart = graded.map((d, i) => ({ i: i + 1, label: `H${d.handNumber} ${d.street}`, bluff: Math.round(d.tells!.bluffLikelihood * 100), isBluff: d.isBluff, equity: Math.round(d.equity * 100), action: `${d.action.type}${d.action.amount ? " " + d.action.amount : ""}` }));
-  const arousal = withTells.map((d, i) => ({ i: i + 1, label: `H${d.handNumber} ${d.street}`, arousal: d.tells!.arousal }));
+  const composure = withTells.map((d, i) => ({ i: i + 1, label: `H${d.handNumber} ${d.street}`, composure: 100 - d.tells!.arousal }));
   const bluffs = h.decisions.filter((d) => d.isBluff);
   const caught = bluffs.filter((d) => d.tells && d.tells.bluffLikelihood >= 0.5).length;
 
@@ -162,17 +162,17 @@ function HumanSection({ h, rank }: { h: RevealPlayer; rank?: { rank: number; of:
         <p className="text-sm text-muted">{withTells.length ? "The camera was on, but you never bet or raised, so there was nothing to grade. Bluff at least once next time." : "No bets or raises with tell data. Turn the camera on next time and the AIs will show you what they saw."}</p>
       )}
 
-      {arousal.length > 2 && (
+      {composure.length > 2 && (
         <div>
-          <p className="mb-1 text-sm font-medium">Arousal across the match</p>
+          <p className="mb-1 text-sm font-medium">Composure across the match</p>
           <div className="h-40 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={arousal} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <LineChart data={composure} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke={INK.grid} strokeOpacity={0.5} />
                 <XAxis dataKey="label" tick={{ fill: INK.muted, fontSize: 10 }} tickLine={false} axisLine={{ stroke: INK.grid }} interval="preserveStartEnd" />
                 <YAxis domain={[0, 100]} tick={{ fill: INK.muted, fontSize: 10 }} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={{ background: "#0b0f0d", border: `1px solid ${INK.grid}`, fontSize: 12 }} labelStyle={{ color: INK.muted }} itemStyle={{ color: INK.primary }} />
-                <Line type="monotone" dataKey="arousal" stroke={NEUTRAL} strokeWidth={2} dot={{ r: 3, fill: NEUTRAL }} isAnimationActive={false} />
+                <Line type="monotone" dataKey="composure" stroke={NEUTRAL} strokeWidth={2} dot={{ r: 3, fill: NEUTRAL }} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -194,7 +194,7 @@ function HumanSection({ h, rank }: { h: RevealPlayer; rank?: { rank: number; of:
           ) : (
             <p className="text-sm text-muted">nothing notable recorded</p>
           )}
-          {h.peakArousal && <p className="mt-2 text-xs text-muted">Peak arousal {h.peakArousal.arousal}/100 on hand {h.peakArousal.handNumber}.</p>}
+          {h.peakArousal && <p className="mt-2 text-xs text-muted">Lowest composure {100 - h.peakArousal.arousal}/100 on hand {h.peakArousal.handNumber}.</p>}
         </div>
         <div>
           <p className="mb-2 text-sm font-medium">Your bluffs, on the record</p>

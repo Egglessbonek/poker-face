@@ -42,7 +42,7 @@ export default function TellHUD({ frame, baseline, vector, cameraStatus }: { fra
       {vector && (
         <div className="flex flex-col gap-2 border-t border-felt-edge pt-3">
           <BluffMeter value={vector.bluffLikelihood} />
-          <div className="flex justify-between"><span className="text-muted">Arousal</span><span className="font-mono">{vector.arousal} · {vector.trend}</span></div>
+          <div className="flex justify-between"><span className="text-muted">Composure</span><span className="font-mono">{100 - vector.arousal} · {vector.trend === "rising" ? "falling" : vector.trend === "falling" ? "rising" : vector.trend}</span></div>
           <ul className="flex flex-col gap-1">
             {vector.evidence.map((e, i) => (
               <li key={i} className={e.direction === "bluff" ? "text-danger" : e.direction === "strength" ? "text-ok" : "text-muted"}>• {e.text}</li>

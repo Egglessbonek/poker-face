@@ -248,7 +248,7 @@ function OpponentTells({ player, tells }: { player: Player; tells: PlayerTells }
   return (
     <section className="rounded-2xl border border-felt-edge p-3 text-xs">
       <div className="mb-1 flex items-center justify-between"><span className="font-semibold">{player.name}</span><span className="font-mono text-muted">{frame ? frame.facePresent ? dominantEmotion(frame.emotion) : "no face" : "—"}</span></div>
-      {vector ? <><BluffMeter value={vector.bluffLikelihood} /><p className="text-muted">Arousal {vector.arousal} · {vector.trend}</p>{vector.evidence.slice(0, 2).map((evidence, index) => <p key={index} className={evidence.direction === "bluff" ? "text-danger" : evidence.direction === "strength" ? "text-ok" : "text-muted"}>• {evidence.text}</p>)}</> : <p className="text-muted">{frame ? `Blink ${frame.blinkRate.toFixed(0)}/min · tension ${Math.round(frame.tension * 100)}%` : "No read yet"}</p>}
+      {vector ? <><BluffMeter value={vector.bluffLikelihood} /><p className="text-muted">Composure {100 - vector.arousal} · {vector.trend === "rising" ? "falling" : vector.trend === "falling" ? "rising" : vector.trend}</p>{vector.evidence.slice(0, 2).map((evidence, index) => <p key={index} className={evidence.direction === "bluff" ? "text-danger" : evidence.direction === "strength" ? "text-ok" : "text-muted"}>• {evidence.text}</p>)}</> : <p className="text-muted">{frame ? `Blink ${frame.blinkRate.toFixed(0)}/min · tension ${Math.round(frame.tension * 100)}%` : "No read yet"}</p>}
     </section>
   );
 }

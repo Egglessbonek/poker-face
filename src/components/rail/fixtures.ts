@@ -121,8 +121,8 @@ export const FAKE_TABLE: RailTableSnapshot = {
         mathAction: "Fold",
         finalAction: "Call",
         target: "Maya",
-        reasoning: "The price is thin, but Maya's hesitation and elevated arousal widen her betting range.",
-        tellsUsed: ["slow decision", "arousal rising"],
+        reasoning: "The price is thin, but Maya's hesitation and falling composure widen her betting range.",
+        tellsUsed: ["slow decision", "composure falling"],
       },
     },
     {
