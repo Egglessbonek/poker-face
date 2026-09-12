@@ -12,7 +12,7 @@
 import "server-only";
 import { z } from "zod";
 import type { ActionType, VillainDecision, VillainDecisionInput } from "@/lib/types";
-import { completeJSON } from "@/lib/llm/provider";
+import { completeJSON, llmAvailable } from "@/lib/llm/provider";
 import { getPersona } from "./personas";
 import { villainSystemPrompt, villainUserPrompt } from "./prompt";
 
@@ -39,6 +39,18 @@ export function mathAction(input: VillainDecisionInput): ActionType {
 export async function decide(input: VillainDecisionInput): Promise<VillainDecision> {
   const persona = getPersona(input.personaId);
   const baseline = mathAction(input);
+
+  if (!llmAvailable()) {
+    return {
+      action: baseline,
+      amount: clampAmount(baseline, undefined, input),
+      reasoning: "No LLM key configured; math-only decision.",
+      tableTalk: "",
+      tellsUsed: [],
+      mathAction: baseline,
+      llmUsed: false,
+    };
+  }
 
   try {
     const out = await completeJSON({
@@ -72,13 +84,12 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
 }
 
 function clampAmount(action: ActionType, amount: number | undefined, input: VillainDecisionInput): number | undefined {
-  // TODO(phase 4): real min/max from engine (min raise, effective stacks). Placeholder sizing.
+  const { minTotal, maxTotal } = input.bounds;
   if (action === "bet" || action === "raise") {
-    const min = input.hand.currentBet + input.hand.minRaise;
-    const max = input.villain.stack + input.villain.committed;
-    const def = Math.round(input.hand.pot * 0.66) + input.hand.currentBet;
-    return Math.max(min, Math.min(max, amount ?? def));
+    // Default sizing: ~2/3 pot on top of the current bet.
+    const def = input.hand.currentBet + Math.round(input.hand.pot * 0.66);
+    return Math.max(minTotal, Math.min(maxTotal, Math.round(amount ?? def)));
   }
-  if (action === "allin") return input.villain.stack + input.villain.committed;
+  if (action === "allin") return maxTotal;
   return undefined;
 }

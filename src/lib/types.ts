@@ -35,12 +35,17 @@ export interface PlayerState {
   holeCards: Card[];
   folded: boolean;
   allIn: boolean;
+  /** Total chips put into the pot this hand (all streets). Used to refund uncalled excess. */
+  totalIn: number;
+  /** Has this seat acted on the current street since the last bet/raise? */
+  acted: boolean;
 }
 
 export interface HandState {
   handNumber: number;
   street: Street;
   board: Card[];
+  /** Total chips in the middle, including current-street commitments. */
   pot: number;
   players: Record<Seat, PlayerState>;
   /** Seat holding the dealer button (heads-up: button posts SB and acts first preflop). */
@@ -51,8 +56,42 @@ export interface HandState {
   minRaise: number;
   actions: Action[];
   deck: Card[];
+  over: boolean;
   winner?: Seat | "split";
+  /** Hand descriptions at showdown (pokersolver descr). */
   showdown?: { hero?: string; villain?: string };
+}
+
+/** Amount bounds for the seat to act, for UI sliders and server validation. */
+export interface ActionBounds {
+  toCall: number;
+  /** Minimum total (committed after action) for a bet or raise. */
+  minTotal: number;
+  /** Maximum total = stack + committed (all-in). */
+  maxTotal: number;
+}
+
+export interface MatchState {
+  config: MatchConfig;
+  handNumber: number;
+  stacks: Record<Seat, number>;
+  button: Seat;
+  hand: HandState | null;
+  over: boolean;
+  results: Array<{ handNumber: number; winner: Seat | "split"; pot: number; heroCards: Card[]; villainCards: Card[]; board: Card[] }>;
+}
+
+/** What the client is allowed to see. Villain hole cards only after the hand is over. */
+export interface PublicMatchState {
+  config: MatchConfig;
+  handNumber: number;
+  stacks: Record<Seat, number>;
+  button: Seat;
+  hand: Omit<HandState, "deck"> | null;
+  over: boolean;
+  results: MatchState["results"];
+  legalActions: ActionType[];
+  bounds: ActionBounds | null;
 }
 
 export interface MatchConfig {
@@ -163,6 +202,7 @@ export interface VillainDecisionInput {
   villain: { holeCards: Card[]; stack: number; committed: number };
   hero: { stack: number; committed: number };
   legalActions: ActionType[];
+  bounds: ActionBounds;
   equity: number; // 0-1 villain equity vs random hero range
   potOdds: number; // 0-1
   tells: TellVector | null;

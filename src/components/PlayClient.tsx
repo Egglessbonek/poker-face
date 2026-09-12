@@ -4,23 +4,23 @@
  * The table. Owns: session creation, calibration, webcam + tell pipeline, hand loop, villain calls,
  * ElevenLabs agent, rail publishing.
  *
- * TODO(phase 1): hand loop with engine.ts
  * TODO(phase 2): mount WebcamFeed + Calibration, stream TellFrames into TellHUD
- * TODO(phase 3): cursor tracker on ActionBar, TellSnapshot per hero action -> fuseTells
- * TODO(phase 4): POST /api/villain/act with tells
+ * TODO(phase 3): cursor tracker on ActionBar, TellSnapshot per hero action -> fuseTells -> act(..., tells)
  * TODO(phase 5): useConversation, sendContextualUpdate / sendUserMessage
- * TODO(phase 6): publish RailEvents to /api/rail/[code]
+ * TODO(phase 6): publish tells RailEvents to /api/rail/[code] (hand + villain events are published server-side)
  */
 
 import { useEffect, useState } from "react";
 import Table from "@/components/Table";
 import TellHUD from "@/components/TellHUD";
+import { useMatch } from "@/hooks/useMatch";
 import { PERSONAS } from "@/lib/villain/personas";
 
 export default function PlayClient() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [railCode, setRailCode] = useState<string | null>(null);
   const persona = PERSONAS[0];
+  const match = useMatch(sessionId);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,8 +48,18 @@ export default function PlayClient() {
           Rail code: <span className="text-gold">{railCode ?? "…"}</span>
         </div>
       </header>
+      {match.error && <p className="rounded-lg bg-danger/20 px-3 py-2 text-sm text-danger">{match.error}</p>}
       <div className="grid flex-1 gap-4 lg:grid-cols-[1fr_320px]">
-        <Table sessionId={sessionId} />
+        <Table
+          state={match.state}
+          decisions={match.lastDecisions}
+          pending={match.pending}
+          villainName={persona.name}
+          onAct={(type, amount) => match.act(type, amount)}
+          onNext={match.next}
+          onStart={match.start}
+          revealHref={sessionId ? `/reveal/${sessionId}` : undefined}
+        />
         <TellHUD />
       </div>
     </main>

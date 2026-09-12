@@ -14,6 +14,15 @@ export function currentProvider(): Provider {
   return p;
 }
 
+/** True when the configured provider has a key. Lets callers skip the LLM cleanly in local dev. */
+export function llmAvailable(): boolean {
+  try {
+    return currentProvider() === "anthropic" ? !!process.env.ANTHROPIC_API_KEY : !!process.env.GEMINI_API_KEY;
+  } catch {
+    return false;
+  }
+}
+
 export interface CompleteOptions<T> {
   system: string;
   user: string;
