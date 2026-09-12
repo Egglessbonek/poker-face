@@ -18,6 +18,7 @@ export default function Landing() {
           <p className="max-w-xl text-lg text-muted">
             Play Texas Hold &apos;Em with friends and AI models. They read your face and your hesitation. Spectators watch your tells live from the rail.
           </p>
+          <p className="text-sm text-muted/80">Every AI seat speaks its table talk aloud through ElevenLabs.</p>
         </div>
         <div className={styles.chipSlot}>
           <LandingBackdrop />

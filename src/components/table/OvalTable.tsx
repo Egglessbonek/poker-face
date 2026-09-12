@@ -89,7 +89,7 @@ function PlayerSeat({ player, seat, isMe, active, timer, button, action, speakin
         <div className="flex gap-1">
           {seat && !folded ? [0, 1].map((index) => <PlayingCard key={index} card={seat.holeCards[index]} size="sm" />) : <span className="flex h-12 items-center text-[9px] uppercase tracking-widest text-muted">{folded ? "folded" : player.sittingOut ? "sitting out" : "waiting"}</span>}
         </div>
-        <div className="min-w-0 text-right text-[9px] uppercase tracking-wide text-muted">{action && !handOver ? `${action.type}${action.amount ? ` ${action.amount}` : ""}` : isMe ? "you" : player.kind}</div>
+        <div className="min-w-0 text-right text-[9px] uppercase tracking-wide text-muted">{active && player.kind === "ai" && !handOver ? <span className="animate-pulse text-gold">thinking…</span> : action && !handOver ? `${action.type}${action.amount ? ` ${action.amount}` : ""}` : isMe ? "you" : player.kind}</div>
       </div>
       {showTell && tell ? <TellChip tells={tell} /> : showTell ? <div className="mt-2 flex items-center justify-end gap-1 border-t border-felt-edge pt-1.5 text-[9px] text-muted"><Eye size={10} /> waiting for read</div> : !isMe && player.kind === "human" ? <div className="mt-2 flex items-center justify-end gap-1 border-t border-felt-edge pt-1.5 text-[9px] text-muted"><EyeOff size={10} /> tells private</div> : null}
     </div>

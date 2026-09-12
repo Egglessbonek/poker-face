@@ -14,9 +14,12 @@ const TABS: Array<{ id: InspectorTab; label: string; icon: typeof Activity }> = 
   { id: "history", label: "History", icon: History },
 ];
 
-export default function RailInspector({ humans, ais, history }: { humans: RailPlayerView[]; ais: RailPlayerView[]; history: RailHistoryEntry[] }) {
+export default function RailInspector({ humans, ais, history, currentPlayerId = null }: { humans: RailPlayerView[]; ais: RailPlayerView[]; history: RailHistoryEntry[]; currentPlayerId?: string | null }) {
   const [tab, setTab] = useState<InspectorTab>("tells");
-  const spotlight = ais.find((player) => player.lastAction === "Thinking" && player.aiRead) ?? ais.find((player) => player.aiRead);
+  // Spotlight the AI on the clock if it has a read this hand, otherwise whichever AI read most recently.
+  const withReads = ais.filter((player) => player.aiRead);
+  const spotlight = withReads.find((player) => player.id === currentPlayerId) ?? [...withReads].sort((a, b) => (b.aiRead?.at ?? 0) - (a.aiRead?.at ?? 0))[0];
+  const onCamera = humans.filter((player) => player.tell).length;
   const read = spotlight?.aiRead;
 
   return (
@@ -56,11 +59,15 @@ export default function RailInspector({ humans, ais, history }: { humans: RailPl
         <section id="rail-panel-tells" role="tabpanel" aria-labelledby="rail-tab-tells" hidden={tab !== "tells"} className="h-full overflow-y-auto p-2.5">
           <div className="mb-2 flex items-center justify-between px-1">
             <h2 className="text-xs font-semibold text-white">Human signals</h2>
-            <span className="text-[10px] uppercase tracking-wider text-white/30">{humans.length} cameras</span>
+            <span className="text-[10px] uppercase tracking-wider text-white/30">{onCamera} of {humans.length} on camera</span>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-2">
-            {humans.map((player) => <HumanTellCard key={player.id} player={player} compact />)}
-          </div>
+          {onCamera === 0 ? (
+            <p className="px-1 py-6 text-center text-xs leading-relaxed text-white/40">No camera feed yet. Signals appear the moment a player turns theirs on; reads follow their first bet.</p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-2">
+              {humans.map((player) => <HumanTellCard key={player.id} player={player} compact />)}
+            </div>
+          )}
         </section>
 
         <section id="rail-panel-reads" role="tabpanel" aria-labelledby="rail-tab-reads" hidden={tab !== "reads"} className="h-full overflow-y-auto p-2.5">

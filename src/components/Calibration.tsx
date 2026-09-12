@@ -12,9 +12,11 @@ interface Props {
   onStartCamera: () => void;
   onCalibrate: () => void;
   onSkip: () => void;
+  /** Why the last attempt did not produce a baseline. */
+  message?: string | null;
 }
 
-export default function Calibration({ videoRef, status, progress, facePresent, onStartCamera, onCalibrate, onSkip }: Props) {
+export default function Calibration({ videoRef, status, progress, facePresent, onStartCamera, onCalibrate, onSkip, message }: Props) {
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-5 rounded-3xl border border-felt-edge p-6 text-center">
       <p className="text-xs uppercase tracking-[0.3em] text-gold">Before you sit down</p>
@@ -43,6 +45,7 @@ export default function Calibration({ videoRef, status, progress, facePresent, o
         </button>
       )}
       {progress !== null && <p className="text-sm text-muted">Hold still, breathe normally… {Math.round(progress * 10)}s</p>}
+      {message && progress === null && <p className="text-sm text-danger">{message}</p>}
       <button onClick={onSkip} className="text-xs text-muted underline">Skip (no tells)</button>
     </div>
   );

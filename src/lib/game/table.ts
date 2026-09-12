@@ -40,8 +40,9 @@ import {
   type Viewer,
 } from "@/lib/types";
 
-const HAND_END_PAUSE_MS = 5000;
-const AI_THINK_MS: [number, number] = [1200, 2600];
+// Demo pace: a four-minute session should fit three or four hands.
+const HAND_END_PAUSE_MS = 3500;
+const AI_THINK_MS: [number, number] = [600, 1400];
 const DISCONNECTED_TURN_MS = 12_000;
 const FINISHED_CHANNEL_MS = 10 * 60_000;
 
@@ -241,10 +242,12 @@ export function act(code: string, token: string, req: Omit<ActionRequest, "seat"
   const me = playerByToken(t, token);
   if (t.phase !== "playing" || !t.hand || t.hand.over) throw new TableError("No hand in progress");
   if (t.hand.toAct !== me.seat) throw new TableError("Not your turn");
-  clearTurnTimer(t);
   // The fused read for this decision is the freshest tell data; the AIs use it on their next turn.
   if (tells) t.tells[me.id] = { frame: t.tells[me.id]?.frame ?? null, vector: tells, at: Date.now() };
+  // Apply before clearing the timer: an illegal action (stale slider bounds) throws here and the turn timer must
+  // stay armed, or the hand hangs on a player who never gets auto-folded.
   applyAndPublish(t, { ...req, seat: me.seat }, tells);
+  clearTurnTimer(t);
   void drive(t);
 }
 
@@ -450,6 +453,9 @@ function dealNext(t: Table): boolean {
   t.button = button;
   t.hand = newHand(t.handNumber, seats, button, t.config);
   t.turnDeadline = undefined;
+  // A fused read belongs to the decision it was taken on. Without this the AIs' first decision of the new hand
+  // would cite last hand's snap-fold as if it were happening now.
+  for (const [pid, tells] of Object.entries(t.tells)) if (tells.vector) t.tells[pid] = { ...tells, vector: null, at: Date.now() };
   t.vpipThisHand = new Set();
   t.pfrThisHand = new Set();
   for (const p of eligible) statsFor(t, p.id).hands++;

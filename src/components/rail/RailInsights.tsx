@@ -20,31 +20,53 @@ export function HumanTellCard({ player, compact = false }: { player: RailPlayerV
   const tell = player.tell;
   return (
     <article className={`rounded-xl border border-white/10 bg-white/[0.035] ${compact ? "p-2.5" : "p-3.5"}`}>
-      <div className={`${compact ? "mb-2" : "mb-3"} flex items-center justify-between gap-3`}>
-        <div>
+      <div className={`${compact ? "mb-2" : "mb-3"} flex flex-wrap items-center justify-between gap-x-3 gap-y-1`}>
+        <div className="min-w-0">
           <p className={`${compact ? "text-sm" : ""} font-semibold text-white`}>{player.name}</p>
           <div className="mt-0.5 flex items-center gap-1 text-xs text-white/45"><Eye size={12} /> {tell.emotion}</div>
         </div>
-        <div className="flex items-center gap-1 rounded-full bg-white/5 px-2 py-1 text-xs text-white/55">
-          <TrendIcon trend={tell.trend} /> {tell.trend}
-        </div>
+        {tell.read && tell.trend ? (
+          <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/5 px-2 py-1 text-xs text-white/55">
+            <TrendIcon trend={tell.trend} /> {tell.trend}
+          </div>
+        ) : (
+          <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${tell.faceLocked ? "bg-ok/15 text-ok" : "bg-danger/15 text-danger"}`}>
+            {tell.faceLocked ? "face locked" : "no face"}
+          </span>
+        )}
       </div>
-      <div className={compact ? "space-y-2" : "space-y-2.5"}>
-        <div>
-          <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Arousal</span><span className="font-mono text-white">{tell.arousal}</span></div>
-          <Meter value={tell.arousal} color="bg-gradient-to-r from-ok via-gold to-danger" />
+      {tell.read ? (
+        <div className={compact ? "space-y-2" : "space-y-2.5"}>
+          <div>
+            <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Arousal</span><span className="font-mono text-white">{tell.arousal ?? "—"}</span></div>
+            <Meter value={tell.arousal ?? 0} color="bg-gradient-to-r from-ok via-gold to-danger" />
+          </div>
+          <div>
+            <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Bluff signal</span><span className="font-mono text-gold">{tell.bluffLikelihood ?? "—"}%</span></div>
+            <Meter value={tell.bluffLikelihood ?? 0} color="bg-gold" />
+          </div>
         </div>
-        <div>
-          <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Bluff signal</span><span className="font-mono text-gold">{tell.bluffLikelihood}%</span></div>
-          <Meter value={tell.bluffLikelihood} color="bg-gold" />
+      ) : (
+        <div className={compact ? "space-y-2" : "space-y-2.5"}>
+          <div className="flex justify-between text-xs"><span className="text-white/50">Blinks / min</span><span className="font-mono text-white">{tell.blinkRate ?? "—"}</span></div>
+          <div>
+            <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Tension</span><span className="font-mono text-white">{tell.tension ?? "—"}</span></div>
+            <Meter value={tell.tension ?? 0} color="bg-gradient-to-r from-ok via-gold to-danger" />
+          </div>
         </div>
-      </div>
-      <ul className={`${compact ? "mt-2" : "mt-3"} space-y-1`}>
-        {tell.evidence.slice(0, compact ? 1 : 2).map((item) => (
-          <li key={item} className="flex gap-2 text-xs leading-relaxed text-white/55"><Activity size={12} className="mt-0.5 shrink-0 text-gold/70" />{item}</li>
-        ))}
-      </ul>
-      <p className="mt-2 text-[11px] text-white/30">Signal confidence {tell.confidence}%</p>
+      )}
+      {tell.read ? (
+        <>
+          <ul className={`${compact ? "mt-2" : "mt-3"} space-y-1`}>
+            {tell.evidence.slice(0, compact ? 1 : 2).map((item) => (
+              <li key={item} className="flex gap-2 text-xs leading-relaxed text-white/55"><Activity size={12} className="mt-0.5 shrink-0 text-gold/70" />{item}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-white/30">Signal confidence {tell.confidence ?? 0}%</p>
+        </>
+      ) : (
+        <p className="mt-2 text-[11px] text-white/30">Reading… the first read lands on their next bet.</p>
+      )}
     </article>
   );
 }

@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getFaceLandmarker, startDetectionLoop } from "@/lib/tells/landmarker";
 import { createFeatureState, extractFrame } from "@/lib/tells/features";
-import { CALIBRATION_MS, computeBaseline, updateBaselineAfterDecision } from "@/lib/tells/baseline";
+import { CALIBRATION_MS, MIN_FRAMES, computeBaseline, updateBaselineAfterDecision } from "@/lib/tells/baseline";
 import type { BaselineStats, Street, TellFrame, TellSnapshot } from "@/lib/types";
 
 export type CameraStatus = "idle" | "starting" | "running" | "denied" | "error";
@@ -85,8 +85,11 @@ export function useTells() {
 
   useEffect(() => () => stop(), [stop]);
 
-  /** Collect CALIBRATION_MS of frames, then compute and store the baseline. Resolves with it. */
-  const calibrate = useCallback(async (): Promise<BaselineStats> => {
+  /**
+   * Collect CALIBRATION_MS of frames, then compute and store the baseline. Resolves with it, or with null when the
+   * face was lost for most of the window (a baseline of zeros would flag tension on every decision).
+   */
+  const calibrate = useCallback(async (): Promise<BaselineStats | null> => {
     const startedAt = Date.now();
     setCalibrating({ startedAt, progress: 0 });
     await new Promise<void>((resolve) => {
@@ -99,12 +102,16 @@ export function useTells() {
       tick();
     });
     const frames = buffer.current.filter((f) => f.t >= startedAt);
+    const faceFrames = frames.filter((f) => f.facePresent).length;
+    const facePct = frames.length ? Math.round((faceFrames / frames.length) * 100) : 0;
+    setCalibrating(null);
+    if (faceFrames < MIN_FRAMES) {
+      setCalibrationReport(`face found in only ${facePct}% of frames. Face the camera, find some light, and try again`);
+      return null;
+    }
     const b = computeBaseline(frames);
     baselineRef.current = b;
     setBaseline(b);
-    setCalibrating(null);
-    const faceFrames = frames.filter((f) => f.facePresent).length;
-    const facePct = frames.length ? Math.round((faceFrames / frames.length) * 100) : 0;
     const gazes = frames.reduce<Record<string, number>>((acc, f) => ((acc[f.gaze] = (acc[f.gaze] ?? 0) + 1), acc), {});
     const topGaze = Object.entries(gazes).sort((x, y) => y[1] - x[1])[0]?.[0] ?? "unknown";
     setCalibrationReport(`face in ${facePct}% of frames, ~${Math.round(b.blinkRate)} blinks/min, mostly looking at ${topGaze}`);

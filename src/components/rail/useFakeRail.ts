@@ -55,8 +55,8 @@ export function useFakeRail(code: string): RailViewModel {
           const tell = player.tell
             ? {
                 ...player.tell,
-                arousal: Math.max(8, Math.min(94, player.tell.arousal + (step % 2 === 0 ? 3 : -2))),
-                bluffLikelihood: Math.max(5, Math.min(95, player.tell.bluffLikelihood + (step % 3 === 0 ? 2 : -1))),
+                arousal: Math.max(8, Math.min(94, (player.tell.arousal ?? 50) + (step % 2 === 0 ? 3 : -2))),
+                bluffLikelihood: Math.max(5, Math.min(95, (player.tell.bluffLikelihood ?? 50) + (step % 3 === 0 ? 2 : -1))),
               }
             : undefined;
           return { ...player, lastAction: player.id === update.playerId ? update.action : player.lastAction, tell };
@@ -69,6 +69,7 @@ export function useFakeRail(code: string): RailViewModel {
           handNumber: 6,
           street: isRiver ? "river" : "turn",
           playerName: isRiver ? undefined : PLAYER_NAMES[update.playerId],
+          isAi: !isRiver && (update.playerId === "vega" || update.playerId === "dutch"),
           message: update.message,
           tone: update.tone,
         },

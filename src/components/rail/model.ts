@@ -8,10 +8,17 @@ export interface RailCard {
 }
 
 export interface RailTell {
-  arousal: number;
-  bluffLikelihood: number;
-  confidence: number;
-  trend: "rising" | "falling" | "stable";
+  /** False until this player's first decision has been fused: a bare camera frame is a signal, not a read. */
+  read: boolean;
+  faceLocked: boolean;
+  /** Blinks per minute from the live frame. */
+  blinkRate?: number;
+  /** Jaw/brow tension from the live frame, 0-100. */
+  tension?: number;
+  arousal?: number;
+  bluffLikelihood?: number;
+  confidence?: number;
+  trend?: "rising" | "falling" | "stable";
   evidence: string[];
   emotion: string;
 }
@@ -23,6 +30,8 @@ export interface RailAiRead {
   target: string;
   reasoning: string;
   tellsUsed: string[];
+  /** Epoch ms of the decision, so the newest read can be spotlighted. */
+  at?: number;
 }
 
 export interface RailPlayerView {
@@ -62,6 +71,8 @@ export interface RailHistoryEntry {
   playerName?: string;
   message: string;
   tone: "action" | "deal" | "talk" | "result";
+  /** The acting player is an AI seat (drives the bot icon). */
+  isAi?: boolean;
 }
 
 export interface RailTableSnapshot {
@@ -74,9 +85,12 @@ export interface RailTableSnapshot {
   pots: RailPotView[];
   currentPlayerId: string | null;
   turnSecondsRemaining: number | null;
-  spectators: number;
+  /** Chairs at the table, for seat placement around the felt. */
+  seatCount: number;
   tellVisibility: "ai-only" | "everyone" | "rail";
   players: RailPlayerView[];
+  /** Final standings once the match is over (best stack first). */
+  standings?: Array<{ playerId: string; name: string; stack: number; net: number; isAi: boolean }>;
 }
 
 export interface RailViewModel {

@@ -29,6 +29,11 @@ const DecisionSchema = z.object({
  * Opponents likely bluffing -> act as if we have more equity. Range: -0.2 .. +0.2, enough that a confident
  * read flips a marginal spot, which is the whole point of the table.
  */
+function bigPotEffort(): "low" | "medium" | "high" {
+  const e = process.env.AI_BIG_POT_EFFORT;
+  return e === "medium" || e === "high" ? e : "low";
+}
+
 export function tellAdjustment(input: VillainDecisionInput): number {
   const live = input.opponents.filter((o) => !o.folded && o.tells && o.tells.confidence > 0.2);
   if (!live.length) return 0;
@@ -92,8 +97,8 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
       schema: DecisionSchema,
       model: perSeatModels() ? profile.id : undefined,
       temperature: 0.7,
-      // Bigger pots deserve more thought.
-      reasoningEffort: input.hand.pot + input.bounds.toCall >= 0.3 * (input.me.stack + input.me.committed) ? "medium" : "low",
+      // Bigger pots can get more thought (AI_BIG_POT_EFFORT=medium|high); default low keeps every turn under a few seconds.
+      reasoningEffort: input.hand.pot + input.bounds.toCall >= 0.3 * (input.me.stack + input.me.committed) ? bigPotEffort() : "low",
     });
     const action = input.legalActions.includes(out.action) ? out.action : baseline;
     return {

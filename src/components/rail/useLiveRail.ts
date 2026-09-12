@@ -11,6 +11,9 @@ import { positionLabel } from "@/lib/poker/engine";
 import type { Action, Card, Suit, TableState, TellFrame, TellVector } from "@/lib/types";
 import type { RailCard, RailHistoryEntry, RailPlayerView, RailTableSnapshot, RailTell, RailViewModel } from "./model";
 
+/** How long an AI line stays in its speech bubble. */
+const TALK_TTL_MS = 9000;
+
 const SUITS: Record<Suit, RailCard["suit"]> = { s: "spades", h: "hearts", d: "diamonds", c: "clubs" };
 
 function toRailCard(card: Card): RailCard {
@@ -31,9 +34,15 @@ function dominantEmotion(frame: TellFrame | null): string {
 }
 
 function toRailTell(frame: TellFrame | null, vector: TellVector | null): RailTell | undefined {
-  // Arousal and bluff likelihood only exist once a decision has been fused; a bare camera frame is not a read.
-  if (!vector) return undefined;
+  if (!frame && !vector) return undefined;
+  const live = frame
+    ? { faceLocked: frame.facePresent, blinkRate: Math.round(frame.blinkRate), tension: Math.round(Math.max(0, Math.min(1, frame.tension)) * 100) }
+    : { faceLocked: false };
+  // Arousal and bluff likelihood only exist once a decision has been fused; before that the card shows the raw camera signals.
+  if (!vector) return { read: false, ...live, evidence: [], emotion: dominantEmotion(frame) };
   return {
+    read: true,
+    ...live,
     arousal: vector.arousal,
     bluffLikelihood: Math.round(vector.bluffLikelihood * 100),
     confidence: Math.round(vector.confidence * 100),
@@ -59,7 +68,7 @@ const VISIBILITY: Record<TableState["config"]["tellVisibility"], RailTableSnapsh
 function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells"], reads: Record<string, AIRead>, lastActions: Record<string, Action>, talk: TalkEvent[], now: number): RailTableSnapshot {
   const hand = state.hand;
   const latestTalk = new Map<string, string>();
-  for (const t of talk) if (now - t.at < 9000) latestTalk.set(t.playerId, t.text);
+  for (const t of talk) if (now - t.at < TALK_TTL_MS) latestTalk.set(t.playerId, t.text);
   const humans = state.players.filter((p) => p.kind === "human").map((p) => p.name);
 
   const players: RailPlayerView[] = [...state.players]
@@ -93,7 +102,7 @@ function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells
         talk: latestTalk.get(p.id),
         tell: p.kind === "human" && tells[p.id] ? toRailTell(tells[p.id].frame, tells[p.id].vector) : undefined,
         aiRead: read && read.handNumber === hand?.handNumber
-          ? { mathAction: read.decision.mathAction, finalAction: read.decision.action, target: humans.join(", ") || "the table", reasoning: read.decision.reasoning, tellsUsed: read.decision.tellsUsed }
+          ? { mathAction: read.decision.mathAction, finalAction: read.decision.action, target: humans.join(", ") || "the table", reasoning: read.decision.reasoning, tellsUsed: read.decision.tellsUsed, at: read.at }
           : undefined,
       };
     });
@@ -118,7 +127,8 @@ function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells
     pots,
     currentPlayerId: toAct,
     turnSecondsRemaining: toAct && state.turnDeadline ? Math.max(0, Math.ceil((state.turnDeadline - now) / 1000)) : null,
-    spectators: 0,
+    seatCount: state.config.maxSeats,
+    standings: state.standings?.map((s) => ({ ...s, isAi: state.players.find((p) => p.id === s.playerId)?.kind === "ai" })),
     tellVisibility: VISIBILITY[state.config.tellVisibility],
     players,
   };
@@ -127,10 +137,11 @@ function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells
 function buildHistory(state: TableState | null, actions: ActionEvent[], talk: TalkEvent[], hands: HandRecord[]): RailHistoryEntry[] {
   if (!state) return [];
   const name = (id: string) => state.players.find((p) => p.id === id)?.name ?? "?";
+  const isAi = (id: string) => state.players.find((p) => p.id === id)?.kind === "ai";
   const seatName = (seat: number) => state.players.find((p) => p.seat === seat)?.name ?? `Seat ${seat + 1}`;
   const entries: Array<RailHistoryEntry & { order: number }> = [];
-  for (const a of actions) entries.push({ id: `act-${a.id}`, handNumber: a.handNumber, street: a.action.street, playerName: name(a.playerId), message: `${name(a.playerId)} ${actionText(a.action).toLowerCase()}`, tone: "action", order: a.action.at });
-  for (const t of talk) entries.push({ id: `talk-${t.id}`, handNumber: t.handNumber, street: "preflop", playerName: name(t.playerId), message: t.text, tone: "talk", order: t.at });
+  for (const a of actions) entries.push({ id: `act-${a.id}`, handNumber: a.handNumber, street: a.action.street, playerName: name(a.playerId), message: `${name(a.playerId)} ${actionText(a.action).toLowerCase()}`, tone: "action", isAi: isAi(a.playerId), order: a.action.at });
+  for (const t of talk) entries.push({ id: `talk-${t.id}`, handNumber: t.handNumber, street: "preflop", playerName: name(t.playerId), message: t.text, tone: "talk", isAi: isAi(t.playerId), order: t.at });
   for (const h of hands) {
     const winners = (h.results ?? []).filter((r) => r.won > 0).map((r) => `${seatName(r.seat)} +${r.won}${r.descr ? ` (${r.descr})` : ""}`).join(", ");
     const lastAction = actions.filter((a) => a.handNumber === h.handNumber).at(-1)?.action.at ?? 0;
@@ -148,12 +159,18 @@ export function useLiveRail(code: string): RailViewModel {
   const { state, status, tells, reads, lastActions, talk, actions, history } = table;
   const [now, setNow] = useState(() => Date.now());
 
-  // Tick once a second while a turn clock is running so the countdown moves.
+  // Tick once a second while a turn clock is running (so the countdown moves) or a speech bubble is still fresh
+  // (so it can expire); the bubble tick stops itself once the line is old.
+  const lastTalkAt = talk.length ? talk[talk.length - 1].at : 0;
+  const deadline = state?.turnDeadline;
   useEffect(() => {
-    if (!state?.turnDeadline) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    if (!deadline && Date.now() - lastTalkAt >= TALK_TTL_MS) return;
+    const id = setInterval(() => {
+      setNow(Date.now());
+      if (!deadline && Date.now() - lastTalkAt >= TALK_TTL_MS) clearInterval(id);
+    }, 1000);
     return () => clearInterval(id);
-  }, [state?.turnDeadline]);
+  }, [deadline, lastTalkAt]);
 
   const connection: RailViewModel["connection"] = status === "live" ? "live" : status === "ended" ? "ended" : status === "error" ? (state ? "disconnected" : "not-found") : "connecting";
 

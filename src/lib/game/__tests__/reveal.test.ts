@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Player, TellVector, VillainDecision } from "@/lib/types";
-import { achievements, type RevealDecision, type RevealPlayer, type TellMoment } from "../reveal";
+import { achievements, buildReveal, type RevealDecision, type RevealPlayer, type TellMoment } from "../reveal";
 
 // reveal.ts is server-only; the marker package throws outside a React Server Component.
 vi.mock("server-only", () => ({}));
@@ -117,5 +117,29 @@ describe("achievements", () => {
       expect(a.blurb).not.toContain("!");
       expect(["gold", "danger", "ok", "muted"]).toContain(a.tone);
     }
+  });
+});
+
+describe("buildReveal", () => {
+  it("drops a hand the host voided, including its actions", () => {
+    const ai: Player = { id: "a1", seat: 1, name: "Claude", kind: "ai", stack: 1000, connected: true, sittingOut: false };
+    const seats = [{ seat: 0, playerId: "h1", stack: 1000, holeCards: ["As", "Kd"] }, { seat: 1, playerId: "a1", stack: 1000, holeCards: ["2c", "7d"] }];
+    const action = (handNumber: number) => ({ handNumber, playerId: "h1", action: { seat: 0, type: "bet", amount: 40, street: "flop", at: 0 }, tells: tells(0.6) });
+    const log = {
+      code: "KXTR", createdAt: 0, endedAt: 10,
+      config: { startingStack: 1000 } as never,
+      players: [player, ai], baselines: {},
+      entries: [
+        { t: 1, kind: "hand_start" as const, data: { handNumber: 1, button: 0, seats } },
+        { t: 2, kind: "action" as const, data: action(1) },
+        { t: 3, kind: "hand_end" as const, data: { handNumber: 1, board: ["2h", "9s", "Jc"], foldedOut: true } },
+        { t: 4, kind: "hand_start" as const, data: { handNumber: 2, button: 1, seats } },
+        { t: 5, kind: "action" as const, data: action(2) },
+        { t: 6, kind: "hand_end" as const, data: { handNumber: 2, voided: true, reason: "host ended the match" } },
+      ],
+    };
+    const data = buildReveal(log as never);
+    expect(data.hands.map((h) => h.handNumber)).toEqual([1]);
+    expect(data.humans[0].decisions.map((d) => d.handNumber)).toEqual([1]);
   });
 });

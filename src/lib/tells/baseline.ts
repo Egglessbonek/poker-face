@@ -13,7 +13,8 @@ export const CALIBRATION_MS = 10_000;
 export const WARMUP_MS = 2_500;
 /** Resting adult blink rate is roughly 12-20/min; never let the baseline fall below the low end. */
 export const MIN_BLINK_RATE = 12;
-const MIN_FRAMES = 8;
+/** Face frames a calibration needs to mean anything (2s at 4Hz). Fewer and the medians would be zeros. */
+export const MIN_FRAMES = 8;
 
 function median(xs: number[]): number {
   if (!xs.length) return 0;

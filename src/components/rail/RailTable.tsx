@@ -43,7 +43,7 @@ function SeatBadges({ player }: { player: RailPlayerView }) {
   );
 }
 
-function PlayerSeat({ player, active, mobile = false }: { player: RailPlayerView; active: boolean; mobile?: boolean }) {
+function PlayerSeat({ player, active, seatCount, mobile = false }: { player: RailPlayerView; active: boolean; seatCount: number; mobile?: boolean }) {
   const body = (
     <div className={`relative w-full rounded-2xl border bg-[#101714]/95 p-2.5 shadow-xl transition-all ${active ? "border-gold shadow-[0_0_0_3px_rgba(212,175,55,0.18),0_16px_30px_rgba(0,0,0,0.4)]" : "border-white/10"} ${player.folded ? "opacity-55" : ""}`}>
       {active && <span className="absolute -top-1 left-4 right-4 h-0.5 animate-pulse rounded-full bg-gold" />}
@@ -78,18 +78,20 @@ function PlayerSeat({ player, active, mobile = false }: { player: RailPlayerView
     return (
       <div>
         {body}
-        {active && player.talk && <div className="mt-1.5 rounded-xl border border-gold/25 bg-gold px-3 py-2 text-xs font-medium leading-relaxed text-black">“{player.talk}”</div>}
+        {player.talk && <div className="mt-1.5 rounded-xl border border-gold/25 bg-gold px-3 py-2 text-xs font-medium leading-relaxed text-black">“{player.talk}”</div>}
       </div>
     );
   }
-  const angle = (player.seatIndex / 6) * Math.PI * 2 - Math.PI / 2;
+  // Seats sit evenly around the felt for however many chairs the host set; seat 0 is at the top.
+  const angle = (player.seatIndex / Math.max(seatCount, 2)) * Math.PI * 2 - Math.PI / 2;
   const x = 50 + Math.cos(angle) * 43;
   const y = 50 + Math.sin(angle) * 37;
-  const talkSide = player.seatIndex > 0 && player.seatIndex < 4 ? "right-[calc(100%+0.5rem)]" : "left-[calc(100%+0.5rem)]";
+  // Speech bubbles open toward the middle: seats on the right half speak to their left.
+  const talkSide = Math.cos(angle) > 0.01 ? "right-[calc(100%+0.5rem)]" : "left-[calc(100%+0.5rem)]";
   return (
     <div className="absolute z-10 w-44 -translate-x-1/2 -translate-y-1/2" style={{ left: `${x}%`, top: `${y}%` }}>
       {body}
-      {active && player.talk && (
+      {player.talk && (
         <div className={`absolute top-1/2 z-20 w-44 -translate-y-1/2 rounded-xl border border-gold/25 bg-gold px-3 py-2 text-xs font-medium leading-relaxed text-black shadow-xl ${talkSide}`}>
           “{player.talk}”
         </div>
@@ -127,7 +129,7 @@ export default function RailTable({ table }: { table: RailTableSnapshot }) {
             <PotDisplay table={table} />
           </div>
         </div>
-        {table.players.map((player) => <PlayerSeat key={player.id} player={player} active={player.id === table.currentPlayerId} />)}
+        {table.players.map((player) => <PlayerSeat key={player.id} player={player} active={player.id === table.currentPlayerId} seatCount={table.seatCount} />)}
       </div>
 
       <div className="lg:hidden">
@@ -139,7 +141,7 @@ export default function RailTable({ table }: { table: RailTableSnapshot }) {
           <div className="mt-4"><PotDisplay table={table} /></div>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          {table.players.map((player) => <PlayerSeat key={player.id} player={player} active={player.id === table.currentPlayerId} mobile />)}
+          {table.players.map((player) => <PlayerSeat key={player.id} player={player} active={player.id === table.currentPlayerId} seatCount={table.seatCount} mobile />)}
         </div>
       </div>
     </section>
