@@ -42,7 +42,7 @@ export default function RailInspector({ humans, ais, history }: { humans: RailPl
         <section className="shrink-0 border-b border-white/8 bg-[linear-gradient(135deg,rgba(212,175,55,0.09),transparent)] px-3.5 py-3" aria-label="Current AI decision">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold">Current decision</p>
-            <span className="font-mono text-[11px] text-gold">{read.equity}% equity</span>
+            {read.equity !== undefined && <span className="font-mono text-[11px] text-gold">{read.equity}% equity</span>}
           </div>
           <div className="mt-1.5 flex items-center justify-between gap-3">
             <p className="truncate text-sm font-semibold text-white">{spotlight.name} reading {read.target}</p>

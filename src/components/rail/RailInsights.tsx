@@ -57,7 +57,7 @@ export function AiReadCard({ player, compact = false }: { player: RailPlayerView
     <article className="overflow-hidden rounded-2xl border border-gold/15 bg-[linear-gradient(145deg,rgba(212,175,55,0.08),rgba(255,255,255,0.02))]">
       <div className={`flex items-center justify-between border-b border-white/8 px-3.5 ${compact ? "py-2.5" : "py-3"}`}>
         <div className="flex items-center gap-2"><Bot size={15} className="text-gold" /><span className="font-semibold text-white">{player.name}&apos;s read</span></div>
-        <span className="font-mono text-xs text-gold">{read.equity}% equity</span>
+        {read.equity !== undefined && <span className="font-mono text-xs text-gold">{read.equity}% equity</span>}
       </div>
       <div className={compact ? "p-3" : "p-3.5"}>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/30">Reading {read.target}</p>

@@ -31,7 +31,11 @@ export function useFakeRail(code: string): RailViewModel {
 
   useEffect(() => {
     const terminalState = DEMO_STATE_BY_CODE[code as keyof typeof DEMO_STATE_BY_CODE];
-    const connectTimer = window.setTimeout(() => setConnection(terminalState ?? "live"), 650);
+    const connectTimer = window.setTimeout(() => {
+      setTable(tableForCode(code));
+      setHistory([...FAKE_HISTORY]);
+      setConnection(terminalState ?? "live");
+    }, 650);
     if (terminalState) return () => window.clearTimeout(connectTimer);
 
     let step = 0;
@@ -86,5 +90,6 @@ export function useFakeRail(code: string): RailViewModel {
     };
   }, [code]);
 
+  if (table.code !== code) return { connection: "connecting", table: null, history: [] };
   return { connection, table, history };
 }

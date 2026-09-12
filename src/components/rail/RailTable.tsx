@@ -12,11 +12,22 @@ function PlayingCard({ card, compact = false }: { card: RailCard; compact?: bool
   const red = card.suit === "hearts" || card.suit === "diamonds";
   return (
     <div
+      role="img"
       aria-label={`${card.rank} of ${card.suit}`}
       className={`${compact ? "h-12 w-9 rounded-md text-sm" : "h-16 w-11 rounded-lg text-base"} flex shrink-0 flex-col justify-between border border-black/10 bg-card p-1.5 font-mono font-bold shadow-[0_5px_14px_rgba(0,0,0,0.28)] ${red ? "text-red-600" : "text-slate-950"}`}
     >
       <span>{card.rank}</span>
       <span className="self-end text-lg leading-none">{SUIT_SYMBOL[card.suit]}</span>
+    </div>
+  );
+}
+
+function HiddenCards() {
+  return (
+    <div className="flex -space-x-1.5" role="img" aria-label="Cards hidden">
+      {[0, 1].map((index) => (
+        <div key={index} className="h-12 w-9 rounded-md border border-white/20 bg-[repeating-linear-gradient(45deg,#142f27,#142f27_4px,#0c201a_4px,#0c201a_8px)] shadow-[0_5px_14px_rgba(0,0,0,0.28)]" />
+      ))}
     </div>
   );
 }
@@ -47,9 +58,9 @@ function PlayerSeat({ player, active, mobile = false }: { player: RailPlayerView
         <SeatBadges player={player} />
       </div>
       <div className="flex items-end justify-between gap-2">
-        <div className="flex -space-x-1.5">
-          {player.cards.map((card, index) => <PlayingCard key={`${player.id}-${index}`} card={card} compact />)}
-        </div>
+        {player.cardsVisible
+          ? <div className="flex -space-x-1.5">{player.cards.map((card, index) => <PlayingCard key={`${player.id}-${index}`} card={card} compact />)}</div>
+          : <HiddenCards />}
         <div className="text-right">
           <p className="font-mono text-sm font-semibold text-gold">${player.stack}</p>
           <p className="mt-0.5 text-[11px] text-white/50">{player.lastAction ?? "Waiting"}</p>
@@ -63,7 +74,14 @@ function PlayerSeat({ player, active, mobile = false }: { player: RailPlayerView
     </div>
   );
 
-  if (mobile) return body;
+  if (mobile) {
+    return (
+      <div>
+        {body}
+        {active && player.talk && <div className="mt-1.5 rounded-xl border border-gold/25 bg-gold px-3 py-2 text-xs font-medium leading-relaxed text-black">“{player.talk}”</div>}
+      </div>
+    );
+  }
   const angle = (player.seatIndex / 6) * Math.PI * 2 - Math.PI / 2;
   const x = 50 + Math.cos(angle) * 43;
   const y = 50 + Math.sin(angle) * 37;

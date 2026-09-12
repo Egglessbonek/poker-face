@@ -6,7 +6,8 @@ import RailInspector from "./RailInspector";
 import RailTable from "./RailTable";
 import RailTicker from "./RailTicker";
 import { useFakeRail } from "./useFakeRail";
-import type { RailConnectionState } from "./model";
+import { useLiveRail } from "./useLiveRail";
+import type { RailConnectionState, RailViewModel } from "./model";
 
 function ConnectionScreen({ state, code }: { state: Exclude<RailConnectionState, "live">; code: string }) {
   const content = {
@@ -34,8 +35,7 @@ function ConnectionScreen({ state, code }: { state: Exclude<RailConnectionState,
   );
 }
 
-export default function RailDashboard({ code }: { code: string }) {
-  const view = useFakeRail(code);
+function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
   if (view.connection !== "live" || !view.table) {
     const state = view.connection === "live" ? "disconnected" : view.connection;
     return <ConnectionScreen state={state} code={code} />;
@@ -84,4 +84,18 @@ export default function RailDashboard({ code }: { code: string }) {
       </div>
     </main>
   );
+}
+
+function FakeRailDashboard({ code }: { code: string }) {
+  return <RailSurface code={code} view={useFakeRail(code)} />;
+}
+
+function LiveRailDashboard({ code }: { code: string }) {
+  return <RailSurface code={code} view={useLiveRail(code)} />;
+}
+
+export default function RailDashboard({ code, demo = false }: { code: string; demo?: boolean }) {
+  return demo
+    ? <FakeRailDashboard key={`demo-${code}`} code={code} />
+    : <LiveRailDashboard key={`live-${code}`} code={code} />;
 }

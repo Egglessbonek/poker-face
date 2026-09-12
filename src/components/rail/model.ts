@@ -17,7 +17,7 @@ export interface RailTell {
 }
 
 export interface RailAiRead {
-  equity: number;
+  equity?: number;
   mathAction: string;
   finalAction: string;
   target: string;
@@ -34,6 +34,8 @@ export interface RailPlayerView {
   stack: number;
   committed: number;
   cards: RailCard[];
+  /** The server controls whether this viewer may see the cards. */
+  cardsVisible: boolean;
   folded: boolean;
   allIn: boolean;
   position: string;
