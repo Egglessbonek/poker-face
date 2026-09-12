@@ -212,7 +212,7 @@ export function achievements(player: Omit<RevealPlayer, "achievements">, moments
     [pokerFace !== null && pokerFace <= 30, { id: "open_book", title: "Open Book", blurb: "Your cards were on your face the whole match.", tone: "danger" }],
     [slipped >= 2, { id: "bluff_artist", title: "Bluff Artist", blurb: "Two or more bluffs walked straight past the camera.", tone: "gold" }],
     [caught >= 1, { id: "caught_red_handed", title: "Caught Red-Handed", blurb: "You bluffed, and your face filed a report.", tone: "danger" }],
-    [topLeak === "chip_glance", { id: "chip_glancer", title: "Chip Glancer", blurb: "You look at your chips when you like your hand.", tone: "ok" }],
+    [topLeak === "controls_glance", { id: "chip_glancer", title: "Chip Glancer", blurb: "Your eyes go to the bet controls when you like your hand. Caro called it in 1984.", tone: "ok" }],
     [topLeak === "freeze", { id: "frozen", title: "Frozen", blurb: "You go very still when it matters. They noticed.", tone: "muted" }],
     [topLeak === "fast_action", { id: "speed_demon", title: "Speed Demon", blurb: "You act fastest when you have the least. Slow down.", tone: "muted" }],
     [bluffs.length === 0 && aggressive >= 3, { id: "honest_to_a_fault", title: "Honest to a Fault", blurb: "You only bet when you had it. Admirable, and easy to play against.", tone: "ok" }],

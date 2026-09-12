@@ -28,13 +28,33 @@ A No-Limit Hold'em table for friends and AI players. Create a table, share the 4
 
 Nothing is invented. Each human decision ships with a tell vector built in the browser from the webcam, and the AI seats can only cite what is in it (the prompt forbids readings the camera did not report: no pulse, no sweat).
 
+Each human decision produces two evidence lines, and the AIs cite from both.
+
+**On the decision** (the window between being prompted and clicking):
+
 | Signal | Reads as | Why it is in (poker-tells literature) |
 | --- | --- | --- |
 | Decision timing (fast / slow vs your own norm) | fast bet -> bluff | Timing tells are the strongest class (Elwood, *Reading Poker Tells*) |
 | Freeze: head motion far below how still you usually sit while deciding | bluff | Caro; Slepian et al. 2013 on movement smoothness under deception |
-| Chip glance right after a card | strength | Caro's most reliable strength tell |
+| Eyes drop to the bet controls right after a card | strength | Caro's chip glance, the most reliable strength tell, translated to a screen |
+| Stared at the flop / turn / river for seconds | weak (bluff if they bet) | Caro: players who miss the flop stare at it; players who hit it look away |
+| Looked back at their own cards after a community card | draw (semi-bluff) | Elwood: re-checking hole cards on a draw-heavy board is checking suits |
+| Leaned in when a card came | strength | Caro: sudden interest |
 | Smile leak (Duchenne) after a card | strength | Ekman; genuine vs social smiles |
 | Blink rate vs your baseline, jaw/brow tension | arousal, weak bluff cue | DePaulo et al. 2003 meta-analysis: facial cues are weak alone, so they are capped |
+
+**After a bet** (the five seconds after your own bet or raise), a separate read the AIs see as "after their last bet: …":
+
+| Signal | Reads as | Why it is in |
+| --- | --- | --- |
+| Froze after betting | bluff | Elwood: bluffers go still after a big bet |
+| Looked away and never up at the camera | bluff | Elwood: post-bet gaze avoidance (eye contact, on a screen, is looking up at the camera) |
+| Sat back | strength | Elwood: post-bet relaxation |
+| Leaned in and held still | bluff | Caro: the frozen lean is the bluffer's posture |
+| Blink rate jumped | bluff | Leal & Vrij 2008: liars blink less during the lie and more right after |
+| Tension dropped, a genuine smile | strength | Ekman; DePaulo et al. 2003 |
+
+Gaze is coarse on a webcam, so it is used as screen zones relative to your own calibration (board, your cards and the bet controls, up at the camera, away) and as dwell times, never as a point. Posture is the face transform's distance and rotation, so leaning in and sitting back are relative to how you sat during calibration.
 
 Everything is a deviation from **your** baseline: a 10-second calibration in the lobby, then timing adapts to how fast you actually play, and stillness is judged against the median of your own recent decisions (never the calibration), so a naturally still player is not "frozen" on every hand and a freeze cannot fire on your first decision. The AI's math is computed twice, with and without your tells, and the Reveal shows every decision the tells changed.
 

@@ -11,9 +11,10 @@
  */
 
 import type { FaceLandmarkerResult } from "@mediapipe/tasks-vision";
-import type { GazeTarget, TellFrame } from "@/lib/types";
+import type { TellFrame } from "@/lib/types";
 import { blendshapeMap } from "./landmarker";
 import { emotionFromBlendshapes } from "./emotion";
+import { gazeZone } from "./gaze";
 
 export interface FeatureExtractorState {
   blinkTimestamps: number[];
@@ -47,13 +48,30 @@ export function extractFrame(result: FaceLandmarkerResult, t: number, state: Fea
   const span = Math.max(2_000, Math.min(windowMs, t - state.startedAt));
   const blinkRate = (state.blinkTimestamps.length / span) * 60_000;
 
-  // Head motion from transformation matrix translation (TODO: include rotation).
+  // Head pose from the 4x4 face transform (column-major): translation in column 3, the face's forward axis in column 2.
   const m = result.facialTransformationMatrixes?.[0]?.data;
+  let headPitch: number | undefined;
+  let headYaw: number | undefined;
+  let distance: number | undefined;
   if (m) {
     state.poseHistory.push({ t, x: m[12], y: m[13], z: m[14] });
     state.poseHistory = state.poseHistory.filter((p) => t - p.t < 3000);
+    const [fx, fy, fz] = [m[8], m[9], m[10]];
+    headYaw = (Math.atan2(fx, Math.abs(fz) || 1e-6) * 180) / Math.PI;
+    headPitch = (Math.atan2(-fy, Math.abs(fz) || 1e-6) * 180) / Math.PI;
+    distance = Math.abs(m[14]);
   }
+  // Micro: fidgeting, as the variance of position over 3s. Macro: the largest displacement over any one second.
   const headMotion = variance(state.poseHistory.map((p) => p.x)) + variance(state.poseHistory.map((p) => p.y));
+  const bigMove = largestMove(state.poseHistory, 1000);
+
+  // Continuous gaze: eye direction plus head pose (30 degrees of nod or turn counts as much as a full eye blendshape).
+  const lookDown = mean([bs.eyeLookDownLeft, bs.eyeLookDownRight]);
+  const lookUp = mean([bs.eyeLookUpLeft, bs.eyeLookUpRight]);
+  const lookRight = mean([bs.eyeLookOutLeft, bs.eyeLookInRight]);
+  const lookLeft = mean([bs.eyeLookInLeft, bs.eyeLookOutRight]);
+  const gazeV = facePresent ? lookDown - lookUp + (headPitch ?? 0) / 30 : undefined;
+  const gazeH = facePresent ? lookRight - lookLeft + (headYaw ?? 0) / 30 : undefined;
 
   const tensionRaw = mean([
     bs.browDownLeft, bs.browDownRight, bs.jawForward, bs.mouthPressLeft, bs.mouthPressRight,
@@ -70,7 +88,13 @@ export function extractFrame(result: FaceLandmarkerResult, t: number, state: Fea
     facePresent,
     confidence: facePresent ? 1 : 0, // TODO: derive from landmark visibility/presence
     blinkRate,
-    gaze: classifyGaze(bs),
+    gaze: gazeZone(gazeV, gazeH),
+    gazeV,
+    gazeH,
+    headPitch,
+    headYaw,
+    distance,
+    bigMove,
     headMotion,
     tension: state.ewma.tension ?? 0,
     smile: state.ewma.smile ?? 0,
@@ -80,15 +104,18 @@ export function extractFrame(result: FaceLandmarkerResult, t: number, state: Fea
   };
 }
 
-function classifyGaze(bs: Record<string, number>): GazeTarget {
-  // TODO(phase 2): combine with head pose and calibrate screen regions (cards bottom, chips center, villain top).
-  const down = mean([bs.eyeLookDownLeft, bs.eyeLookDownRight]);
-  const up = mean([bs.eyeLookUpLeft, bs.eyeLookUpRight]);
-  const side = mean([bs.eyeLookOutLeft, bs.eyeLookOutRight, bs.eyeLookInLeft, bs.eyeLookInRight]);
-  if (down > 0.5) return "cards";
-  if (up > 0.5) return "opponent";
-  if (side > 0.6) return "away";
-  return "chips";
+/** The largest distance between any two pose samples at most `spanMs` apart: a posture shift, not a tremor. */
+export function largestMove(history: Array<{ t: number; x: number; y: number; z: number }>, spanMs: number): number {
+  let best = 0;
+  for (let i = 0; i < history.length; i++) {
+    for (let j = i + 1; j < history.length && history[j].t - history[i].t <= spanMs; j++) {
+      const a = history[i];
+      const b = history[j];
+      const d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+      if (d > best) best = d;
+    }
+  }
+  return best;
 }
 
 function ewma(prev: number | undefined, next: number, alpha = 0.3): number {

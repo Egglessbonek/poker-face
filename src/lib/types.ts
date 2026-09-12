@@ -169,7 +169,12 @@ export type Viewer = { kind: "player"; playerId: string } | { kind: "rail" };
 /** Live tells for one human player, as last reported by their browser. */
 export interface PlayerTells {
   frame: TellFrame | null;
+  /** The read taken on their last decision this hand. What the AIs grade; what the Reveal grades them on. */
   vector: TellVector | null;
+  /** The read taken in the seconds after their last bet or raise this hand: a second evidence line for the AIs. */
+  after?: TellVector | null;
+  /** A rolling read for spectators between decisions. Never shown to the AIs. */
+  live?: TellVector | null;
   at: number;
 }
 
@@ -185,7 +190,11 @@ export type TableEvent =
 
 // ---------- Tells ----------
 
-export type GazeTarget = "cards" | "chips" | "opponent" | "away" | "unknown";
+/**
+ * Where on the screen the player is looking, relative to their own calibration: the board (center), their
+ * cards and the bet controls (bottom), up at the camera (the on-screen stand-in for eye contact), or away.
+ */
+export type GazeTarget = "cards" | "board" | "camera" | "away" | "unknown";
 
 export type Emotion = "neutral" | "happy" | "surprise" | "fear" | "anger" | "disgust" | "sad";
 
@@ -196,6 +205,16 @@ export interface TellFrame {
   confidence: number; // 0-1 landmark quality
   blinkRate: number; // blinks/min over rolling window
   gaze: GazeTarget;
+  /** Continuous gaze, positive = down / right, from eye blendshapes plus head pitch / yaw. Raw units. */
+  gazeV?: number;
+  gazeH?: number;
+  /** Head pose from the face transform, degrees. */
+  headPitch?: number;
+  headYaw?: number;
+  /** Distance from the camera (face transform z, raw units). Falls when the player leans in. */
+  distance?: number;
+  /** Largest head displacement over any one second in the rolling window: posture shifts, not fidgeting. */
+  bigMove?: number;
   headMotion: number; // rolling variance of head pose (raw units)
   tension: number; // 0-1 composite of brow/jaw/lip blendshapes
   smile: number; // 0-1 mouthSmile
@@ -212,6 +231,11 @@ export interface BaselineStats {
   decisionLatencyMs: number; // running median, updated during play
   /** Mean head motion of this player's recent decision windows (newest last). The stillness reference for "freeze". */
   recentHeadMotion?: number[];
+  /** Where "looking at the screen" sits for this player: medians over the calibration. Gaze zones are relative to these. */
+  gazeV?: number;
+  gazeH?: number;
+  /** Resting distance from the camera; leaning in and sitting back are relative to it. */
+  distance?: number;
   calibratedAt: number;
 }
 
@@ -228,7 +252,23 @@ export interface TellSnapshot {
   street: Street;
   decisionLatencyMs: number;
   frames: TellFrame[]; // frames in the decision window
-  cardRevealReactions: Array<{ event: "hole" | "flop" | "turn" | "river"; smileLeak: boolean; chipGlance: boolean; peakTension: number }>;
+  cardRevealReactions: CardReaction[];
+}
+
+/** What the face did in the seconds after a card landed. Every flag is a documented live-poker tell (see fuse.ts). */
+export interface CardReaction {
+  event: "hole" | "flop" | "turn" | "river";
+  /** A genuine (Duchenne) smile in the reaction window. */
+  smileLeak: boolean;
+  /** Gaze moved to the cards / bet-controls zone right after the card: Caro's chip glance, on a screen. */
+  controlsGlance: boolean;
+  /** Kept looking at the board for seconds after a community card: Caro's "staring at the flop". */
+  boardStare: boolean;
+  /** Looked back at their own cards a beat after a community card: Elwood's re-check (a draw, usually). */
+  cardRecheck: boolean;
+  /** Moved toward the screen when the card landed: Caro's sudden interest. */
+  leanIn: boolean;
+  peakTension: number;
 }
 
 export interface TellVector {
@@ -262,6 +302,8 @@ export interface OpponentView {
   /** Seat position label relative to the button: "BTN", "SB", "BB", "UTG", ... */
   position: string;
   tells: TellVector | null;
+  /** What their face did after their last bet this hand, if they made one. */
+  after?: TellVector | null;
   /** Tendencies observed this match. */
   stats?: PlayerStats;
   /** What they did preflop this hand: raised, called, limped, checked, or none yet. */
