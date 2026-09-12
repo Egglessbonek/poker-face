@@ -25,7 +25,7 @@ export interface KnownEquityPlayer {
 export interface KnownEquityResult {
   /** Share of winning runouts, including split-pot shares, from 0-1. */
   equity: number;
-  /** Best made hand using the cards currently visible. */
+  /** Best made-hand category using the cards currently visible. */
   bestHand: string;
   samples: number;
 }
@@ -143,7 +143,7 @@ export function knownTableEquities(players: KnownEquityPlayer[], board: Card[], 
   const active = players.filter((player) => !player.folded);
   const results = Object.fromEntries(players.map((player) => [player.id, {
     equity: 0,
-    bestHand: describeHand([...player.hole, ...board]).descr,
+    bestHand: describeHand([...player.hole, ...board]).name,
     samples: 0,
   }])) as Record<string, KnownEquityResult>;
   if (active.length === 0) return results;

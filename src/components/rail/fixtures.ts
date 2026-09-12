@@ -34,7 +34,7 @@ export const FAKE_TABLE: RailTableSnapshot = {
       allIn: false,
       position: "UTG",
       equity: 9.4,
-      bestHand: "Two Pair, A's & 7's",
+      bestHand: "Two Pair",
       lastAction: "Bet 32",
       tell: {
         read: true,
@@ -61,7 +61,7 @@ export const FAKE_TABLE: RailTableSnapshot = {
       allIn: false,
       position: "HJ",
       equity: 83.1,
-      bestHand: "Three of a Kind, 7's",
+      bestHand: "Three of a Kind",
       lastAction: "Thinking",
       talk: "That blink came right on the bet, Maya.",
       aiRead: {
@@ -86,7 +86,7 @@ export const FAKE_TABLE: RailTableSnapshot = {
       allIn: true,
       position: "CO",
       equity: 6.2,
-      bestHand: "Two Pair, J's & 7's",
+      bestHand: "Two Pair",
       lastAction: "All-in 18",
       tell: {
         read: true,
@@ -113,7 +113,7 @@ export const FAKE_TABLE: RailTableSnapshot = {
       allIn: false,
       position: "BTN",
       equity: 1.3,
-      bestHand: "Pair, 7's",
+      bestHand: "Pair",
       isButton: true,
       lastAction: "Call 32",
       aiRead: {
@@ -138,7 +138,7 @@ export const FAKE_TABLE: RailTableSnapshot = {
       allIn: false,
       position: "SB",
       equity: 0,
-      bestHand: "Two Pair, 7's & 5's",
+      bestHand: "Two Pair",
       isSmallBlind: true,
       lastAction: "Fold",
       tell: {
@@ -165,7 +165,7 @@ export const FAKE_TABLE: RailTableSnapshot = {
       allIn: false,
       position: "BB",
       equity: 0,
-      bestHand: "Pair, 7's",
+      bestHand: "Pair",
       isBigBlind: true,
       lastAction: "Fold",
       // Camera on, no bet yet: the rail shows raw signals until the first read.

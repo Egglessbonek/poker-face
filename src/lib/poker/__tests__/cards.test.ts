@@ -50,7 +50,7 @@ describe("equity", () => {
     expect(result.nuts.equity).toBe(1);
     expect(result.pair.equity).toBe(0);
     expect(result.folded.equity).toBe(0);
-    expect(result.nuts.bestHand).toBe("Pair, A's");
+    expect(result.nuts.bestHand).toBe("Pair");
     expect(result.nuts.samples).toBe(1);
   });
   it("splits equity evenly when the board plays", () => {
@@ -61,7 +61,7 @@ describe("equity", () => {
 
     expect(result.one.equity).toBe(0.5);
     expect(result.two.equity).toBe(0.5);
-    expect(result.one.bestHand).toBe("Royal Flush");
+    expect(result.one.bestHand).toBe("Straight Flush");
   });
 });
 
