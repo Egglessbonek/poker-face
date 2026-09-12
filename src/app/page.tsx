@@ -1,5 +1,6 @@
 import Link from "next/link";
 import CodeEntry from "@/components/CodeEntry";
+import HallOfPokerFaces from "@/components/landing/HallOfPokerFaces";
 import LandingBackdrop from "@/components/LandingBackdrop";
 import PlayingCardMarks from "@/components/PlayingCardMarks";
 import cardStyles from "@/components/PlayingCard.module.css";
@@ -29,6 +30,9 @@ export default function Landing() {
         </Link>
         <CodeEntry title="Join a table" hint="Take a seat with the 4-letter code." hrefPrefix="/table/" label="Sit down" rank="K" suit="♥" />
         <CodeEntry title="Watch from the rail" hint="See every card and every tell." hrefPrefix="/rail/" label="Watch" rank="Q" suit="♣" />
+      </div>
+      <div className="relative z-10 mx-auto w-full max-w-3xl">
+        <HallOfPokerFaces />
       </div>
     </main>
   );

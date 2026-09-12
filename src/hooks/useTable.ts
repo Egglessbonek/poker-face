@@ -37,6 +37,13 @@ export interface ActionEvent {
   handNumber: number;
 }
 
+/** Identity at the table a rematch opened. */
+export interface RematchResult {
+  code: string;
+  playerId: string;
+  token: string;
+}
+
 export interface HandRecord {
   handNumber: number;
   board: string[];
@@ -55,6 +62,7 @@ export function useTable(code: string, token: string | null, playerId: string | 
   const [lastActions, setLastActions] = useState<Record<string, Action>>({});
   const [history, setHistory] = useState<HandRecord[]>([]);
   const [actions, setActions] = useState<ActionEvent[]>([]);
+  const [rematchCode, setRematchCode] = useState<string | null>(null);
   const talkId = useRef(0);
   const actionId = useRef(0);
   const handRef = useRef<number>(0);
@@ -95,6 +103,9 @@ export function useTable(code: string, token: string | null, playerId: string | 
         case "hand_end":
           setHistory((prev) => [...prev.slice(-50), { handNumber: ev.hand.handNumber, board: ev.hand.board, results: ev.hand.results, foldedOut: ev.hand.foldedOut, seats: ev.hand.seats }]);
           break;
+        case "rematch":
+          setRematchCode(ev.code);
+          break;
         case "ended":
           setStatus("ended");
           es.close();
@@ -113,10 +124,10 @@ export function useTable(code: string, token: string | null, playerId: string | 
   const bounds = useMemo(() => (me && hand && cfg && myTurn ? calcBounds(hand, me.seat, cfg) : null), [me, hand, cfg, myTurn]);
 
   const call = useCallback(
-    async (path: string, method: string, body?: Record<string, unknown>) => {
+    async <T = { ok: true }>(path: string, method: string, body?: Record<string, unknown>): Promise<T> => {
       setError(null);
       try {
-        return await api(`/api/table/${code}${path}`, method, { token, ...body });
+        return await api<T>(`/api/table/${code}${path}`, method, { token, ...body });
       } catch (e) {
         setError((e as Error).message);
         throw e;
@@ -132,11 +143,13 @@ export function useTable(code: string, token: string | null, playerId: string | 
   const updateConfig = useCallback((config: Partial<TableConfig>) => call("/config", "PATCH", { config }).catch(() => {}), [call]);
   const leave = useCallback(() => call("/leave", "POST").catch(() => {}), [call]);
   const end = useCallback(() => call("/end", "POST").catch(() => {}), [call]);
+  /** Host only, once finished: open a new table with the same config and AI seats. Null when the request failed (see `error`). */
+  const rematch = useCallback(() => call<RematchResult>("/rematch", "POST").catch((): null => null), [call]);
   const sendTells = useCallback(
     (payload: { frame?: TellFrame | null; vector?: TellVector | null; baseline?: BaselineStats }) =>
       fetch(`/api/table/${code}/tells`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, ...payload }), keepalive: true }).catch(() => {}),
     [code, token],
   );
 
-  return { state, status, error, tells, reads, talk, lastActions, actions, history, me, hand, myTurn, legal, bounds, act, start, addAI, removePlayer, updateConfig, leave, end, sendTells };
+  return { state, status, error, tells, reads, talk, lastActions, actions, history, rematchCode, me, hand, myTurn, legal, bounds, act, start, addAI, removePlayer, updateConfig, leave, end, rematch, sendTells };
 }

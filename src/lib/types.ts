@@ -180,6 +180,7 @@ export type TableEvent =
   | { type: "tells"; playerId: string; tells: PlayerTells }
   | { type: "ai_decision"; playerId: string; decision: VillainDecision; handNumber: number; street: Street }
   | { type: "hand_end"; hand: HandView }
+  | { type: "rematch"; code: string }
   | { type: "ended"; code: string };
 
 // ---------- Tells ----------
@@ -352,4 +353,25 @@ export interface TableLog {
   players: Player[];
   baselines: Record<string, BaselineStats>;
   entries: TableLogEntry[];
+}
+
+// ---------- Hall ----------
+
+/** One human's poker-face result from a finished match. Feeds the landing-page Hall of Poker Faces. */
+export interface HallEntry {
+  name: string;
+  /** Table code the result came from. */
+  code: string;
+  /** 0-100. High = the face gave nothing away. */
+  pokerFace: number;
+  /** Aggressive actions made with weak equity. */
+  bluffs: number;
+  /** Bluffs the tells flagged (bluffLikelihood >= 0.5). */
+  bluffsCaught: number;
+  readsRight: number;
+  readsTotal: number;
+  /** First line of AI table talk that mentioned this player, if any. */
+  bestLine?: string;
+  /** Epoch ms when the match ended. */
+  at: number;
 }

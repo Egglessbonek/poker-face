@@ -15,13 +15,17 @@ import { getProfile, resolveProfile } from "@/lib/villain/profile";
 import { pickVoice } from "@/lib/villain/voices";
 import { isSeatableModelId } from "@/lib/llm/models";
 import { appendLog, createLog, endLog, getLog, setBaseline, syncLogPlayers } from "@/lib/store";
+import { buildReveal } from "@/lib/game/reveal";
+import { recordHall } from "@/lib/hall";
 import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
 import { generateCode } from "@/lib/rail/code";
+import { aiGuestList } from "@/lib/game/rematch";
 import {
   DEFAULT_TABLE,
   type ActionBounds,
   type ActionType,
   type BaselineStats,
+  type HallEntry,
   type HandState,
   type OpponentView,
   type Player,
@@ -39,6 +43,7 @@ import {
 const HAND_END_PAUSE_MS = 5000;
 const AI_THINK_MS: [number, number] = [1200, 2600];
 const DISCONNECTED_TURN_MS = 12_000;
+const FINISHED_CHANNEL_MS = 10 * 60_000;
 
 interface Table {
   code: string;
@@ -63,6 +68,8 @@ interface Table {
   driving: boolean;
   createdAt: number;
   standings?: TableState["standings"];
+  /** The table this one was rematched into, so a repeat request returns the same new code. */
+  rematch?: Promise<{ code: string; playerId: string; token: string }>;
 }
 
 const g = globalThis as unknown as { __tables?: Map<string, Table> };
@@ -203,6 +210,28 @@ export function endTable(code: string, token: string): void {
     t.hand = null;
   }
   finishTable(t, "host ended the match");
+}
+
+/**
+ * Host reopens a finished table at a fresh code: same config, same AI guests in the same seat order
+ * (duplicates included). Anyone still on the old table's stream is told the new code. A repeat call
+ * returns the same new table while it is open, so a double click or a retry cannot open two.
+ */
+export async function rematchTable(code: string, token: string): Promise<{ code: string; playerId: string; token: string }> {
+  const t = must(code);
+  requireHost(t, token);
+  if (t.phase !== "finished") throw new TableError("The match has not finished yet");
+  const prev = t.rematch ? await t.rematch.catch(() => null) : null;
+  const open = prev ? tables.get(prev.code) : undefined;
+  if (prev && open && open.phase !== "finished") {
+    publish(t.code, { type: "rematch", code: prev.code });
+    return prev;
+  }
+  const host = playerByToken(t, token);
+  t.rematch = createTable({ ...t.config, aiPlayers: aiGuestList(t.players) }, host.name);
+  const next = await t.rematch;
+  publish(t.code, { type: "rematch", code: next.code });
+  return next;
 }
 
 // ---------- play ----------
@@ -629,8 +658,37 @@ function finishTable(t: Table, reason: string): false {
   endLog(t.code);
   syncLogPlayers(t.code, t.players);
   broadcastState(t);
-  // Give clients a moment to render the final state before the stream closes.
-  setTimeout(() => closeChannel(t.code), 30_000);
+  // Hall of Poker Faces: grade the humans now that the log is complete. Never let this break finishing.
+  try {
+    const log = getLog(t.code);
+    if (log) {
+      const data = buildReveal(log);
+      const talk = log.entries.filter((e) => e.kind === "talk").map((e) => String((e.data as { text?: unknown }).text ?? ""));
+      const entries: HallEntry[] = [];
+      for (const h of data.humans) {
+        if (h.pokerFace === null) continue;
+        const bluffs = h.decisions.filter((d) => d.isBluff);
+        const needle = h.player.name.toLowerCase();
+        entries.push({
+          name: h.player.name,
+          code: t.code,
+          pokerFace: h.pokerFace,
+          bluffs: bluffs.length,
+          bluffsCaught: bluffs.filter((d) => (d.tells?.bluffLikelihood ?? 0) >= 0.5).length,
+          readsRight: h.readsRight,
+          readsTotal: h.readsTotal,
+          bestLine: talk.find((line) => line.toLowerCase().includes(needle)),
+          at: log.endedAt ?? Date.now(),
+        });
+      }
+      recordHall(entries);
+    }
+  } catch (err) {
+    console.error("hall: could not record results for", t.code, err);
+  }
+  // Keep the finished table's stream open long enough for a rematch link to reach everyone and for the rail
+  // to linger on the final state; the log and the reveal outlive the channel.
+  setTimeout(() => closeChannel(t.code), FINISHED_CHANNEL_MS);
   return false;
 }
 

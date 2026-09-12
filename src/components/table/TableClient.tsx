@@ -15,7 +15,7 @@ import TableLobby from "@/components/table/TableLobby";
 import { useTable } from "@/hooks/useTable";
 import { useTalk } from "@/hooks/useTalk";
 import { useTells } from "@/hooks/useTells";
-import { clearIdentity, loadIdentity, type Identity } from "@/lib/client/identity";
+import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/client/identity";
 import { createCursorTracker } from "@/lib/tells/cursor";
 import { dominantEmotion } from "@/lib/tells/emotion";
 import { fuseTells } from "@/lib/tells/fuse";
@@ -138,6 +138,14 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
       router.push("/");
     });
   }, [code, router, table]);
+  // Rematch: the server seats the host at the new table; carry that identity over and go there.
+  const requestRematch = table.rematch;
+  const rematch = useCallback(async () => {
+    const next = await requestRematch();
+    if (!next) return;
+    saveIdentity(next.code, { playerId: next.playerId, token: next.token, name: identity.name });
+    router.push(`/table/${next.code}`);
+  }, [identity.name, requestRematch, router]);
 
   const camera = <CameraSetup tells={tells} done={cameraDone} onDone={finishCamera} />;
 
@@ -150,7 +158,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   }
 
   if (state.phase === "lobby") return <TableLobby state={state} playerId={identity.playerId} camera={camera} onAddAI={table.addAI} onRemove={table.removePlayer} onStart={table.start} onLeave={leave} />;
-  if (state.phase === "finished") return <FinishedTable state={state} playerId={identity.playerId} />;
+  if (state.phase === "finished") return <FinishedTable state={state} playerId={identity.playerId} rematchCode={table.rematchCode} onRematch={rematch} error={table.error} />;
 
   const opponents = state.players.filter((player) => player.id !== identity.playerId);
   const detailedTells = state.config.tellVisibility === "everyone" ? opponents.filter((player) => player.kind === "human" && table.tells[player.id]) : [];

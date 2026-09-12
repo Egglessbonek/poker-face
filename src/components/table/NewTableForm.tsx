@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import { Bot, Eye, Mic2, Users } from "lucide-react";
 import ModelPicker from "@/components/table/ModelPicker";
 import { api, lastName, saveIdentity } from "@/lib/client/identity";
-import { describeModelId } from "@/lib/llm/models";
+import { TIERS, describeModelId, tierOf } from "@/lib/llm/models";
 import { DEFAULT_TABLE, type TableConfig, type TellVisibility } from "@/lib/types";
+
+/** A tier preset seats this many models; the host is the fourth chair. */
+const TIER_PRESET_SIZE = 3;
 
 const VISIBILITY: Array<{ value: TellVisibility; title: string; body: string }> = [
   { value: "ai_and_rail", title: "AI + rail", body: "AI opponents and spectators see live human tells." },
@@ -111,6 +114,29 @@ export default function NewTableForm() {
               })}
               {config.aiPlayers.length === 0 && <li className="rounded-2xl border border-dashed border-felt-edge p-4 text-center text-xs text-muted">No AI seats yet. Humans can fill the table.</li>}
             </ul>
+
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">Set the table</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {TIERS.map((tier) => {
+                  const active = config.aiPlayers.length > 0 && config.aiPlayers.every((id) => tierOf(id) === tier.id);
+                  const tooSmall = config.maxSeats < 1 + TIER_PRESET_SIZE;
+                  return (
+                    <button
+                      type="button"
+                      key={tier.id}
+                      disabled={tooSmall}
+                      title={tooSmall ? `Needs ${1 + TIER_PRESET_SIZE} seats` : undefined}
+                      onClick={() => set("aiPlayers", tier.modelIds.slice(0, TIER_PRESET_SIZE))}
+                      className={`rounded-xl border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-gold bg-gold/10" : "border-felt-edge hover:border-gold"}`}
+                    >
+                      <span className="text-sm font-medium">{tier.label}</span>
+                      <span className="mt-0.5 block text-[10px] leading-relaxed text-muted">{tier.blurb}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <ModelPicker onAdd={(id) => set("aiPlayers", [...config.aiPlayers, id])} disabled={seatsNeeded >= config.maxSeats} />
 
