@@ -19,7 +19,19 @@ export function recordHall(entries: HallEntry[]): void {
   if (hall.length > MAX_ENTRIES) hall.length = MAX_ENTRIES;
 }
 
+const byPokerFace = (a: HallEntry, b: HallEntry) => b.pokerFace - a.pokerFace || b.at - a.at;
+
 /** Best poker faces first; ties go to the most recent. */
 export function getHall(limit = 10): HallEntry[] {
-  return [...hall].sort((a, b) => b.pokerFace - a.pokerFace || b.at - a.at).slice(0, limit);
+  return [...hall].sort(byPokerFace).slice(0, limit);
+}
+
+/**
+ * Where one match result stands among every face read since the server started: 1-based rank and the
+ * field size. Null when that player has no entry (no camera, or the server restarted since the match).
+ */
+export function hallRank(code: string, name: string): { rank: number; of: number } | null {
+  const ranked = [...hall].sort(byPokerFace);
+  const i = ranked.findIndex((e) => e.code === code && e.name === name);
+  return i === -1 ? null : { rank: i + 1, of: ranked.length };
 }

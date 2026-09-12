@@ -16,7 +16,10 @@ const VALUE = "#46a758"; // status: honest
 const NEUTRAL = "#d4af37";
 const TONE: Record<Achievement["tone"], string> = { gold: "text-gold", danger: "text-danger", ok: "text-ok", muted: "text-muted" };
 
-export default function RevealView({ data }: { data: RevealData }) {
+/** Per human player id: where this match's face stands among every face read since the server started. */
+export type HallRanks = Record<string, { rank: number; of: number }>;
+
+export default function RevealView({ data, ranks = {} }: { data: RevealData; ranks?: HallRanks }) {
   const seatName = (seat: number) => data.players.find((p) => p.seat === seat)?.name ?? `Seat ${seat + 1}`;
   return (
     <main className="flex flex-1 flex-col gap-10 px-4 py-8 sm:px-8">
@@ -36,7 +39,7 @@ export default function RevealView({ data }: { data: RevealData }) {
         </ol>
       </header>
 
-      {data.humans.map((h) => <HumanSection key={h.player.id} h={h} />)}
+      {data.humans.map((h) => <HumanSection key={h.player.id} h={h} rank={ranks[h.player.id]} />)}
 
       <section>
         <h2 className="mb-3 text-lg font-medium">When the tells changed an AI&apos;s mind</h2>
@@ -94,7 +97,13 @@ export default function RevealView({ data }: { data: RevealData }) {
   );
 }
 
-function HumanSection({ h }: { h: RevealPlayer }) {
+function hallLine(r: { rank: number; of: number }): string {
+  if (r.of === 1) return "The first face read on this server tonight. Bring a friend.";
+  if (r.rank === 1) return `#1 poker face of the ${r.of} read on this server tonight.`;
+  return `#${r.rank} of ${r.of} poker faces read on this server tonight.`;
+}
+
+function HumanSection({ h, rank }: { h: RevealPlayer; rank?: { rank: number; of: number } }) {
   const graded = h.decisions.filter((d) => d.aggressive && d.tells);
   const withTells = h.decisions.filter((d) => d.tells);
   const chart = graded.map((d, i) => ({ i: i + 1, label: `H${d.handNumber} ${d.street}`, bluff: Math.round(d.tells!.bluffLikelihood * 100), isBluff: d.isBluff, equity: Math.round(d.equity * 100), action: `${d.action.type}${d.action.amount ? " " + d.action.amount : ""}` }));
@@ -108,6 +117,7 @@ function HumanSection({ h }: { h: RevealPlayer }) {
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-gold">{h.player.name}</p>
           <h2 className="text-2xl font-semibold">{verdict(h)}</h2>
+          {rank && <p className="mt-1 text-sm text-gold">{hallLine(rank)}</p>}
           {h.achievements.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {h.achievements.map((a) => (

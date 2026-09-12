@@ -80,6 +80,7 @@ try {
   console.log("CODE", code);
 } catch (e) {
   log("FAILED:", String(e).slice(0, 400)); await shot(page, "99-failure");
+  process.exitCode = 1;
 } finally {
   console.log("--- console errors/warnings (deduped) ---"); for (const e of [...new Set(errors)].slice(0, 15)) console.log(e);
   await browser.close();

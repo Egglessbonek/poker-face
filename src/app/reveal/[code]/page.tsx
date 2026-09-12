@@ -1,7 +1,8 @@
 import Link from "next/link";
-import RevealView from "@/components/reveal/RevealView";
+import RevealView, { type HallRanks } from "@/components/reveal/RevealView";
 import { buildReveal } from "@/lib/game/reveal";
 import { getTableLog } from "@/lib/game/table";
+import { hallRank } from "@/lib/hall";
 
 export const dynamic = "force-dynamic";
 
@@ -19,5 +20,12 @@ export default async function RevealPage(props: PageProps<"/reveal/[code]">) {
       </main>
     );
   }
-  return <RevealView data={buildReveal(log)} />;
+  const data = buildReveal(log);
+  // Where each human stands in the Hall of Poker Faces. Only humans with a graded face have an entry.
+  const ranks: HallRanks = {};
+  for (const h of data.humans) {
+    const r = hallRank(code, h.player.name);
+    if (r) ranks[h.player.id] = r;
+  }
+  return <RevealView data={data} ranks={ranks} />;
 }

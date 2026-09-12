@@ -54,6 +54,16 @@ describe("hall of poker faces", () => {
     expect(survivors.every((e) => e.at >= 50)).toBe(true);
   });
 
+  it("ranks a match result among every face read so far", () => {
+    hall.recordHall([entry({ name: "Maya", code: "KXTR", pokerFace: 80, at: 1 }), entry({ name: "Sam", code: "KXTR", pokerFace: 40, at: 1 })]);
+    hall.recordHall([entry({ name: "Ira", code: "QQPL", pokerFace: 60, at: 2 })]);
+    expect(hall.hallRank("KXTR", "Maya")).toEqual({ rank: 1, of: 3 });
+    expect(hall.hallRank("QQPL", "Ira")).toEqual({ rank: 2, of: 3 });
+    expect(hall.hallRank("KXTR", "Sam")).toEqual({ rank: 3, of: 3 });
+    expect(hall.hallRank("KXTR", "Nobody")).toBeNull();
+    expect(hall.hallRank("ZZZZ", "Maya")).toBeNull();
+  });
+
   it("does not expose its internal array", () => {
     hall.recordHall([entry({ pokerFace: 1 })]);
     hall.getHall().length = 0;
