@@ -48,3 +48,14 @@ npm run dev                  # http://localhost:3000
 npm test
 npm run simulate -- --humans 2 --ais 2 --hands 10   # scripted match against the dev server; prints rail + reveal links
 ```
+
+## Deploy (Railway)
+
+Tables, streams, and turn timers live in one Node process, so the app needs a host that runs a single long-lived server. Serverless platforms (Vercel, Netlify functions) will not work: memory is not shared between invocations and streams are cut off.
+
+1. Railway → New Project → Deploy from GitHub → pick this repo. `railway.json` sets the build, start command, health check (`/api/health`), and a single replica.
+2. Variables: `OPENROUTER_API_KEY`, `ELEVENLABS_API_KEY`, the `ELEVENLABS_VOICE_*` ids, and `APP_URL` set to the public URL Railway gives you.
+3. Generate a domain under Settings → Networking. Share `https://<domain>/table/<code>` with players and `/rail/<code>` with spectators.
+
+Keep it at one replica. Scaling out would split tables across processes. A redeploy restarts the process and ends every table in progress, so deploy between demos, not during one.
+
