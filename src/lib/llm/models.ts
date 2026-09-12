@@ -27,6 +27,39 @@ export const FEATURED_MODEL_IDS: string[] = [
   "deepseek/deepseek-v3.2",
 ];
 
+export type TierId = "casual" | "pro";
+
+/**
+ * Difficulty tiers are a game mechanic: a tier describes how a seat plays (speed, cost, strength),
+ * never who it is. The models still play as themselves. Presets seat the first three ids of a tier.
+ */
+export interface Tier {
+  id: TierId;
+  label: string;
+  blurb: string;
+  modelIds: string[];
+}
+
+export const TIERS: Tier[] = [
+  {
+    id: "casual",
+    label: "Casual table",
+    blurb: "Quick, cheap, chatty. Good for a first sit-down.",
+    modelIds: ["google/gemini-3.8-flash", "deepseek/deepseek-v3.2", "meta-llama/llama-4-maverick", "qwen/qwen3.8-flash"],
+  },
+  {
+    id: "pro",
+    label: "Pro table",
+    blurb: "Frontier models. Sharper reads, slower to act.",
+    modelIds: ["anthropic/claude-sonnet-5", "openai/gpt-5.6-terra", "x-ai/grok-4.6", "moonshotai/kimi-k2.6"],
+  },
+];
+
+/** The tier a model sits in, if any. Most of the catalog is in neither. */
+export function tierOf(modelId: string): TierId | undefined {
+  return TIERS.find((tier) => tier.modelIds.includes(modelId))?.id;
+}
+
 const VENDOR_NAMES: Record<string, string> = {
   anthropic: "Anthropic", openai: "OpenAI", google: "Google", deepseek: "DeepSeek", "x-ai": "xAI", "meta-llama": "Meta", mistralai: "Mistral AI", qwen: "Alibaba", moonshotai: "Moonshot", cohere: "Cohere", perplexity: "Perplexity", nvidia: "NVIDIA", microsoft: "Microsoft", amazon: "Amazon", "z-ai": "Z.ai", minimax: "MiniMax", baidu: "Baidu", tencent: "Tencent", bytedance: "ByteDance",
 };

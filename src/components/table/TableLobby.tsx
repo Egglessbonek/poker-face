@@ -2,7 +2,7 @@
 
 import { Bot, Copy, Crown, Eye, LogOut, Plus, Trash2, Users } from "lucide-react";
 import ModelPicker from "@/components/table/ModelPicker";
-import { describeModelId } from "@/lib/llm/models";
+import { TIERS, describeModelId, tierOf } from "@/lib/llm/models";
 import type { TableState } from "@/lib/types";
 
 const tellLabel: Record<TableState["config"]["tellVisibility"], string> = {
@@ -16,6 +16,9 @@ const tellLabel: Record<TableState["config"]["tellVisibility"], string> = {
 export default function TableLobby({ state, playerId, camera, onAddAI, onRemove, onStart, onLeave }: { state: TableState; playerId: string; camera: React.ReactNode; onAddAI: (modelId: string) => void; onRemove: (playerId: string) => void; onStart: () => void; onLeave: () => void }) {
   const isHost = state.hostId === playerId;
   const openSeats = state.config.maxSeats - state.players.length;
+  /** Labelled as a casual or pro table only when every AI seat sits in that one tier. */
+  const seatedTiers = new Set(state.players.filter((player) => player.kind === "ai" && player.modelId).map((player) => tierOf(player.modelId ?? "")));
+  const tableTier = seatedTiers.size === 1 ? TIERS.find((tier) => seatedTiers.has(tier.id)) : undefined;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-8">
@@ -61,7 +64,7 @@ export default function TableLobby({ state, playerId, camera, onAddAI, onRemove,
 
         <aside className="flex flex-col gap-4">
           <section className="flex flex-col gap-5 rounded-3xl border border-felt-edge p-5">
-            <div><p className="text-xs uppercase tracking-wider text-muted">Game</p><p className="mt-1 text-lg">{state.config.smallBlind}/{state.config.bigBlind} No-Limit Hold’em</p></div>
+            <div><p className="flex items-center justify-between text-xs uppercase tracking-wider text-muted"><span>Game</span>{tableTier && <span title={tableTier.blurb} className="rounded border border-felt-edge px-1.5 py-0.5 text-[10px] text-gold">{tableTier.label}</span>}</p><p className="mt-1 text-lg">{state.config.smallBlind}/{state.config.bigBlind} No-Limit Hold’em</p></div>
             <dl className="grid grid-cols-2 gap-3 text-sm">
               <Stat label="Stack" value={state.config.startingStack} />
               <Stat label="Hands" value={state.config.handsPerMatch || "∞"} />
