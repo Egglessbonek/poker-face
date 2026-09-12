@@ -52,6 +52,10 @@ export interface RailPlayerView {
   isSmallBlind?: boolean;
   isBigBlind?: boolean;
   lastAction?: string;
+  /** Chance to win against the other face-up rail hands on a completed board. */
+  equity?: number;
+  /** Best made hand on the current street. */
+  bestHand?: string;
   talk?: string;
   tell?: RailTell;
   aiRead?: RailAiRead;

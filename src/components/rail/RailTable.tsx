@@ -66,6 +66,12 @@ function PlayerSeat({ player, active, seatCount, mobile = false }: { player: Rai
           <p className="mt-0.5 text-[11px] text-white/50">{player.lastAction ?? "Waiting"}</p>
         </div>
       </div>
+      {(player.equity !== undefined || player.bestHand) && (
+        <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/8 pt-2 text-[10px]">
+          <span className="shrink-0 font-mono font-semibold text-gold">{player.equity !== undefined ? `${player.equity}% EQ` : "â€” EQ"}</span>
+          <span className="min-w-0 truncate text-right text-white/55" title={player.bestHand}>{player.bestHand ?? "Calculatingâ€¦"}</span>
+        </div>
+      )}
       {player.committed > 0 && (
         <div className="mt-2 flex items-center justify-end gap-1 text-xs text-white/60">
           <CircleDollarSign size={12} className="text-chip-blue" /> ${player.committed} in front
@@ -115,8 +121,8 @@ function PotDisplay({ table }: { table: RailTableSnapshot }) {
 
 export default function RailTable({ table }: { table: RailTableSnapshot }) {
   return (
-    <section aria-label="Poker table" className="rounded-[2rem] border border-white/10 bg-[#0c1210] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.42)] sm:p-5 xl:h-full">
-      <div className="relative hidden h-full min-h-[570px] lg:block xl:min-h-0">
+    <section aria-label="Poker table" className="rounded-[2rem] border border-white/10 bg-[#0c1210] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.42)] sm:p-5">
+      <div className="relative hidden h-[clamp(500px,62vh,640px)] lg:block">
         <div className="absolute inset-[10%_8%] rounded-[48%] border-[10px] border-[#143d31] bg-[radial-gradient(circle_at_center,#14533e_0%,#0d3b2d_58%,#08281f_100%)] shadow-[inset_0_0_70px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.08)]">
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/35">{table.street}</p>
