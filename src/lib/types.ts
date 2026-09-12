@@ -335,6 +335,21 @@ export interface TableLog {
   entries: TableLogEntry[];
 }
 
+// ---------- Browse ----------
+
+/** A table anyone can watch from the rail, as listed on the landing page's diamonds card. */
+export interface TableListing {
+  code: string;
+  phase: TablePhase;
+  handNumber: number;
+  handsPerMatch: number;
+  /** Seated human names. */
+  humans: string[];
+  /** Seated AI names. */
+  ais: string[];
+  createdAt: number;
+}
+
 // ---------- Hall ----------
 
 /** One human's poker-face result from a finished match. Feeds the landing-page Hall of Poker Faces. */
