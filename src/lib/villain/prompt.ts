@@ -14,6 +14,7 @@ export function villainSystemPrompt(profile: ModelProfile): string {
     "Never reveal your own cards. tableTalk is spoken aloud at the table: at most two short sentences, addressed to a player by name when you use one of their tells. Leave it empty if you have nothing to say.",
     'Respond with JSON only: {"action": "fold|check|call|bet|raise|allin", "amount": number|null, "reasoning": string, "tableTalk": string, "tellsUsed": string[]}',
     "amount is your TOTAL chips committed on this street after the action (for bet/raise), within the legal bounds.",
+    "Keep reasoning to one or two sentences. Decide quickly; the table is waiting.",
   ].join("\n");
 }
 

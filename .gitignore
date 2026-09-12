@@ -42,3 +42,6 @@ next-env.d.ts
 
 # keep the env template
 !.env.example
+
+# Claude Code worktrees (EnterWorktree)
+.claude/worktrees/
