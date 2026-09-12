@@ -37,5 +37,6 @@ export function villainUserPrompt(input: VillainDecisionInput): string {
     "Opponents:",
     ...opps,
     `Action history: ${history}.`,
+    input.recentTalk.length ? `Things you already said this match (do not repeat any of them, and stay quiet if you have nothing new): ${input.recentTalk.map((t) => `"${t}"`).join(" | ")}` : "You have not spoken yet this match.",
   ].join("\n");
 }
