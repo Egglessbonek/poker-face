@@ -46,6 +46,12 @@ describe("stillness reference from recent decisions", () => {
     expect(decidingHeadMotion(b)).toBeCloseTo(0.002, 6);
   });
 
+  it("gives no reference for a feed that reports no motion at all", () => {
+    let b = base();
+    for (let i = 0; i < 3; i++) b = updateBaselineAfterDecision(b, snap(12, 0), 4000);
+    expect(decidingHeadMotion(b)).toBeNull();
+  });
+
   it("keeps only the last seven windows", () => {
     let b = base();
     for (let i = 1; i <= 10; i++) b = updateBaselineAfterDecision(b, snap(12, i), 4000);

@@ -12,6 +12,7 @@ import { z } from "zod";
 import type { ActionType, VillainDecision, VillainDecisionInput } from "@/lib/types";
 import { completeJSON, llmAvailable, perSeatModels } from "@/lib/llm/provider";
 import { decisionRoll, recommend, type Recommendation } from "@/lib/poker/strategy";
+import { canonicalTells, leaksOwnCards } from "./guard";
 import { getProfile } from "./profile";
 import { villainSystemPrompt, villainUserPrompt } from "./prompt";
 
@@ -101,12 +102,17 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
       reasoningEffort: input.hand.pot + input.bounds.toCall >= 0.3 * (input.me.stack + input.me.committed) ? bigPotEffort() : "low",
     });
     const action = input.legalActions.includes(out.action) ? out.action : baseline;
+    let tableTalk = out.tableTalk;
+    if (leaksOwnCards(tableTalk, input.me.holeCards, input.hand.board)) {
+      console.warn(`${profile.name} named its own cards in table talk; line dropped:`, tableTalk);
+      tableTalk = "";
+    }
     return {
       action,
       amount: clampAmount(action, out.amount ?? (action === baseline ? rec.amount : undefined), input),
       reasoning: out.reasoning,
-      tableTalk: out.tableTalk,
-      tellsUsed: out.tellsUsed,
+      tableTalk,
+      tellsUsed: canonicalTells(out.tellsUsed, input.opponents),
       mathAction: pure,
       tellAction: baseline,
       llmUsed: true,

@@ -70,5 +70,8 @@ export function updateBaselineAfterDecision(baseline: BaselineStats, snapshot: T
  */
 export function decidingHeadMotion(baseline: BaselineStats): number | null {
   const recent = baseline.recentHeadMotion;
-  return recent && recent.length ? Math.max(median(recent), 1e-6) : null;
+  if (!recent || !recent.length) return null;
+  const usual = median(recent);
+  // A frozen or virtual feed reports no motion at all; comparing against zero would call every decision a freeze.
+  return usual < 1e-5 ? null : usual;
 }

@@ -71,6 +71,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   /** Once the camera has run, a later "idle" means it was lost and should be restarted; a skipped camera never was. */
   const cameraEverOn = useRef(false);
   const [cameraDone, setCameraDone] = useState(false);
+  /** The callout banner that has finished animating; it unmounts so no blank strip is left above the felt. */
+  const [calloutDone, setCalloutDone] = useState<string | null>(null);
   const vectorHistory = useRef<TellVector[]>([]);
   const promptedAt = useRef(0);
   const wasMyTurn = useRef(false);
@@ -180,6 +182,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     .map((player) => ({ player, read: table.reads[player.id] }))
     .filter(({ read }) => read.decision.tellsUsed.length > 0)
     .sort((a, b) => b.read.at - a.read.at)[0];
+  const calloutKey = callout ? `${callout.player.id}-${callout.read.at}` : null;
 
   return (
     <main className="flex flex-1 flex-col gap-4 px-3 py-4 sm:px-6">
@@ -187,8 +190,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
       {table.error && <p className="rounded-xl bg-danger/15 px-4 py-2 text-sm text-danger">{table.error}</p>}
       <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
         <section className="flex min-w-0 flex-col gap-3">
-          {callout && (
-            <div key={`${callout.player.id}-${callout.read.at}`} className="animate-callout flex items-start gap-2 rounded-2xl border border-gold/50 bg-gold/10 px-4 py-2.5 text-sm shadow-[0_0_30px_rgba(212,175,55,0.15)]">
+          {callout && calloutKey && calloutKey !== calloutDone && (
+            <div key={calloutKey} onAnimationEnd={() => setCalloutDone(calloutKey)} className="animate-callout flex items-start gap-2 rounded-2xl border border-gold/50 bg-gold/10 px-4 py-2.5 text-sm shadow-[0_0_30px_rgba(212,175,55,0.15)]">
               <Eye size={16} className="mt-0.5 shrink-0 text-gold" />
               <p><span className="font-semibold text-gold">{callout.player.name}</span> <span className="text-muted">read the table on the {callout.read.street}:</span> {callout.read.decision.tellsUsed.join(" · ")}</p>
             </div>
@@ -208,8 +211,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
 
           {aiReads.length > 0 && (
             <section className="rounded-2xl border border-felt-edge p-3 text-xs">
-              <p className="mb-2 flex items-center gap-2 font-semibold text-gold"><Eye size={13} /> What the models picked up</p>
-              <ul className="flex flex-col gap-2">{aiReads.map((player) => { const read = table.reads[player.id]; return <li key={player.id}><span className="font-medium">{player.name}</span> <span className="capitalize text-muted">· {read.street}</span><p className="mt-0.5 text-muted">{read.decision.tellsUsed.length ? read.decision.tellsUsed.join(", ") : "Playing the math"}</p></li>; })}</ul>
+              <p className="mb-2 flex items-center gap-2 font-semibold text-gold"><Eye size={13} /> Reads on you this hand</p>
+              <ul className="flex flex-col gap-2">{aiReads.map((player) => { const read = table.reads[player.id]; return <li key={player.id}><span className="font-medium">{player.name}</span> <span className="capitalize text-muted">· {read.street}</span><p className="mt-0.5 text-muted">{read.decision.tellsUsed.length ? read.decision.tellsUsed.join(" · ") : "No tell used. Played the odds."}</p></li>; })}</ul>
             </section>
           )}
 
@@ -227,7 +230,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
 
 function CameraSetup({ tells, done, onDone }: { tells: ReturnType<typeof useTells>; done: boolean; onDone: () => void }) {
   if (done || tells.baseline) {
-    return <div className="rounded-2xl border border-felt-edge p-3"><p className="mb-2 text-xs font-semibold text-gold">Your camera</p><WebcamFeed videoRef={tells.videoRef} className="aspect-[4/3] w-full" /><p className="mt-2 text-xs text-muted">{tells.baseline ? `Baseline captured: ${tells.calibrationReport ?? "you are ready"}.` : tells.status === "running" ? "Camera on without a baseline." : "Playing without a camera."}</p>{!tells.baseline && tells.status === "running" && <button onClick={() => tells.calibrate().then((b) => b && onDone())} className="mt-2 w-full rounded-lg border border-felt-edge py-1.5 text-xs">Capture a 10s baseline</button>}</div>;
+    return <div className="rounded-2xl border border-felt-edge p-3"><p className="mb-2 text-xs font-semibold text-gold">Your camera</p><WebcamFeed videoRef={tells.videoRef} className="aspect-[4/3] w-full" /><p className="mt-2 text-xs text-muted">{tells.baseline ? `Baseline captured: ${tells.calibrationReport ?? "you are ready"}.` : tells.status === "running" ? (tells.calibrationReport ?? "Camera on without a baseline.") : "Playing without a camera."}</p>{!tells.baseline && tells.status === "running" && <button onClick={() => tells.calibrate().then((b) => b && onDone())} className="mt-2 w-full rounded-lg border border-felt-edge py-1.5 text-xs">Capture a 10s baseline</button>}</div>;
   }
   return <Calibration videoRef={tells.videoRef} status={tells.status} progress={tells.calibrating?.progress ?? null} facePresent={!!tells.frame?.facePresent} onStartCamera={tells.start} onCalibrate={() => tells.calibrate().then((b) => b && onDone())} onSkip={onDone} message={tells.baseline ? null : tells.calibrationReport} />;
 }

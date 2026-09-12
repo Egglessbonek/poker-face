@@ -16,6 +16,8 @@ import type { TalkEvent } from "@/hooks/useTable";
 
 /** A line older than this when its turn comes is skipped: the moment has passed. */
 export const STALE_MS = 12_000;
+/** A line from an earlier hand is still spoken if it is this fresh: two seats talking at a hand's end must both be heard. */
+export const EARLIER_HAND_GRACE_MS = 5_000;
 /** Consecutive TTS failures before the header says "Voice unavailable". */
 const FAILURES_BEFORE_UNAVAILABLE = 2;
 /** One-sample silent WAV; playing it inside a click unlocks audio for the tab. */
@@ -30,7 +32,7 @@ export interface QueuedLine {
 /** The lines still worth speaking, in order: drops stale ones and any from an earlier hand than the newest waiting. */
 export function freshLines(queue: QueuedLine[], now: number): QueuedLine[] {
   const newestHand = queue.reduce((m, q) => Math.max(m, q.event.handNumber), -Infinity);
-  return queue.filter((q) => now - q.receivedAt <= STALE_MS && q.event.handNumber >= newestHand);
+  return queue.filter((q) => now - q.receivedAt <= STALE_MS && (q.event.handNumber >= newestHand || now - q.receivedAt <= EARLIER_HAND_GRACE_MS));
 }
 
 type Outcome = "spoken" | "blocked" | "failed";
@@ -46,6 +48,8 @@ export function useTalk(talk: TalkEvent[], enabled: boolean) {
   const onRef = useRef(false);
   const blockedRef = useRef(false);
   const failures = useRef(0);
+  /** One audio element for every line: the element unlocked by a gesture stays unlocked (Safari re-blocks a fresh `new Audio()` after an await). */
+  const player = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
     onRef.current = enabled && !muted;
   }, [enabled, muted]);
@@ -59,7 +63,8 @@ export function useTalk(talk: TalkEvent[], enabled: boolean) {
       failures.current = 0;
       setUnavailable(false);
       url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
+      const audio = (player.current ??= new Audio());
+      audio.src = url;
       setSpeaking(t.playerId);
       return await new Promise<Outcome>((resolve) => {
         audio.onended = () => resolve("spoken");
@@ -107,9 +112,20 @@ export function useTalk(talk: TalkEvent[], enabled: boolean) {
     blockedRef.current = false;
     setBlocked(false);
     // A play() inside the gesture is what grants the tab audio; the outcome of the silent clip itself is irrelevant.
-    new Audio(SILENT_WAV).play().catch(() => {});
+    const audio = (player.current ??= new Audio());
+    audio.src = SILENT_WAV;
+    audio.play().catch(() => {});
     void pump();
   }, [pump]);
+
+  // Any click on the page (Fold, Call, a slider) is a user gesture too: use the first one to unlock instead of
+  // waiting for someone to notice the header button.
+  useEffect(() => {
+    if (!blocked) return;
+    const onPointer = () => unblock();
+    document.addEventListener("pointerdown", onPointer, { once: true });
+    return () => document.removeEventListener("pointerdown", onPointer);
+  }, [blocked, unblock]);
 
   useEffect(() => {
     const fresh = talk.filter((t) => t.id > seen.current);

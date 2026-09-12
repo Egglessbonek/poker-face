@@ -257,7 +257,8 @@ export function updateTells(code: string, token: string, input: { frame?: TellFr
   if (input.baseline) setBaseline(code, me.id, input.baseline);
   if (input.frame === undefined && input.vector === undefined) return;
   const prev = t.tells[me.id];
-  const tells: PlayerTells = { frame: input.frame ?? prev?.frame ?? null, vector: input.vector ?? prev?.vector ?? null, at: Date.now() };
+  // An explicit `vector: null` clears the read (the client sends it once a new hand starts); undefined keeps it.
+  const tells: PlayerTells = { frame: input.frame ?? prev?.frame ?? null, vector: input.vector !== undefined ? input.vector : (prev?.vector ?? null), at: Date.now() };
   t.tells[me.id] = tells;
   publish(code, (viewer) => (tellsVisibleTo(t, viewer, me.id) ? { type: "tells", playerId: me.id, tells } : null));
 }
@@ -455,7 +456,12 @@ function dealNext(t: Table): boolean {
   t.turnDeadline = undefined;
   // A fused read belongs to the decision it was taken on. Without this the AIs' first decision of the new hand
   // would cite last hand's snap-fold as if it were happening now.
-  for (const [pid, tells] of Object.entries(t.tells)) if (tells.vector) t.tells[pid] = { ...tells, vector: null, at: Date.now() };
+  for (const [pid, tells] of Object.entries(t.tells)) {
+    if (!tells.vector) continue;
+    const cleared: PlayerTells = { ...tells, vector: null, at: Date.now() };
+    t.tells[pid] = cleared;
+    publish(t.code, (viewer) => (tellsVisibleTo(t, viewer, pid) ? { type: "tells", playerId: pid, tells: cleared } : null));
+  }
   t.vpipThisHand = new Set();
   t.pfrThisHand = new Set();
   for (const p of eligible) statsFor(t, p.id).hands++;

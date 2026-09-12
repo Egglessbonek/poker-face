@@ -31,18 +31,30 @@ function filterMediaPipeChatter() {
   };
 }
 
-export async function getFaceLandmarker(): Promise<FaceLandmarker> {
-  if (instance) return instance;
-  filterMediaPipeChatter();
-  const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
-  instance = await FaceLandmarker.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" },
-    runningMode: "VIDEO",
-    numFaces: 1,
-    outputFaceBlendshapes: true,
-    outputFacialTransformationMatrixes: true,
+let loading: Promise<FaceLandmarker> | null = null;
+
+/**
+ * One landmarker per page. The in-flight load is memoized too, so the lobby preload and a "Turn on camera"
+ * click during the ~8MB download share one runtime instead of creating two GPU delegates.
+ */
+export function getFaceLandmarker(): Promise<FaceLandmarker> {
+  if (instance) return Promise.resolve(instance);
+  loading ??= (async () => {
+    filterMediaPipeChatter();
+    const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
+    instance = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" },
+      runningMode: "VIDEO",
+      numFaces: 1,
+      outputFaceBlendshapes: true,
+      outputFacialTransformationMatrixes: true,
+    });
+    return instance;
+  })().catch((err: unknown) => {
+    loading = null;
+    throw err;
   });
-  return instance;
+  return loading;
 }
 
 export type DetectCallback = (result: FaceLandmarkerResult, timestampMs: number) => void;
