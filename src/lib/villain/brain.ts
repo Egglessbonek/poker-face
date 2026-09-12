@@ -32,13 +32,13 @@ export function tellAdjustment(input: VillainDecisionInput): number {
   return (avg - 0.5) * 0.3;
 }
 
-/** The strategy module's recommendation for this spot, with the tell adjustment folded into equity. */
-export function mathRecommendation(input: VillainDecisionInput): Recommendation {
+/** The strategy module's recommendation for this spot. `withTells` folds the opponents' tells into equity. */
+export function mathRecommendation(input: VillainDecisionInput, withTells = true): Recommendation {
   return recommend({
     street: input.hand.street,
     hole: input.me.holeCards,
     board: input.hand.board,
-    equity: Math.max(0, Math.min(1, input.equity + tellAdjustment(input))),
+    equity: Math.max(0, Math.min(1, input.equity + (withTells ? tellAdjustment(input) : 0))),
     potOdds: input.potOdds,
     pot: input.hand.pot,
     toCall: input.bounds.toCall,
@@ -57,13 +57,15 @@ export function mathRecommendation(input: VillainDecisionInput): Recommendation 
   });
 }
 
+/** Pure math, no tells: the attribution baseline. */
 export function mathAction(input: VillainDecisionInput): ActionType {
-  return mathRecommendation(input).action;
+  return mathRecommendation(input, false).action;
 }
 
 export async function decide(input: VillainDecisionInput): Promise<VillainDecision> {
   const profile = getProfile(input.modelId);
-  const rec = mathRecommendation(input);
+  const rec = mathRecommendation(input, true); // what we play (and show the model) when tells are available
+  const pure = mathRecommendation(input, false).action; // attribution baseline: the same strategy with no tells
   const baseline = rec.action;
 
   const mathOnly = (why: string): VillainDecision => ({
@@ -72,7 +74,8 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
     reasoning: why,
     tableTalk: "",
     tellsUsed: [],
-    mathAction: baseline,
+    mathAction: pure,
+    tellAction: baseline,
     llmUsed: false,
   });
 
@@ -95,7 +98,8 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
       reasoning: out.reasoning,
       tableTalk: out.tableTalk,
       tellsUsed: out.tellsUsed,
-      mathAction: baseline,
+      mathAction: pure,
+      tellAction: baseline,
       llmUsed: true,
     };
   } catch (err) {

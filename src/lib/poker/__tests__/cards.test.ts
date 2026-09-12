@@ -25,6 +25,18 @@ describe("equity", () => {
     expect(four.equity).toBeLessThan(one.equity);
     expect(four.equity).toBeGreaterThan(0.3);
   });
+  it("survives many tight-range opponents without running out of cards", () => {
+    const r = monteCarloEquity(["As", "Kh"], ["2c", "7d", "9s"], 5, 300, undefined, [0.05, 0.05, 0.05, 0.1, 0.1]);
+    expect(r.samples).toBe(300);
+    expect(r.equity).toBeGreaterThan(0);
+    expect(r.equity).toBeLessThan(1);
+  });
+  it("tighter opponent ranges lower a marginal hand's equity", () => {
+    const seeded = (seed: number) => () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+    const vsRandom = monteCarloEquity(["Jh", "Td"], [], 1, 1500, seeded(7), [1]).equity;
+    const vsTight = monteCarloEquity(["Jh", "Td"], [], 1, 1500, seeded(7), [0.1]).equity;
+    expect(vsTight).toBeLessThan(vsRandom);
+  });
   it("describes a flush", () => {
     expect(describeHand(["2s", "5s", "9s", "Ks", "Qs", "3d", "7c"]).name).toBe("Flush");
   });

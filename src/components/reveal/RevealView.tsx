@@ -49,7 +49,7 @@ export default function RevealView({ data }: { data: RevealData }) {
                 <p className="text-xs text-muted">Hand {m.handNumber} · {m.street}</p>
                 <p className="font-medium">
                   {m.aiName} {m.decision.action}{m.decision.amount ? ` ${m.decision.amount}` : ""}
-                  {m.decision.mathAction !== m.decision.action && <span className="text-gold"> — the math said {m.decision.mathAction}</span>}
+                  {m.decision.mathAction !== m.decision.action && <span className="text-gold"> — without your tells the math said {m.decision.mathAction}</span>}
                 </p>
                 <p className="mt-1 text-muted">{m.decision.reasoning}</p>
                 {m.decision.tellsUsed.length > 0 && <p className="mt-1 text-danger">used: {m.decision.tellsUsed.join(", ")}</p>}

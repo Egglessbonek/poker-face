@@ -543,7 +543,8 @@ async function aiAct(t: Table, seat: number) {
   const lastAggressorPrev = [...hand.actions].reverse().find((a) => a.street !== hand.street && (a.type === "bet" || a.type === "raise" || a.type === "allin"));
   const hasInitiative = hand.street !== "preflop" && lastAggressorPrev?.seat === seat && lastAggressorPrev.street === { flop: "preflop", turn: "flop", river: "turn" }[hand.street as "flop" | "turn" | "river"];
   const raisesThisStreet = hand.actions.filter((a) => a.street === hand.street && (a.type === "raise" || a.type === "bet" || a.type === "allin")).length;
-  const tellsOn = t.config.tellVisibility !== "off";
+  const vis = t.config.tellVisibility;
+  const tellsOn = vis === "ai_and_rail" || vis === "everyone" || vis === "ai_only";
   const names: Record<number, string> = {};
   for (const p of t.players) names[p.seat] = p.name;
   const opponents: OpponentView[] = dealtSeats(hand)
