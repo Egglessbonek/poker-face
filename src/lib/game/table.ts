@@ -15,6 +15,8 @@ import { getProfile, resolveProfile } from "@/lib/villain/profile";
 import { pickVoice } from "@/lib/villain/voices";
 import { isSeatableModelId } from "@/lib/llm/models";
 import { appendLog, createLog, endLog, getLog, setBaseline, syncLogPlayers } from "@/lib/store";
+import { buildReveal } from "@/lib/game/reveal";
+import { recordHall } from "@/lib/hall";
 import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
 import { generateCode } from "@/lib/rail/code";
 import {
@@ -22,6 +24,7 @@ import {
   type ActionBounds,
   type ActionType,
   type BaselineStats,
+  type HallEntry,
   type HandState,
   type OpponentView,
   type Player,
@@ -629,6 +632,34 @@ function finishTable(t: Table, reason: string): false {
   endLog(t.code);
   syncLogPlayers(t.code, t.players);
   broadcastState(t);
+  // Hall of Poker Faces: grade the humans now that the log is complete. Never let this break finishing.
+  try {
+    const log = getLog(t.code);
+    if (log) {
+      const data = buildReveal(log);
+      const talk = log.entries.filter((e) => e.kind === "talk").map((e) => String((e.data as { text?: unknown }).text ?? ""));
+      const entries: HallEntry[] = [];
+      for (const h of data.humans) {
+        if (h.pokerFace === null) continue;
+        const bluffs = h.decisions.filter((d) => d.isBluff);
+        const needle = h.player.name.toLowerCase();
+        entries.push({
+          name: h.player.name,
+          code: t.code,
+          pokerFace: h.pokerFace,
+          bluffs: bluffs.length,
+          bluffsCaught: bluffs.filter((d) => (d.tells?.bluffLikelihood ?? 0) >= 0.5).length,
+          readsRight: h.readsRight,
+          readsTotal: h.readsTotal,
+          bestLine: talk.find((line) => line.toLowerCase().includes(needle)),
+          at: log.endedAt ?? Date.now(),
+        });
+      }
+      recordHall(entries);
+    }
+  } catch (err) {
+    console.error("hall: could not record results for", t.code, err);
+  }
   // Give clients a moment to render the final state before the stream closes.
   setTimeout(() => closeChannel(t.code), 30_000);
   return false;
