@@ -40,6 +40,7 @@ import {
 const HAND_END_PAUSE_MS = 5000;
 const AI_THINK_MS: [number, number] = [1200, 2600];
 const DISCONNECTED_TURN_MS = 12_000;
+const FINISHED_CHANNEL_MS = 10 * 60_000;
 
 interface Table {
   code: string;
@@ -654,8 +655,9 @@ function finishTable(t: Table, reason: string): false {
   endLog(t.code);
   syncLogPlayers(t.code, t.players);
   broadcastState(t);
-  // Give clients a moment to render the final state before the stream closes.
-  setTimeout(() => closeChannel(t.code), 30_000);
+  // Keep the finished table's stream open long enough for a rematch link to reach everyone and for the rail
+  // to linger on the final state; the log and the reveal outlive the channel.
+  setTimeout(() => closeChannel(t.code), FINISHED_CHANNEL_MS);
   return false;
 }
 
