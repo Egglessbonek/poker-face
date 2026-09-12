@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* Casino-dark theme. Single committed look; no light mode. */
+:root {
+  --background: #0b0f0d;
+  --foreground: #ece7dc;
+  --felt: #0f3b2e;
+  --felt-edge: #1d5c47;
+  --gold: #d4af37;
+  --chip-red: #b3261e;
+  --chip-blue: #1f4e9c;
+  --muted: #8a8f8b;
+  --card: #f7f3ea;
+  --danger: #e5484d;
+  --ok: #46a758;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-felt: var(--felt);
+  --color-felt-edge: var(--felt-edge);
+  --color-gold: var(--gold);
+  --color-chip-red: var(--chip-red);
+  --color-chip-blue: var(--chip-blue);
+  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
