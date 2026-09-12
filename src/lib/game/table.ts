@@ -12,6 +12,7 @@ import { applyAction, bounds, dealtSeats, legalActions, liveSeats, newHand, next
 import { monteCarloEquity, potOdds } from "@/lib/poker/equity";
 import { decide } from "@/lib/villain/brain";
 import { getProfile, resolveProfile } from "@/lib/villain/profile";
+import { pickVoice } from "@/lib/villain/voices";
 import { isSeatableModelId } from "@/lib/llm/models";
 import { appendLog, createLog, endLog, getLog, setBaseline, syncLogPlayers } from "@/lib/store";
 import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
@@ -297,12 +298,14 @@ async function seatAI(t: Table, modelId: string) {
   if (seat === null || !isSeatableModelId(modelId)) return;
   const profile = await resolveProfile(modelId);
   const dupes = t.players.filter((p) => p.modelId === modelId).length;
+  const voiceId = pickVoice(modelId, profile.vendor, t.players.map((p) => p.voiceId).filter((v): v is string => !!v));
   t.players.push({
     id: `ai-${crypto.randomUUID().slice(0, 8)}`,
     seat,
     name: dupes ? `${profile.name} ${dupes + 1}` : profile.name,
     kind: "ai",
     modelId,
+    voiceId,
     stack: t.config.startingStack,
     connected: true,
     sittingOut: false,
@@ -493,7 +496,7 @@ async function aiAct(t: Table, seat: number) {
   applyAndPublish(t, req, null);
   if (decision.tableTalk) {
     appendLog(t.code, "talk", { handNumber: hand.handNumber, playerId: player.id, text: decision.tableTalk });
-    const talk: TableEvent = { type: "talk", playerId: player.id, text: decision.tableTalk, voiceId: getProfile(player.modelId ?? DEFAULT_TABLE.aiPlayers[0]).voiceId };
+    const talk: TableEvent = { type: "talk", playerId: player.id, text: decision.tableTalk, voiceId: player.voiceId ?? getProfile(player.modelId ?? DEFAULT_TABLE.aiPlayers[0]).voiceId };
     publish(t.code, talk);
   }
 }

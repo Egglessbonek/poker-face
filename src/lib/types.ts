@@ -138,6 +138,8 @@ export interface Player {
   kind: "human" | "ai";
   /** OpenRouter model id for AI seats. */
   modelId?: string;
+  /** ElevenLabs voice assigned to this seat; unique within a table. */
+  voiceId?: string;
   stack: number;
   connected: boolean;
   sittingOut: boolean;
