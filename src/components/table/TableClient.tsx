@@ -126,6 +126,12 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   }, [act, cursor, hand, tells]);
 
   const finishCamera = useCallback(() => setCameraDone(true), []);
+  // Safety net: if the camera somehow stopped between the lobby and the first hand, bring it back so tells keep flowing.
+  const cameraOptedIn = cameraDone || !!tells.baseline;
+  const startCamera = tells.start;
+  useEffect(() => {
+    if (state?.phase === "playing" && cameraOptedIn && tells.status === "idle") void startCamera();
+  }, [state?.phase, cameraOptedIn, tells.status, startCamera]);
   const leave = useCallback(() => {
     void table.leave().then(() => {
       clearIdentity(code);

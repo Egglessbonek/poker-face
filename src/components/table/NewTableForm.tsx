@@ -50,7 +50,7 @@ export default function NewTableForm() {
       <header className="flex flex-col gap-3">
         <p className="text-xs uppercase tracking-[0.32em] text-gold">Open a private table</p>
         <h1 className="max-w-2xl text-4xl font-semibold tracking-tight sm:text-5xl">Your game, your stakes, your tells.</h1>
-        <p className="max-w-2xl text-muted">Set the house rules, then share one four-digit code with players and the rail.</p>
+        <p className="max-w-2xl text-muted">Set the house rules, then share one four-letter code with players and the rail.</p>
       </header>
 
       <form onSubmit={create} className="flex flex-col gap-5">
