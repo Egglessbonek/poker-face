@@ -1,0 +1,550 @@
+/**
+ * Server-owned table: lobby, seating, hand loop, AI turns, turn timer, tells, per-viewer views, log.
+ *
+ * One Table per 4-digit code, kept on globalThis (single Node process). Clients never see the deck or
+ * other players' hole cards until showdown. `drive()` advances the table until a human must act, then
+ * stops; a human action (or the turn timer) calls it again.
+ */
+
+import "server-only";
+import type { ActionRequest } from "@/lib/poker/engine";
+import { applyAction, bounds, dealtSeats, legalActions, liveSeats, newHand, nextSeat, positionLabel, publicHand } from "@/lib/poker/engine";
+import { monteCarloEquity, potOdds } from "@/lib/poker/equity";
+import { decide } from "@/lib/villain/brain";
+import { getPersona, isPersonaId } from "@/lib/villain/personas";
+import { appendLog, createLog, endLog, getLog, setBaseline, syncLogPlayers } from "@/lib/store";
+import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
+import { generateCode } from "@/lib/rail/code";
+import {
+  DEFAULT_TABLE,
+  type ActionBounds,
+  type ActionType,
+  type BaselineStats,
+  type HandState,
+  type OpponentView,
+  type Player,
+  type PlayerTells,
+  type TableConfig,
+  type TableEvent,
+  type TableLog,
+  type TableState,
+  type TellFrame,
+  type TellVector,
+  type Viewer,
+} from "@/lib/types";
+
+const HAND_END_PAUSE_MS = 5000;
+const AI_THINK_MS: [number, number] = [1200, 2600];
+const DISCONNECTED_TURN_MS = 12_000;
+
+interface Table {
+  code: string;
+  config: TableConfig;
+  phase: TableState["phase"];
+  hostId: string;
+  players: Player[];
+  tokens: Map<string, string>; // token -> playerId
+  hand: HandState | null;
+  handNumber: number;
+  button: number;
+  tells: Record<string, PlayerTells>;
+  turnDeadline?: number;
+  turnTimer?: ReturnType<typeof setTimeout>;
+  driving: boolean;
+  createdAt: number;
+  standings?: TableState["standings"];
+}
+
+const g = globalThis as unknown as { __tables?: Map<string, Table> };
+const tables = (g.__tables ??= new Map<string, Table>());
+
+export class TableError extends Error {
+  constructor(message: string, public status = 400) {
+    super(message);
+  }
+}
+
+// ---------- lobby ----------
+
+export function createTable(configPatch: Partial<TableConfig>, hostName: string): { code: string; playerId: string; token: string } {
+  const config = sanitizeConfig({ ...DEFAULT_TABLE, ...configPatch });
+  const code = generateCode((c) => tables.has(c));
+  const hostId = crypto.randomUUID();
+  const token = crypto.randomUUID();
+  const t: Table = {
+    code,
+    config,
+    phase: "lobby",
+    hostId,
+    players: [{ id: hostId, seat: 0, name: cleanName(hostName, "Host"), kind: "human", stack: config.startingStack, connected: false, sittingOut: false }],
+    tokens: new Map([[token, hostId]]),
+    hand: null,
+    handNumber: 0,
+    button: 0,
+    tells: {},
+    driving: false,
+    createdAt: Date.now(),
+  };
+  tables.set(code, t);
+  openChannel(code);
+  for (const personaId of config.aiPlayers) seatAI(t, personaId);
+  createLog(code, config, t.players);
+  return { code, playerId: hostId, token };
+}
+
+export function joinTable(code: string, name: string): { playerId: string; token: string } {
+  const t = must(code);
+  if (t.phase === "finished") throw new TableError("This table has finished", 410);
+  if (t.phase === "playing" && !t.config.allowLateJoin) throw new TableError("Table is already playing and does not allow late joins", 409);
+  const seat = freeSeat(t);
+  if (seat === null) throw new TableError("Table is full", 409);
+  const playerId = crypto.randomUUID();
+  const token = crypto.randomUUID();
+  t.players.push({ id: playerId, seat, name: cleanName(name, `Player ${seat + 1}`), kind: "human", stack: t.config.startingStack, connected: false, sittingOut: false });
+  t.tokens.set(token, playerId);
+  syncLogPlayers(code, t.players);
+  broadcastState(t);
+  return { playerId, token };
+}
+
+export function addAI(code: string, token: string, personaId: string): void {
+  const t = must(code);
+  requireHost(t, token);
+  if (t.phase !== "lobby") throw new TableError("AI players can only be added in the lobby");
+  if (!isPersonaId(personaId)) throw new TableError(`Unknown persona ${personaId}`);
+  if (freeSeat(t) === null) throw new TableError("Table is full", 409);
+  seatAI(t, personaId);
+  syncLogPlayers(code, t.players);
+  broadcastState(t);
+}
+
+export function removePlayer(code: string, token: string, playerId: string): void {
+  const t = must(code);
+  requireHost(t, token);
+  if (t.phase !== "lobby") throw new TableError("Players can only be removed in the lobby");
+  if (playerId === t.hostId) throw new TableError("The host cannot be removed");
+  t.players = t.players.filter((p) => p.id !== playerId);
+  for (const [tok, pid] of t.tokens) if (pid === playerId) t.tokens.delete(tok);
+  syncLogPlayers(code, t.players);
+  broadcastState(t);
+}
+
+export function updateConfig(code: string, token: string, patch: Partial<TableConfig>): void {
+  const t = must(code);
+  requireHost(t, token);
+  if (t.phase !== "lobby") throw new TableError("Config can only change in the lobby");
+  const next = sanitizeConfig({ ...t.config, ...patch, aiPlayers: t.config.aiPlayers });
+  if (next.maxSeats < t.players.length) throw new TableError(`${t.players.length} players are seated; cannot shrink to ${next.maxSeats} seats`);
+  t.config = next;
+  for (const p of t.players) p.stack = next.startingStack;
+  const log = getLog(code);
+  if (log) log.config = next;
+  broadcastState(t);
+}
+
+export function startTable(code: string, token: string): void {
+  const t = must(code);
+  requireHost(t, token);
+  if (t.phase !== "lobby") throw new TableError("Table already started");
+  if (t.players.length < 2) throw new TableError("Need at least two players");
+  t.phase = "playing";
+  appendLog(code, "table_start", { config: t.config, players: t.players });
+  broadcastState(t);
+  void drive(t);
+}
+
+export function leaveTable(code: string, token: string): void {
+  const t = must(code);
+  const me = playerByToken(t, token);
+  if (t.phase === "lobby") {
+    if (me.id === t.hostId) {
+      finishTable(t, "host left");
+      return;
+    }
+    t.players = t.players.filter((p) => p.id !== me.id);
+    t.tokens.delete(token);
+    syncLogPlayers(code, t.players);
+    broadcastState(t);
+    return;
+  }
+  me.sittingOut = true;
+  if (t.hand && !t.hand.over && t.hand.toAct === me.seat) {
+    autoAct(t, me.seat);
+    void drive(t);
+  } else broadcastState(t);
+}
+
+// ---------- play ----------
+
+export function act(code: string, token: string, req: Omit<ActionRequest, "seat">, tells: TellVector | null): void {
+  const t = must(code);
+  const me = playerByToken(t, token);
+  if (t.phase !== "playing" || !t.hand || t.hand.over) throw new TableError("No hand in progress");
+  if (t.hand.toAct !== me.seat) throw new TableError("Not your turn");
+  clearTurnTimer(t);
+  applyAndPublish(t, { ...req, seat: me.seat }, tells);
+  void drive(t);
+}
+
+export function updateTells(code: string, token: string, input: { frame?: TellFrame | null; vector?: TellVector | null; baseline?: BaselineStats }): void {
+  const t = must(code);
+  const me = playerByToken(t, token);
+  if (input.baseline) setBaseline(code, me.id, input.baseline);
+  if (input.frame === undefined && input.vector === undefined) return;
+  const prev = t.tells[me.id];
+  const tells: PlayerTells = { frame: input.frame ?? prev?.frame ?? null, vector: input.vector ?? prev?.vector ?? null, at: Date.now() };
+  t.tells[me.id] = tells;
+  publish(code, (viewer) => (tellsVisibleTo(t, viewer, me.id) ? { type: "tells", playerId: me.id, tells } : null));
+}
+
+export function setConnected(code: string, playerId: string): void {
+  const t = tables.get(code);
+  const p = t?.players.find((x) => x.id === playerId);
+  if (!t || !p) return;
+  const now = connections(code, playerId) > 0;
+  if (p.connected === now) return;
+  p.connected = now;
+  broadcastState(t);
+}
+
+// ---------- views ----------
+
+export function resolveViewer(code: string, token: string | null): Viewer {
+  const t = must(code);
+  if (!token) return { kind: "rail" };
+  const pid = t.tokens.get(token);
+  if (!pid) throw new TableError("Bad token", 401);
+  return { kind: "player", playerId: pid };
+}
+
+export function getState(code: string, viewer: Viewer): TableState {
+  return toState(must(code), viewer);
+}
+
+export function tableExists(code: string): boolean {
+  return tables.has(code) && hasChannel(code);
+}
+
+export function getTableLog(code: string): TableLog | undefined {
+  return getLog(code);
+}
+
+/** Tells this viewer is allowed to see right now (replayed to late joiners). */
+export function visibleTells(code: string, viewer: Viewer): Record<string, PlayerTells> {
+  const t = must(code);
+  const out: Record<string, PlayerTells> = {};
+  for (const [pid, tells] of Object.entries(t.tells)) if (tellsVisibleTo(t, viewer, pid)) out[pid] = tells;
+  return out;
+}
+
+function tellsVisibleTo(t: Table, viewer: Viewer, ownerId: string): boolean {
+  const vis = t.config.tellVisibility;
+  if (viewer.kind === "rail") return vis === "ai_and_rail" || vis === "everyone" || vis === "rail_only";
+  if (viewer.playerId === ownerId) return false; // own HUD is local
+  return vis === "everyone";
+}
+
+function toState(t: Table, viewer: Viewer): TableState {
+  const seat = viewer.kind === "player" ? (t.players.find((p) => p.id === viewer.playerId)?.seat ?? -1) : "all";
+  return {
+    code: t.code,
+    config: t.config,
+    phase: t.phase,
+    hostId: t.hostId,
+    players: t.players,
+    hand: t.hand ? publicHand(t.hand, seat) : null,
+    handNumber: t.handNumber,
+    turnDeadline: t.turnDeadline,
+    createdAt: t.createdAt,
+    standings: t.standings,
+  };
+}
+
+function broadcastState(t: Table) {
+  publish(t.code, (viewer) => ({ type: "state", state: toState(t, viewer) }));
+}
+
+// ---------- internals ----------
+
+function must(code: string): Table {
+  const t = tables.get(code);
+  if (!t) throw new TableError("No such table", 404);
+  return t;
+}
+
+function playerByToken(t: Table, token: string): Player {
+  const pid = t.tokens.get(token);
+  const p = pid ? t.players.find((x) => x.id === pid) : undefined;
+  if (!p) throw new TableError("Bad token", 401);
+  return p;
+}
+
+function requireHost(t: Table, token: string) {
+  if (t.tokens.get(token) !== t.hostId) throw new TableError("Host only", 403);
+}
+
+function freeSeat(t: Table): number | null {
+  const taken = new Set(t.players.map((p) => p.seat));
+  for (let i = 0; i < t.config.maxSeats; i++) if (!taken.has(i)) return i;
+  return null;
+}
+
+function seatAI(t: Table, personaId: string) {
+  const seat = freeSeat(t);
+  if (seat === null || !isPersonaId(personaId)) return;
+  const persona = getPersona(personaId);
+  const dupes = t.players.filter((p) => p.personaId === personaId).length;
+  t.players.push({
+    id: `ai-${personaId}-${crypto.randomUUID().slice(0, 6)}`,
+    seat,
+    name: dupes ? `${persona.name} ${dupes + 1}` : persona.name,
+    kind: "ai",
+    personaId,
+    stack: t.config.startingStack,
+    connected: true,
+    sittingOut: false,
+  });
+}
+
+function cleanName(name: string, fallback: string): string {
+  const n = (name ?? "").trim().slice(0, 20);
+  return n || fallback;
+}
+
+function sanitizeConfig(c: TableConfig): TableConfig {
+  const int = (v: unknown, lo: number, hi: number, def: number) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def;
+  };
+  const vis: TableConfig["tellVisibility"][] = ["ai_and_rail", "everyone", "ai_only", "rail_only", "off"];
+  const smallBlind = int(c.smallBlind, 1, 1_000_000, DEFAULT_TABLE.smallBlind);
+  return {
+    maxSeats: int(c.maxSeats, 2, 9, DEFAULT_TABLE.maxSeats),
+    startingStack: int(c.startingStack, 2, 100_000_000, DEFAULT_TABLE.startingStack),
+    smallBlind,
+    bigBlind: Math.max(smallBlind, int(c.bigBlind, 1, 2_000_000, DEFAULT_TABLE.bigBlind)),
+    handsPerMatch: int(c.handsPerMatch, 0, 1000, DEFAULT_TABLE.handsPerMatch),
+    turnTimerSec: int(c.turnTimerSec, 0, 600, DEFAULT_TABLE.turnTimerSec),
+    tellVisibility: vis.includes(c.tellVisibility) ? c.tellVisibility : DEFAULT_TABLE.tellVisibility,
+    aiPlayers: Array.isArray(c.aiPlayers) ? c.aiPlayers.filter(isPersonaId).slice(0, 8) : DEFAULT_TABLE.aiPlayers,
+    allowLateJoin: c.allowLateJoin !== false,
+    voice: c.voice !== false,
+  };
+}
+
+function playerAtSeat(t: Table, seat: number): Player | undefined {
+  return t.players.find((p) => p.seat === seat);
+}
+
+/** Advance the table until a human must act or the table finishes. Re-entrant safe via `driving`. */
+async function drive(t: Table): Promise<void> {
+  if (t.driving) return;
+  t.driving = true;
+  try {
+    while (t.phase === "playing") {
+      if (!t.hand || t.hand.over) {
+        if (t.hand?.over) await sleep(HAND_END_PAUSE_MS);
+        if (t.phase !== "playing") break;
+        if (!dealNext(t)) break;
+        continue;
+      }
+      const seat = t.hand.toAct;
+      if (seat === null) break; // engine settles hands with no action left; should not happen
+      const player = playerAtSeat(t, seat);
+      if (!player || player.sittingOut) {
+        autoAct(t, seat);
+        continue;
+      }
+      if (player.kind === "ai") {
+        await sleep(AI_THINK_MS[0] + Math.random() * (AI_THINK_MS[1] - AI_THINK_MS[0]));
+        if (t.phase !== "playing" || !t.hand || t.hand.over || t.hand.toAct !== seat) continue;
+        await aiAct(t, seat);
+        continue;
+      }
+      armTurnTimer(t, player);
+      break;
+    }
+  } finally {
+    t.driving = false;
+  }
+}
+
+/** Deal the next hand. Returns false (and finishes the table) when the match is over. */
+function dealNext(t: Table): boolean {
+  const eligible = t.players.filter((p) => !p.sittingOut && p.stack > 0);
+  const withChips = t.players.filter((p) => p.stack > 0);
+  if (t.config.handsPerMatch > 0 && t.handNumber >= t.config.handsPerMatch) return finishTable(t, "hand limit reached");
+  if (withChips.length < 2) return finishTable(t, "one player has all the chips");
+  if (eligible.length < 2) return finishTable(t, "not enough players seated");
+
+  const seats = Array.from({ length: t.config.maxSeats }, (_, i) => {
+    const p = eligible.find((x) => x.seat === i);
+    return p ? { playerId: p.id, stack: p.stack } : null;
+  });
+  const button = t.handNumber === 0 && seats[t.button] ? t.button : nextSeat({ seats }, t.button)!;
+  t.handNumber += 1;
+  t.button = button;
+  t.hand = newHand(t.handNumber, seats, button, t.config);
+  t.turnDeadline = undefined;
+  appendLog(t.code, "hand_start", {
+    handNumber: t.handNumber,
+    button,
+    seats: t.hand.seats.map((s, i) => (s ? { seat: i, playerId: s.playerId, stack: s.stack + s.totalIn, holeCards: s.holeCards } : null)).filter(Boolean),
+  });
+  broadcastState(t);
+  if (t.hand.over) settleHand(t);
+  return true;
+}
+
+function applyAndPublish(t: Table, req: ActionRequest, tells: TellVector | null) {
+  if (!t.hand) return;
+  t.hand = applyAction(t.hand, req, t.config);
+  const action = t.hand.actions[t.hand.actions.length - 1];
+  const player = playerAtSeat(t, req.seat);
+  appendLog(t.code, "action", { handNumber: t.hand.handNumber, playerId: player?.id, action, tells });
+  if (tells && player) appendLog(t.code, "tells", { handNumber: t.hand.handNumber, street: action.street, playerId: player.id, tells });
+  t.turnDeadline = undefined;
+  publish(t.code, { type: "action", action, playerId: player?.id ?? "" });
+  broadcastState(t);
+  if (t.hand.over) settleHand(t);
+}
+
+function settleHand(t: Table) {
+  const hand = t.hand;
+  if (!hand || !hand.over) return;
+  for (const p of t.players) {
+    const s = hand.seats[p.seat];
+    if (s && s.playerId === p.id) p.stack = s.stack;
+  }
+  syncLogPlayers(t.code, t.players);
+  appendLog(t.code, "hand_end", {
+    handNumber: hand.handNumber,
+    board: hand.board,
+    pots: hand.pots,
+    results: hand.results,
+    foldedOut: hand.foldedOut,
+    stacks: t.players.map((p) => ({ playerId: p.id, stack: p.stack })),
+  });
+  publish(t.code, { type: "hand_end", hand: publicHand(hand, "all") });
+  broadcastState(t);
+}
+
+async function aiAct(t: Table, seat: number) {
+  const hand = t.hand!;
+  const me = hand.seats[seat]!;
+  const player = playerAtSeat(t, seat)!;
+  const legal = legalActions(hand, seat, t.config);
+  const b: ActionBounds = bounds(hand, seat, t.config);
+  const live = liveSeats(hand).filter((i) => i !== seat).length;
+  const eq = monteCarloEquity(me.holeCards, hand.board, live, live > 2 ? 800 : 1200);
+  const tellsOn = t.config.tellVisibility !== "off";
+  const names: Record<number, string> = {};
+  for (const p of t.players) names[p.seat] = p.name;
+  const opponents: OpponentView[] = dealtSeats(hand)
+    .filter((i) => i !== seat)
+    .map((i) => {
+      const s = hand.seats[i]!;
+      const p = playerAtSeat(t, i);
+      return {
+        seat: i,
+        name: p?.name ?? `Seat ${i + 1}`,
+        kind: p?.kind ?? "human",
+        stack: s.stack,
+        committed: s.committed,
+        folded: s.folded,
+        allIn: s.allIn,
+        position: positionLabel(hand, i),
+        tells: tellsOn && p?.kind === "human" ? (t.tells[p.id]?.vector ?? null) : null,
+      };
+    });
+
+  const decision = await decide({
+    hand: { handNumber: hand.handNumber, street: hand.street, board: hand.board, pot: hand.pot, currentBet: hand.currentBet, minRaise: hand.minRaise, actions: hand.actions },
+    me: { seat, holeCards: me.holeCards, stack: me.stack, committed: me.committed, position: positionLabel(hand, seat) },
+    opponents,
+    names,
+    legalActions: legal,
+    bounds: b,
+    equity: eq.equity,
+    potOdds: potOdds(b.toCall, hand.pot),
+    personaId: player.personaId ?? "vega",
+  });
+
+  // The table may have moved on while the LLM was thinking (e.g. host ended it).
+  if (t.phase !== "playing" || t.hand !== hand) return;
+
+  let req: ActionRequest = { seat, type: decision.action, amount: decision.amount };
+  try {
+    if (!legal.includes(req.type)) throw new Error("illegal");
+    if ((req.type === "bet" || req.type === "raise") && (req.amount === undefined || req.amount < b.minTotal || req.amount > b.maxTotal)) req.amount = b.minTotal;
+    applyAction(hand, req, t.config); // dry run
+  } catch {
+    const fallback: ActionType = legal.includes("check") ? "check" : legal.includes("call") ? "call" : "fold";
+    req = { seat, type: fallback };
+    decision.action = fallback;
+    decision.amount = undefined;
+  }
+
+  appendLog(t.code, "ai_decision", { handNumber: hand.handNumber, street: hand.street, playerId: player.id, equity: eq.equity, opponents, decision });
+  publish(t.code, { type: "ai_decision", playerId: player.id, decision, handNumber: hand.handNumber, street: hand.street });
+  applyAndPublish(t, req, null);
+  if (decision.tableTalk) {
+    appendLog(t.code, "talk", { handNumber: hand.handNumber, playerId: player.id, text: decision.tableTalk });
+    const talk: TableEvent = { type: "talk", playerId: player.id, text: decision.tableTalk, voiceId: getPersona(player.personaId ?? "vega").voiceId };
+    publish(t.code, talk);
+  }
+}
+
+/** Check if possible, otherwise fold. Used by the turn timer, sitting-out players, and orphaned seats. */
+function autoAct(t: Table, seat: number) {
+  if (!t.hand || t.hand.over || t.hand.toAct !== seat) return;
+  const legal = legalActions(t.hand, seat, t.config);
+  const type: ActionType = legal.includes("check") ? "check" : "fold";
+  clearTurnTimer(t);
+  applyAndPublish(t, { seat, type }, null);
+}
+
+function armTurnTimer(t: Table, player: Player) {
+  clearTurnTimer(t);
+  const ms = t.config.turnTimerSec > 0 ? t.config.turnTimerSec * 1000 : player.connected ? 0 : DISCONNECTED_TURN_MS;
+  if (!ms) {
+    t.turnDeadline = undefined;
+    broadcastState(t);
+    return;
+  }
+  t.turnDeadline = Date.now() + ms;
+  const seat = player.seat;
+  t.turnTimer = setTimeout(() => {
+    t.turnTimer = undefined;
+    if (t.hand && !t.hand.over && t.hand.toAct === seat) {
+      autoAct(t, seat);
+      void drive(t);
+    }
+  }, ms);
+  broadcastState(t);
+}
+
+function clearTurnTimer(t: Table) {
+  if (t.turnTimer) clearTimeout(t.turnTimer);
+  t.turnTimer = undefined;
+}
+
+function finishTable(t: Table, reason: string): false {
+  clearTurnTimer(t);
+  t.phase = "finished";
+  t.hand = t.hand && t.hand.over ? t.hand : null;
+  t.standings = [...t.players]
+    .sort((a, b) => b.stack - a.stack)
+    .map((p) => ({ playerId: p.id, name: p.name, stack: p.stack, net: p.stack - t.config.startingStack }));
+  appendLog(t.code, "table_end", { reason, standings: t.standings });
+  endLog(t.code);
+  syncLogPlayers(t.code, t.players);
+  broadcastState(t);
+  // Give clients a moment to render the final state before the stream closes.
+  setTimeout(() => closeChannel(t.code), 30_000);
+  return false;
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
