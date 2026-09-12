@@ -140,7 +140,10 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
       tells.noteDecision(snapshot, latency);
       setLastVector({ vector, handNumber: hand.handNumber });
     }
-    void act(type, amount, latency, vector);
+    // A rejected action (stale bet bounds) must hand the bar back, or the player is stuck until the timer folds them.
+    void act(type, amount, latency, vector).then((ok) => {
+      if (!ok) setSentFor(null);
+    });
   }, [act, hand, tells]);
 
   const finishCamera = useCallback(() => setCameraDone(true), []);
