@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MIN_BLINK_RATE, WARMUP_MS, computeBaseline, updateBaselineAfterDecision, updateMotionBaseline } from "../baseline";
+import { MIN_BLINK_RATE, WARMUP_MS, computeBaseline, decidingHeadMotion, updateBaselineAfterDecision } from "../baseline";
 import type { TellFrame } from "@/lib/types";
 
 const frame = (t: number, over: Partial<TellFrame> = {}): TellFrame => ({
@@ -33,30 +33,35 @@ describe("computeBaseline", () => {
   });
 });
 
-describe("adaptive motion baseline", () => {
+describe("stillness reference from recent decisions", () => {
   const base = () => computeBaseline(series(40, 250));
+  const snap = (n: number, headMotion: number) => ({ handNumber: 1, street: "flop" as const, decisionLatencyMs: 4000, frames: series(n, 250, () => ({ headMotion })), cardRevealReactions: [] });
 
-  it("drifts toward how still the player actually is when deciding", () => {
+  it("has no reference before the first decision window, then the median of recent windows", () => {
     let b = base();
-    for (let i = 0; i < 8; i++) b = updateMotionBaseline(b, 0.0006);
-    expect(b.headMotion).toBeLessThan(0.002 * 0.5);
-    expect(b.headMotion).toBeGreaterThan(0.0006 * 0.9);
+    expect(decidingHeadMotion(b)).toBeNull();
+    b = updateBaselineAfterDecision(b, snap(12, 0.001), 4000);
+    expect(decidingHeadMotion(b)).toBeCloseTo(0.001, 6);
+    for (const m of [0.003, 0.002]) b = updateBaselineAfterDecision(b, snap(12, m), 4000);
+    expect(decidingHeadMotion(b)).toBeCloseTo(0.002, 6);
   });
 
-  it("caps the step so one wild decision cannot swing the baseline", () => {
-    const b = base();
-    expect(updateMotionBaseline(b, 1).headMotion / b.headMotion).toBeCloseTo(Math.pow(4, 0.25), 3);
-    expect(updateMotionBaseline(b, 1e-9).headMotion / b.headMotion).toBeCloseTo(Math.pow(0.25, 0.25), 3);
-    expect(updateMotionBaseline(b, 0).headMotion).toBe(b.headMotion);
+  it("keeps only the last seven windows", () => {
+    let b = base();
+    for (let i = 1; i <= 10; i++) b = updateBaselineAfterDecision(b, snap(12, i), 4000);
+    expect(b.recentHeadMotion).toEqual([4, 5, 6, 7, 8, 9, 10]);
   });
 
-  it("needs a few face frames before a decision window moves head motion, but latency always adapts", () => {
+  it("is not dragged down by a minority of frozen decisions", () => {
+    let b = base();
+    for (const m of [1, 1, 0.3, 1, 1, 0.3, 1]) b = updateBaselineAfterDecision(b, snap(12, m), 4000);
+    expect(decidingHeadMotion(b)).toBe(1);
+  });
+
+  it("needs a few face frames before a window counts, but latency always adapts", () => {
     const b = base();
-    const short = { handNumber: 1, street: "flop" as const, decisionLatencyMs: 8000, frames: series(2, 250, () => ({ headMotion: 0.0001 })), cardRevealReactions: [] };
-    const after = updateBaselineAfterDecision(b, short, 8000);
-    expect(after.headMotion).toBe(b.headMotion);
+    const after = updateBaselineAfterDecision(b, snap(2, 0.0001), 8000);
+    expect(after.recentHeadMotion).toBeUndefined();
     expect(after.decisionLatencyMs).toBeGreaterThan(b.decisionLatencyMs);
-    const long = { ...short, frames: series(12, 250, () => ({ headMotion: 0.0001 })) };
-    expect(updateBaselineAfterDecision(b, long, 8000).headMotion).toBeLessThan(b.headMotion);
   });
 });

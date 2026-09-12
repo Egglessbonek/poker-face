@@ -13,6 +13,7 @@
  * TODO(phase 3): weights, confidence from frame count/face presence, trend from history.
  */
 
+import { decidingHeadMotion } from "./baseline";
 import type { BaselineStats, Evidence, TellSnapshot, TellVector } from "@/lib/types";
 
 export function fuseTells(snapshot: TellSnapshot, baseline: BaselineStats | null, history: TellVector[] = []): TellVector {
@@ -31,10 +32,12 @@ export function fuseTells(snapshot: TellSnapshot, baseline: BaselineStats | null
   // Facial micro-signals are weak individually (DePaulo et al. 2003 meta-analysis): cap their weight.
   if (blinkRatio > 1.5) evidence.push({ signal: "blink_rate", direction: "bluff", strength: Math.min(0.6, (blinkRatio - 1) / 2), text: `blink rate ${blinkRatio.toFixed(1)}x baseline` });
 
-  // Freeze.
-  const motionRatio = avg((f) => f.headMotion) / baseline.headMotion;
-  // Freezing is one of the better-supported bluff cues (Caro; Slepian et al. 2013 on motion smoothness).
-  if (motionRatio < 0.4) evidence.push({ signal: "freeze", direction: "bluff", strength: Math.min(0.7, (0.4 - motionRatio) / 0.4), text: "went unusually still" });
+  // Freeze: stiller than this player's own recent decisions. Freezing is one of the better-supported bluff
+  // cues (Caro; Slepian et al. 2013 on motion smoothness), but only as a deviation from how the player usually
+  // decides, so it needs one prior decision window and can never fire on the first decision.
+  const usual = decidingHeadMotion(baseline);
+  const motionRatio = usual === null ? 1 : avg((f) => f.headMotion) / usual;
+  if (usual !== null && motionRatio < 0.4) evidence.push({ signal: "freeze", direction: "bluff", strength: Math.min(0.7, (0.4 - motionRatio) / 0.4), text: `went unusually still (${Math.round(motionRatio * 100)}% of usual motion)` });
 
   // Tension.
   const tensionDelta = avg((f) => f.tension) - baseline.tension;

@@ -36,7 +36,7 @@ Nothing is invented. Each human decision ships with a tell vector built in the b
 | Smile leak (Duchenne) after a card | strength | Ekman; genuine vs social smiles |
 | Blink rate vs your baseline, jaw/brow tension | arousal, weak bluff cue | DePaulo et al. 2003 meta-analysis: facial cues are weak alone, so they are capped |
 
-Everything is a deviation from **your** baseline: a 10-second calibration in the lobby, then the timing and stillness baselines keep adapting to how you actually play, so a naturally still player is not "frozen" on every hand. The AI's math is computed twice, with and without your tells, and the Reveal shows every decision the tells changed.
+Everything is a deviation from **your** baseline: a 10-second calibration in the lobby, then timing adapts to how fast you actually play, and stillness is judged against the median of your own recent decisions (never the calibration), so a naturally still player is not "frozen" on every hand and a freeze cannot fire on your first decision. The AI's math is computed twice, with and without your tells, and the Reveal shows every decision the tells changed.
 
 ## Layout
 

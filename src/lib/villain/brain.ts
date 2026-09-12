@@ -23,14 +23,17 @@ const DecisionSchema = z.object({
   tellsUsed: z.array(z.string()).default([]),
 });
 
-/** Average bluff likelihood across live opponents with tell data, or 0. */
+/**
+ * Equity shift from the live opponents' tells, or 0. Each read counts by its distance from neutral (0.5) scaled
+ * by its confidence, so a low-confidence read shrinks toward zero rather than toward "opponent is strong".
+ * Opponents likely bluffing -> act as if we have more equity. Range: -0.2 .. +0.2, enough that a confident
+ * read flips a marginal spot, which is the whole point of the table.
+ */
 export function tellAdjustment(input: VillainDecisionInput): number {
   const live = input.opponents.filter((o) => !o.folded && o.tells && o.tells.confidence > 0.2);
   if (!live.length) return 0;
-  const avg = live.reduce((a, o) => a + o.tells!.bluffLikelihood * o.tells!.confidence, 0) / live.length;
-  // Opponents likely bluffing -> act as if we have more equity. Range: about -0.2 .. +0.2: enough that a
-  // confident read flips a marginal spot, which is the whole point of the table.
-  return (avg - 0.5) * 0.4;
+  const avg = live.reduce((a, o) => a + (o.tells!.bluffLikelihood - 0.5) * o.tells!.confidence, 0) / live.length;
+  return avg * 0.4;
 }
 
 /** The strategy module's recommendation for this spot. `withTells` folds the opponents' tells into equity. */

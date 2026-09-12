@@ -44,27 +44,30 @@ export function updateLatencyBaseline(baseline: BaselineStats, latencyMs: number
   return { ...baseline, decisionLatencyMs: baseline.decisionLatencyMs + alpha * (latencyMs - baseline.decisionLatencyMs) };
 }
 
-/** Face frames a decision window needs before it may move the motion baseline. */
-const MIN_DECISION_FRAMES = 4;
+/** Decision windows kept as the stillness reference. Odd, so the median is a real window; 7 rides out a 30% freeze rate. */
+export const RECENT_WINDOWS = 7;
+/** Face frames a decision window needs before it counts as a stillness sample. */
+export const MIN_DECISION_FRAMES = 4;
 
 /**
- * Geometric running update for head motion. Nobody sits through a decision the way they sat through
- * "relax and look at the camera", so after each decision the motion baseline drifts toward this player's own
- * deciding posture. "Freeze" then means stiller than *they* usually are on a decision, not stiller than the
- * calibration. Multiplicative with a clamped step, so one animated or one frozen decision cannot swing it.
+ * Fold one decision window into the adaptive parts of the baseline: latency, and the list of recent
+ * decision-window head-motion means. Call after fusing, so the decision is judged against what came before it.
  */
-export function updateMotionBaseline(baseline: BaselineStats, decisionHeadMotion: number, alpha = 0.25): BaselineStats {
-  if (!Number.isFinite(decisionHeadMotion) || decisionHeadMotion <= 0) return baseline;
-  const ratio = Math.min(4, Math.max(0.25, decisionHeadMotion / baseline.headMotion));
-  return { ...baseline, headMotion: Math.max(baseline.headMotion * Math.pow(ratio, alpha), 1e-6) };
+export function updateBaselineAfterDecision(baseline: BaselineStats, snapshot: TellSnapshot, latencyMs: number): BaselineStats {
+  const next = updateLatencyBaseline(baseline, latencyMs);
+  const frames = snapshot.frames.filter((f) => f.facePresent);
+  if (frames.length < MIN_DECISION_FRAMES) return next;
+  const mean = frames.reduce((a, f) => a + f.headMotion, 0) / frames.length;
+  if (!Number.isFinite(mean)) return next;
+  return { ...next, recentHeadMotion: [...(baseline.recentHeadMotion ?? []), mean].slice(-RECENT_WINDOWS) };
 }
 
-/** Fold one decision window into the adaptive parts of the baseline: latency and head motion. Call after fusing. */
-export function updateBaselineAfterDecision(baseline: BaselineStats, snapshot: TellSnapshot, latencyMs: number): BaselineStats {
-  let next = updateLatencyBaseline(baseline, latencyMs);
-  const frames = snapshot.frames.filter((f) => f.facePresent);
-  if (frames.length >= MIN_DECISION_FRAMES) {
-    next = updateMotionBaseline(next, frames.reduce((a, f) => a + f.headMotion, 0) / frames.length);
-  }
-  return next;
+/**
+ * How much this player usually moves while deciding: the median of their recent decision windows. Null before
+ * the first window. Never the calibration: nobody decides the way they sat through "relax and look at the
+ * camera", and a median (unlike a running average) is not dragged down by the freezes it exists to expose.
+ */
+export function decidingHeadMotion(baseline: BaselineStats): number | null {
+  const recent = baseline.recentHeadMotion;
+  return recent && recent.length ? Math.max(median(recent), 1e-6) : null;
 }
