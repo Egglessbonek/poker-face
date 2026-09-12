@@ -12,6 +12,7 @@ import { applyAction, bounds, dealtSeats, legalActions, liveSeats, newHand, next
 import { monteCarloEquity, potOdds } from "@/lib/poker/equity";
 import { decide } from "@/lib/villain/brain";
 import { getPersona, isPersonaId } from "@/lib/villain/personas";
+import { warmCatalog } from "@/lib/llm/catalog";
 import { appendLog, createLog, endLog, getLog, setBaseline, syncLogPlayers } from "@/lib/store";
 import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
 import { generateCode } from "@/lib/rail/code";
@@ -68,6 +69,7 @@ export class TableError extends Error {
 
 export function createTable(configPatch: Partial<TableConfig>, hostName: string): { code: string; playerId: string; token: string } {
   const config = sanitizeConfig({ ...DEFAULT_TABLE, ...configPatch });
+  warmCatalog();
   const code = generateCode((c) => tables.has(c));
   const hostId = crypto.randomUUID();
   const token = crypto.randomUUID();
@@ -326,7 +328,7 @@ function sanitizeConfig(c: TableConfig): TableConfig {
     handsPerMatch: int(c.handsPerMatch, 0, 1000, DEFAULT_TABLE.handsPerMatch),
     turnTimerSec: int(c.turnTimerSec, 0, 600, DEFAULT_TABLE.turnTimerSec),
     tellVisibility: vis.includes(c.tellVisibility) ? c.tellVisibility : DEFAULT_TABLE.tellVisibility,
-    aiPlayers: Array.isArray(c.aiPlayers) ? c.aiPlayers.filter(isPersonaId).slice(0, 8) : DEFAULT_TABLE.aiPlayers,
+    aiPlayers: Array.isArray(c.aiPlayers) ? c.aiPlayers.filter((x) => typeof x === "string" && isPersonaId(x)).slice(0, 8) : DEFAULT_TABLE.aiPlayers,
     allowLateJoin: c.allowLateJoin !== false,
     voice: c.voice !== false,
   };

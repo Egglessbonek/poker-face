@@ -11,7 +11,7 @@ A No-Limit Hold'em table for friends and AI players. Create a table, share the 4
 | App | Next.js 16 (App Router), React 19, Tailwind v4 |
 | Camera tells | MediaPipe Face Landmarker (WASM, in-browser, 478 landmarks + 52 blendshapes) |
 | Poker | N-player NLHE engine with side pots, `pokersolver` + Monte Carlo equity |
-| AI players | Each seat is a real model via OpenRouter (Claude, ChatGPT, DeepSeek, Gemini, Grok, Llama, Mistral, Qwen, Kimi): equity + tells -> that LLM -> strict JSON action + table talk |
+| AI players | Each seat is a real model via OpenRouter: nine regulars (Claude, ChatGPT, DeepSeek, Gemini, Grok, Llama, Mistral, Qwen, Kimi) or any of the hundreds in OpenRouter's live catalog. Equity + tells -> that LLM -> strict JSON action + table talk |
 | Voice | ElevenLabs TTS, one voice per persona, played on every client |
 | Realtime | Server-Sent Events, in-memory bus, per-viewer filtering (private cards, tell visibility) |
 | Deploy | Railway (single Node process) |
@@ -33,7 +33,7 @@ src/lib/game/           table manager (lobby, hand loop, AI turns, timers, log),
 src/lib/realtime/bus.ts per-viewer SSE pub/sub
 src/lib/tells/          landmarker, features, emotion, baseline, cursor, fuse (client-side)
 src/lib/villain/        brain, prompt, personas
-src/lib/llm/            models.ts (the opponents catalog) + provider (OpenRouter | Gemini | Anthropic)
+src/lib/llm/            models.ts (curated seats + id helpers), catalog.ts (cached OpenRouter list), provider
 src/lib/store.ts        in-memory table logs
 src/components/         table (oval, lobby, config), rail, reveal, tell HUD, action bar
 ```

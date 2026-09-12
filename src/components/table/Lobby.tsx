@@ -1,6 +1,7 @@
 "use client";
 
-import { AI_MODELS, getAIModel } from "@/lib/llm/models";
+import { describeModelId, getAIModel } from "@/lib/llm/models";
+import ModelPicker from "./ModelPicker";
 import type { TableState } from "@/lib/types";
 import { VISIBILITY_LABEL } from "./TableConfigForm";
 
@@ -49,7 +50,7 @@ export default function Lobby({ state, playerId, onAddAI, onRemove, onStart, onL
                       <p className="font-medium">
                         {p.name} {p.id === playerId && <span className="text-xs text-muted">(you)</span>} {p.id === state.hostId && <span className="text-xs text-gold">host</span>}
                       </p>
-                      <p className="text-xs text-muted">{p.kind === "ai" ? `${getAIModel(p.personaId ?? "")?.vendor ?? "AI"} · ${getAIModel(p.personaId ?? "")?.tagline ?? ""}` : p.connected ? "connected" : "not connected yet"}</p>
+                      <p className="text-xs text-muted">{p.kind === "ai" ? `${describeModelId(p.personaId ?? "").vendor} · ${getAIModel(p.personaId ?? "")?.tagline ?? p.personaId}` : p.connected ? "connected" : "not connected yet"}</p>
                     </div>
                   </div>
                   {isHost && p.id !== state.hostId && (
@@ -66,14 +67,7 @@ export default function Lobby({ state, playerId, onAddAI, onRemove, onStart, onL
           </ul>
 
           {isHost && free > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted">Seat another model:</span>
-              {AI_MODELS.map((m) => (
-                <button key={m.id} onClick={() => onAddAI(m.id)} title={`${m.vendor} · ${m.openrouter}`} className="rounded-full border border-felt-edge px-3 py-1 text-sm hover:border-gold">
-                  + {m.label}
-                </button>
-              ))}
-            </div>
+            <ModelPicker onAdd={onAddAI} compact />
           )}
 
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1 rounded-xl bg-background/60 p-4 text-sm sm:grid-cols-3">

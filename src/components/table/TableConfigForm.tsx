@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, lastName, saveIdentity } from "@/lib/client/identity";
-import { AI_MODELS, getAIModel } from "@/lib/llm/models";
+import { describeModelId } from "@/lib/llm/models";
+import ModelPicker from "./ModelPicker";
 import { DEFAULT_TABLE, type TableConfig, type TellVisibility } from "@/lib/types";
 
 export const VISIBILITY_LABEL: Record<TellVisibility, string> = {
@@ -81,29 +82,22 @@ export default function TableConfigForm() {
         </select>
       </Field>
 
-      <Field label="AI opponents" hint="Each seat is a specific model, thinking for itself through OpenRouter. Seat the same model twice if you like.">
+      <Field label="AI opponents" hint="Each seat is a specific LLM thinking for itself through OpenRouter: the nine regulars, or any of the hundreds in the catalog. Seat the same model twice if you like.">
         <div className="flex flex-col gap-3">
           <ul className="flex flex-wrap gap-2">
             {cfg.aiPlayers.map((id, i) => {
-              const m = getAIModel(id);
+              const m = describeModelId(id);
               return (
-                <li key={`${id}-${i}`} className="flex items-center gap-2 rounded-full border border-gold bg-gold/10 py-1 pl-3 pr-1 text-sm">
-                  <span className="font-medium">{m?.label ?? id}</span>
-                  <span className="text-xs text-muted">{m?.vendor}</span>
-                  <button type="button" onClick={() => removeAI(i)} aria-label={`Remove ${m?.label ?? id}`} className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-background">×</button>
+                <li key={`${id}-${i}`} className="flex items-center gap-2 rounded-full border border-gold bg-gold/10 py-1 pl-3 pr-1 text-sm" title={id}>
+                  <span className="font-medium">{m.label}</span>
+                  <span className="text-xs text-muted">{m.vendor}</span>
+                  <button type="button" onClick={() => removeAI(i)} aria-label={`Remove ${m.label}`} className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-background">×</button>
                 </li>
               );
             })}
             {cfg.aiPlayers.length === 0 && <li className="text-sm text-muted">No AI opponents yet: humans only.</li>}
           </ul>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {AI_MODELS.map((m) => (
-              <button type="button" key={m.id} onClick={() => addAI(m.id)} disabled={seatsLeft <= 0} className="flex flex-col gap-0.5 rounded-xl border border-felt-edge p-3 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40">
-                <span className="flex items-baseline justify-between gap-2"><span className="font-semibold">+ {m.label}</span><span className="text-[10px] uppercase tracking-wider text-muted">{m.vendor}</span></span>
-                <span className="text-xs text-muted">{m.tagline}</span>
-              </button>
-            ))}
-          </div>
+          <ModelPicker onAdd={addAI} disabled={seatsLeft <= 0} />
           {seatsLeft <= 0 && <p className="text-xs text-gold">Table is full. Add seats above to invite more models.</p>}
         </div>
       </Field>
