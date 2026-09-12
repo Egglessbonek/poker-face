@@ -25,6 +25,7 @@ import {
   type HandState,
   type OpponentView,
   type Player,
+  type PlayerStats,
   type PlayerTells,
   type TableConfig,
   type TableEvent,
@@ -50,6 +51,11 @@ interface Table {
   handNumber: number;
   button: number;
   tells: Record<string, PlayerTells>;
+  /** Per player tendencies over the match. */
+  stats: Record<string, PlayerStats>;
+  /** Players who already counted VPIP/PFR this hand. */
+  vpipThisHand: Set<string>;
+  pfrThisHand: Set<string>;
   /** Per AI player: table-talk lines already spoken, for the no-repeat prompt. */
   saidLines: Record<string, string[]>;
   turnDeadline?: number;
@@ -86,6 +92,9 @@ export async function createTable(configPatch: Partial<TableConfig>, hostName: s
     handNumber: 0,
     button: 0,
     tells: {},
+    stats: {},
+    vpipThisHand: new Set(),
+    pfrThisHand: new Set(),
     saidLines: {},
     driving: false,
     createdAt: Date.now(),
@@ -177,6 +186,23 @@ export function leaveTable(code: string, token: string): void {
     autoAct(t, me.seat);
     void drive(t);
   } else broadcastState(t);
+}
+
+/** Host ends the match now. A hand in progress is voided: everyone gets their chips back. */
+export function endTable(code: string, token: string): void {
+  const t = must(code);
+  requireHost(t, token);
+  if (t.phase !== "playing") throw new TableError("No match in progress");
+  clearTurnTimer(t);
+  if (t.hand && !t.hand.over) {
+    for (const p of t.players) {
+      const seat = t.hand.seats[p.seat];
+      if (seat && seat.playerId === p.id) p.stack = seat.stack + seat.totalIn;
+    }
+    appendLog(t.code, "hand_end", { handNumber: t.hand.handNumber, voided: true, reason: "host ended the match" });
+    t.hand = null;
+  }
+  finishTable(t, "host ended the match");
 }
 
 // ---------- play ----------
@@ -395,6 +421,9 @@ function dealNext(t: Table): boolean {
   t.button = button;
   t.hand = newHand(t.handNumber, seats, button, t.config);
   t.turnDeadline = undefined;
+  t.vpipThisHand = new Set();
+  t.pfrThisHand = new Set();
+  for (const p of eligible) statsFor(t, p.id).hands++;
   appendLog(t.code, "hand_start", {
     handNumber: t.handNumber,
     button,
@@ -410,6 +439,7 @@ function applyAndPublish(t: Table, req: ActionRequest, tells: TellVector | null)
   t.hand = applyAction(t.hand, req, t.config);
   const action = t.hand.actions[t.hand.actions.length - 1];
   const player = playerAtSeat(t, req.seat);
+  if (player) recordStats(t, player.id, action.type, action.street);
   appendLog(t.code, "action", { handNumber: t.hand.handNumber, playerId: player?.id, action, tells });
   if (tells && player) appendLog(t.code, "tells", { handNumber: t.hand.handNumber, street: action.street, playerId: player.id, tells });
   t.turnDeadline = undefined;
@@ -418,9 +448,34 @@ function applyAndPublish(t: Table, req: ActionRequest, tells: TellVector | null)
   if (t.hand.over) settleHand(t);
 }
 
+function statsFor(t: Table, playerId: string): PlayerStats {
+  return (t.stats[playerId] ??= { hands: 0, vpip: 0, pfr: 0, aggressive: 0, calls: 0, showdownsWon: 0, showdowns: 0 });
+}
+
+function recordStats(t: Table, playerId: string, type: ActionType, street: string) {
+  const st = statsFor(t, playerId);
+  if (type === "call" || type === "bet" || type === "raise" || type === "allin") {
+    if (street === "preflop" && !t.vpipThisHand.has(playerId)) { t.vpipThisHand.add(playerId); st.vpip++; }
+  }
+  if (type === "bet" || type === "raise" || type === "allin") {
+    st.aggressive++;
+    if (street === "preflop" && !t.pfrThisHand.has(playerId)) { t.pfrThisHand.add(playerId); st.pfr++; }
+  }
+  if (type === "call") st.calls++;
+}
+
 function settleHand(t: Table) {
   const hand = t.hand;
   if (!hand || !hand.over) return;
+  if (!hand.foldedOut) {
+    for (const r of hand.results ?? []) {
+      const p = playerAtSeat(t, r.seat);
+      if (!p) continue;
+      const st = statsFor(t, p.id);
+      st.showdowns++;
+      if (r.won > 0) st.showdownsWon++;
+    }
+  }
   for (const p of t.players) {
     const s = hand.seats[p.seat];
     if (s && s.playerId === p.id) p.stack = s.stack;
@@ -444,8 +499,21 @@ async function aiAct(t: Table, seat: number) {
   const player = playerAtSeat(t, seat)!;
   const legal = legalActions(hand, seat, t.config);
   const b: ActionBounds = bounds(hand, seat, t.config);
-  const live = liveSeats(hand).filter((i) => i !== seat).length;
-  const eq = monteCarloEquity(me.holeCards, hand.board, live, live > 2 ? 800 : 1200);
+  const liveOpp = liveSeats(hand).filter((i) => i !== seat);
+  const live = liveOpp.length;
+  const preflopOf = (i: number): NonNullable<OpponentView["preflop"]> => {
+    const acts = hand.actions.filter((a) => a.seat === i && a.street === "preflop");
+    if (!acts.length) return "none";
+    if (acts.some((a) => a.type === "raise" || a.type === "bet" || a.type === "allin")) return "raised";
+    if (acts.some((a) => a.type === "call")) return hand.actions.some((a) => a.street === "preflop" && (a.type === "raise" || a.type === "bet")) ? "called" : "limped";
+    return "checked";
+  };
+  // Range estimate per live opponent from their preflop line: raisers are tight, callers medium, limpers/checkers wide.
+  const rangeOf = (i: number) => ({ raised: 0.18, called: 0.35, limped: 0.55, checked: 1, none: 1 })[preflopOf(i)];
+  const eq = monteCarloEquity(me.holeCards, hand.board, live, live > 2 ? 800 : 1200, undefined, liveOpp.map(rangeOf));
+  const lastAggressorPrev = [...hand.actions].reverse().find((a) => a.street !== hand.street && (a.type === "bet" || a.type === "raise" || a.type === "allin"));
+  const hasInitiative = hand.street !== "preflop" && lastAggressorPrev?.seat === seat && lastAggressorPrev.street === { flop: "preflop", turn: "flop", river: "turn" }[hand.street as "flop" | "turn" | "river"];
+  const raisesThisStreet = hand.actions.filter((a) => a.street === hand.street && (a.type === "raise" || a.type === "bet" || a.type === "allin")).length;
   const tellsOn = t.config.tellVisibility !== "off";
   const names: Record<number, string> = {};
   for (const p of t.players) names[p.seat] = p.name;
@@ -464,6 +532,8 @@ async function aiAct(t: Table, seat: number) {
         allIn: s.allIn,
         position: positionLabel(hand, i),
         tells: tellsOn && p?.kind === "human" ? (t.tells[p.id]?.vector ?? null) : null,
+        stats: p ? t.stats[p.id] : undefined,
+        preflop: preflopOf(i),
       };
     });
 
@@ -476,6 +546,9 @@ async function aiAct(t: Table, seat: number) {
     bounds: b,
     equity: eq.equity,
     potOdds: potOdds(b.toCall, hand.pot),
+    bigBlind: t.config.bigBlind,
+    hasInitiative,
+    raisesThisStreet,
     modelId: player.modelId ?? DEFAULT_TABLE.aiPlayers[0],
     recentTalk: (t.saidLines[player.id] ?? []).slice(-4),
   });

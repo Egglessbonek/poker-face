@@ -37,6 +37,8 @@ export function useTells() {
   const [frame, setFrame] = useState<TellFrame | null>(null);
   const [baseline, setBaseline] = useState<BaselineStats | null>(null);
   const [calibrating, setCalibrating] = useState<{ startedAt: number; progress: number } | null>(null);
+  /** Human-readable summary of what the camera saw during calibration, for the player to sanity-check. */
+  const [calibrationReport, setCalibrationReport] = useState<string | null>(null);
 
   const buffer = useRef<TellFrame[]>([]);
   const reveals = useRef<Array<{ event: RevealEvent; t: number }>>([]);
@@ -101,6 +103,11 @@ export function useTells() {
     baselineRef.current = b;
     setBaseline(b);
     setCalibrating(null);
+    const faceFrames = frames.filter((f) => f.facePresent).length;
+    const facePct = frames.length ? Math.round((faceFrames / frames.length) * 100) : 0;
+    const gazes = frames.reduce<Record<string, number>>((acc, f) => ((acc[f.gaze] = (acc[f.gaze] ?? 0) + 1), acc), {});
+    const topGaze = Object.entries(gazes).sort((x, y) => y[1] - x[1])[0]?.[0] ?? "unknown";
+    setCalibrationReport(`face in ${facePct}% of frames, ~${Math.round(b.blinkRate)} blinks/min, mostly looking at ${topGaze}`);
     return b;
   }, []);
 
@@ -134,5 +141,5 @@ export function useTells() {
     [],
   );
 
-  return { videoRef: attachVideo, status, frame, baseline, baselineRef, calibrating, start, stop, calibrate, markReveal, noteLatency, snapshot };
+  return { videoRef: attachVideo, status, frame, baseline, baselineRef, calibrating, calibrationReport, start, stop, calibrate, markReveal, noteLatency, snapshot };
 }

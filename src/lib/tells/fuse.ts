@@ -26,30 +26,34 @@ export function fuseTells(snapshot: TellSnapshot, baseline: BaselineStats | null
 
   // Blink rate ratio.
   const blinkRatio = avg((f) => f.blinkRate) / baseline.blinkRate;
-  if (blinkRatio > 1.5) evidence.push({ signal: "blink_rate", direction: "bluff", strength: Math.min(1, (blinkRatio - 1) / 1.5), text: `blink rate ${blinkRatio.toFixed(1)}x baseline` });
+  // Facial micro-signals are weak individually (DePaulo et al. 2003 meta-analysis): cap their weight.
+  if (blinkRatio > 1.5) evidence.push({ signal: "blink_rate", direction: "bluff", strength: Math.min(0.6, (blinkRatio - 1) / 2), text: `blink rate ${blinkRatio.toFixed(1)}x baseline` });
 
   // Freeze.
   const motionRatio = avg((f) => f.headMotion) / baseline.headMotion;
-  if (motionRatio < 0.4) evidence.push({ signal: "freeze", direction: "bluff", strength: Math.min(1, (0.4 - motionRatio) / 0.4), text: "went unusually still" });
+  // Freezing is one of the better-supported bluff cues (Caro; Slepian et al. 2013 on motion smoothness).
+  if (motionRatio < 0.4) evidence.push({ signal: "freeze", direction: "bluff", strength: Math.min(0.7, (0.4 - motionRatio) / 0.4), text: "went unusually still" });
 
   // Tension.
   const tensionDelta = avg((f) => f.tension) - baseline.tension;
-  if (tensionDelta > 0.1) evidence.push({ signal: "tension", direction: "bluff", strength: Math.min(1, tensionDelta / 0.3), text: "jaw/brow tension up" });
+  if (tensionDelta > 0.1) evidence.push({ signal: "tension", direction: "bluff", strength: Math.min(0.5, tensionDelta / 0.3), text: "jaw/brow tension up" });
 
   // Smile leaks after card reveals.
   for (const r of snapshot.cardRevealReactions) {
     if (r.smileLeak) evidence.push({ signal: "smile_leak", direction: "strength", strength: 0.7, text: `smile leak after the ${r.event}` });
-    if (r.chipGlance) evidence.push({ signal: "chip_glance", direction: "strength", strength: 0.5, text: `glanced at chips after the ${r.event}` });
+    // The chip glance after a card is Caro's most reliable strength tell.
+    if (r.chipGlance) evidence.push({ signal: "chip_glance", direction: "strength", strength: 0.65, text: `glanced at chips after the ${r.event}` });
   }
 
   // Decision latency.
   const latencyRatio = snapshot.decisionLatencyMs / baseline.decisionLatencyMs;
-  if (latencyRatio < 0.5) evidence.push({ signal: "fast_action", direction: "bluff", strength: 0.4, text: "acted unusually fast" });
+  // Timing tells are the strongest class in the literature (Elwood): weigh them above facial cues.
+  if (latencyRatio < 0.5) evidence.push({ signal: "fast_action", direction: "bluff", strength: 0.6, text: "acted unusually fast" });
   if (latencyRatio > 2) evidence.push({ signal: "slow_action", direction: "neutral", strength: 0.3, text: "took a long time to act" });
 
   // Cursor.
   if (snapshot.cursor) {
-    if (snapshot.cursor.hoverFoldMs > 800) evidence.push({ signal: "hover_fold", direction: "bluff", strength: 0.5, text: "hovered over Fold before betting" });
+    if (snapshot.cursor.hoverFoldMs > 800) evidence.push({ signal: "hover_fold", direction: "bluff", strength: 0.6, text: "hovered over Fold before betting" });
     if (snapshot.cursor.tortuosity > 2) evidence.push({ signal: "cursor_hesitation", direction: "bluff", strength: 0.3, text: "hesitant cursor path" });
   }
 

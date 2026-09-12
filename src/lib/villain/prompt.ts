@@ -3,37 +3,47 @@
  * itself; nothing here assigns a character.
  */
 
-import type { ModelProfile, VillainDecisionInput } from "@/lib/types";
+import type { ModelProfile, PlayerStats, VillainDecisionInput } from "@/lib/types";
+import type { Recommendation } from "@/lib/poker/strategy";
 import { describeTells } from "@/lib/tells/fuse";
 
 export function villainSystemPrompt(profile: ModelProfile): string {
   return [
     `You are ${profile.name}, a language model made by ${profile.vendor}, seated at a No-Limit Hold'em table with human players and other AI models. You are playing as yourself: speak and decide in whatever voice and temperament you actually have. No assigned character.`,
     "Each turn you receive the full game state, your equity against the players still in the hand, pot odds, and for each human opponent a camera-based read of their physical tells.",
-    "Decide the action you think is best. The math is the foundation; tells are evidence about a specific opponent's strength, weigh them as you see fit. Do not fold strong hands because of tells alone.",
+    "Decide the action you think is best. You are given a solid baseline strategy's recommendation with its reasoning; play at least that well. Deviate when you have a concrete reason: an opponent's tells, their tendencies over the match, or board texture the baseline ignores. Do not fold strong hands because of tells alone, and do not call large bets with nothing.",
     "Cite only the tells listed in the evidence. Never invent readings that are not there: no heart rate, pulse, sweat, or anything the camera did not report.",
     "Never reveal your own cards. tableTalk is spoken aloud at the table: one short sentence, two at most, addressed to a player by name when you use one of their tells. Say something on most decisions, at least once per hand; a quiet table is a boring table. Leave it empty only if you truly have nothing.",
     'Respond with JSON only: {"action": "fold|check|call|bet|raise|allin", "amount": number|null, "reasoning": string, "tableTalk": string, "tellsUsed": string[]}',
     "amount is your TOTAL chips committed on this street after the action (for bet/raise), within the legal bounds.",
     "Keep reasoning to one or two sentences. Decide quickly; the table is waiting.",
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
-export function villainUserPrompt(input: VillainDecisionInput): string {
+function styleOf(st?: PlayerStats): string {
+  if (!st || st.hands < 3) return "not enough hands to profile";
+  const vpip = st.vpip / st.hands;
+  const af = st.aggressive / Math.max(1, st.calls);
+  return `${vpip > 0.45 ? "loose" : vpip < 0.22 ? "tight" : "medium"} / ${af > 1.5 ? "aggressive" : af < 0.6 ? "passive" : "balanced"} (VPIP ${(vpip * 100).toFixed(0)}%, PFR ${((st.pfr / st.hands) * 100).toFixed(0)}%, aggression ${af.toFixed(1)}, ${st.hands} hands)`;
+}
+
+export function villainUserPrompt(input: VillainDecisionInput, rec?: Recommendation): string {
   const h = input.hand;
   const name = (seat: number) => input.names[seat] ?? `seat ${seat}`;
   const history = h.actions.map((a) => `${a.street} ${name(a.seat)} ${a.type}${a.amount ? " " + a.amount : ""}`).join(", ") || "none";
   const opps = input.opponents.map((o) => {
     const status = o.folded ? "folded" : o.allIn ? "all-in" : "active";
     const tells = o.kind === "human" ? (o.tells ? `tells: ${describeTells(o.tells)}` : "tells: no data") : "AI model";
-    return `- ${o.name} (${o.position}, ${status}): stack ${o.stack}, committed ${o.committed}. ${tells}`;
+    return `- ${o.name} (${o.position}, ${status}${o.preflop && o.preflop !== "none" ? `, ${o.preflop} preflop` : ""}): stack ${o.stack}, committed ${o.committed}. Style: ${styleOf(o.stats)}. ${tells}`;
   });
   return [
     `Hand #${h.handNumber}, street: ${h.street}, board: ${h.board.join(" ") || "(none)"}`,
     `You are ${input.me.position}. Your cards: ${input.me.holeCards.join(" ")}. Your stack ${input.me.stack}, committed ${input.me.committed}.`,
     `Pot ${h.pot}, current bet ${h.currentBet}, min raise ${h.minRaise}. To call: ${input.bounds.toCall}. Bet/raise total must be between ${input.bounds.minTotal} and ${input.bounds.maxTotal}.`,
     `Legal actions: ${input.legalActions.join(", ")}.`,
-    `Your equity vs ${input.opponents.filter((o) => !o.folded).length} live opponent(s) holding random hands: ${(input.equity * 100).toFixed(0)}%. Pot odds to call: ${(input.potOdds * 100).toFixed(0)}%.`,
+    `Your equity vs ${input.opponents.filter((o) => !o.folded).length} live opponent(s) on their estimated ranges: ${(input.equity * 100).toFixed(0)}%. Pot odds to call: ${(input.potOdds * 100).toFixed(0)}%. Stack-to-pot ratio ${h.pot > 0 ? ((input.me.stack + input.me.committed) / h.pot).toFixed(1) : "n/a"}. ${input.hasInitiative ? "You have the initiative from the last street." : "You do not have the initiative."}`,
+    rec ? `Your hand right now: ${rec.read.category} (${rec.read.descr})${rec.read.draws.length ? `, draws: ${rec.read.draws.join(", ")} (${rec.read.outs} outs)` : ""}.` : "",
+    rec ? `Baseline strategy recommends: ${rec.action}${rec.amount ? ` to ${rec.amount}` : ""} — ${rec.reason}.` : "",
     "Opponents:",
     ...opps,
     `Action history: ${history}.`,

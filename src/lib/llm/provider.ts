@@ -47,6 +47,8 @@ export interface CompleteOptions<T> {
   model?: string;
   maxTokens?: number;
   temperature?: number;
+  /** OpenRouter reasoning budget for models that support it. */
+  reasoningEffort?: "low" | "medium" | "high";
 }
 
 export async function completeJSON<T>(opts: CompleteOptions<T>): Promise<T> {
@@ -85,7 +87,7 @@ async function openrouterText(opts: CompleteOptions<unknown>): Promise<string> {
       temperature: opts.temperature ?? 0.7,
       max_tokens: opts.maxTokens ?? 1200,
       // Keep hidden reasoning short so it does not consume the output budget; ignored by non-reasoning models.
-      reasoning: { effort: "low" },
+      reasoning: { effort: opts.reasoningEffort ?? "low" },
     }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });

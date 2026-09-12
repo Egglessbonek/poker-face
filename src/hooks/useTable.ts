@@ -131,11 +131,12 @@ export function useTable(code: string, token: string | null, playerId: string | 
   const removePlayer = useCallback((id: string) => call("/ai", "DELETE", { playerId: id }).catch(() => {}), [call]);
   const updateConfig = useCallback((config: Partial<TableConfig>) => call("/config", "PATCH", { config }).catch(() => {}), [call]);
   const leave = useCallback(() => call("/leave", "POST").catch(() => {}), [call]);
+  const end = useCallback(() => call("/end", "POST").catch(() => {}), [call]);
   const sendTells = useCallback(
     (payload: { frame?: TellFrame | null; vector?: TellVector | null; baseline?: BaselineStats }) =>
       fetch(`/api/table/${code}/tells`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, ...payload }), keepalive: true }).catch(() => {}),
     [code, token],
   );
 
-  return { state, status, error, tells, reads, talk, lastActions, actions, history, me, hand, myTurn, legal, bounds, act, start, addAI, removePlayer, updateConfig, leave, sendTells };
+  return { state, status, error, tells, reads, talk, lastActions, actions, history, me, hand, myTurn, legal, bounds, act, start, addAI, removePlayer, updateConfig, leave, end, sendTells };
 }
