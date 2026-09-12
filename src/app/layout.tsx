@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Libre_Caslon_Display, Onest } from "next/font/google";
+import { Newsreader, Onest } from "next/font/google";
 import "./globals.css";
 
 const onest = Onest({ variable: "--font-onest", subsets: ["latin"], display: "swap" });
-const caslon = Libre_Caslon_Display({ variable: "--font-libre-caslon", weight: "400", subsets: ["latin"], display: "swap" });
+const newsreader = Newsreader({ variable: "--font-newsreader", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "Poker Face",
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${onest.variable} ${caslon.variable} h-full antialiased dark`}>
+    <html lang="en" className={`${onest.variable} ${newsreader.variable} h-full antialiased dark`}>
       <body className="min-h-full flex flex-col bg-background text-foreground">{children}</body>
     </html>
   );

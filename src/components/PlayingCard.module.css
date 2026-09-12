@@ -86,7 +86,7 @@
 }
 
 .title {
-  font-family: var(--font-libre-caslon), Georgia, serif;
+  font-family: var(--font-newsreader), Georgia, serif;
   font-size: 32px;
   line-height: 1.12;
 }

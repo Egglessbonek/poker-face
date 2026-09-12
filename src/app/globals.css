@@ -28,7 +28,7 @@
   --color-danger: var(--danger);
   --color-ok: var(--ok);
   --font-sans: var(--font-onest);
-  --font-display: var(--font-libre-caslon);
+  --font-display: var(--font-newsreader);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -39,6 +39,6 @@ body {
 }
 
 h1, h2, h3 {
-  font-family: var(--font-libre-caslon), Georgia, serif;
+  font-family: var(--font-newsreader), Georgia, serif;
   font-weight: 400;
 }
