@@ -93,7 +93,7 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
       {waiting ? (
         <WaitingRoom table={table} />
       ) : (
-        <div className="mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start xl:overflow-hidden">
+        <div className={`mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:items-start xl:overflow-hidden ${finished ? "place-items-center" : "xl:grid-cols-[minmax(0,1fr)_320px]"}`}>
           <div className="min-w-0">
             {!finished && (
               <div className="mb-2 flex shrink-0 items-center justify-between rounded-xl border border-gold/15 bg-gold/[0.055] px-3.5 py-2">
@@ -106,12 +106,14 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
             )}
             <div className="min-h-0">{finished && table.standings?.length ? <FinalStandings table={table} /> : <RailTable table={table} />}</div>
           </div>
-          <RailInspector humans={humans} ais={ais} history={view.history} currentPlayerId={table.currentPlayerId} />
+          {!finished && <RailInspector humans={humans} ais={ais} history={view.history} currentPlayerId={table.currentPlayerId} />}
         </div>
       )}
-      <div className="mx-auto mt-2 hidden w-full max-w-[1600px] shrink-0 overflow-hidden rounded-xl border border-white/8 xl:block">
-        <RailTicker entries={view.history} />
-      </div>
+      {!finished && (
+        <div className="mx-auto mt-2 hidden w-full max-w-[1600px] shrink-0 overflow-hidden rounded-xl border border-white/8 xl:block">
+          <RailTicker entries={view.history} />
+        </div>
+      )}
     </main>
   );
 }
