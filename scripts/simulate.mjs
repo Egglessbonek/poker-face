@@ -30,7 +30,6 @@ function fakeTells(isBluff) {
   const bluffEv = [
     { signal: "blink_rate", direction: "bluff", strength: 0.6, text: "blink rate 2.1x baseline" },
     { signal: "freeze", direction: "bluff", strength: 0.7, text: "went unusually still" },
-    { signal: "hover_fold", direction: "bluff", strength: 0.5, text: "hovered over Fold before betting" },
   ];
   const strongEv = [
     { signal: "smile_leak", direction: "strength", strength: 0.7, text: "smile leak after the flop" },

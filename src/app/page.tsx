@@ -15,7 +15,7 @@ export default function Landing() {
           <BlurText as="h1" text="Poker Face" animateBy="letters" delay={90} stepDuration={0.3} className="font-display text-7xl leading-none tracking-tight text-gold sm:text-8xl lg:text-9xl" />
           <p className="max-w-3xl font-display text-3xl leading-tight sm:text-4xl">The only opponents who can see your pulse.</p>
           <p className="max-w-xl text-lg text-muted">
-            Hold&apos;em with friends and whichever AI models you invite: Claude, GPT, DeepSeek, Gemini, Grok and hundreds more, each playing as itself. They read your face, your hesitation, and your cursor. Spectators watch your tells live from the rail.
+            Hold&apos;em with friends and whichever AI models you invite: Claude, GPT, DeepSeek, Gemini, Grok and hundreds more, each playing as itself. They read your face and your hesitation. Spectators watch your tells live from the rail.
           </p>
         </div>
         <div className={styles.chipSlot}>

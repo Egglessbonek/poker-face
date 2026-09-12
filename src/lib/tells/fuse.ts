@@ -3,8 +3,10 @@
  *
  * Rules from the poker-tells literature (Caro; Elwood "Reading Poker Tells" / "Verbal Poker Tells";
  * DePaulo et al. 2003; Slepian et al. 2013):
- *   bluff ↑: fast bet, freeze, tension ↑, blink ↑, gaze away, silence, cursor hesitation, fake smile
- *   strength ↑: relaxed, chip glance after card reveal, Duchenne leak, talkative, smooth cursor
+ *   bluff ↑: fast bet, freeze, tension ↑, blink ↑, gaze away, fake smile
+ *   strength ↑: relaxed, chip glance after card reveal, Duchenne leak
+ *
+ * Camera and decision timing only: no cursor tracking, no microphone.
  *
  * Every rule emits an Evidence item with human-readable text so villain talk, rail and reveal can all render it.
  *
@@ -50,15 +52,6 @@ export function fuseTells(snapshot: TellSnapshot, baseline: BaselineStats | null
   // Timing tells are the strongest class in the literature (Elwood): weigh them above facial cues.
   if (latencyRatio < 0.5) evidence.push({ signal: "fast_action", direction: "bluff", strength: 0.6, text: "acted unusually fast" });
   if (latencyRatio > 2) evidence.push({ signal: "slow_action", direction: "neutral", strength: 0.3, text: "took a long time to act" });
-
-  // Cursor.
-  if (snapshot.cursor) {
-    if (snapshot.cursor.hoverFoldMs > 800) evidence.push({ signal: "hover_fold", direction: "bluff", strength: 0.6, text: "hovered over Fold before betting" });
-    if (snapshot.cursor.tortuosity > 2) evidence.push({ signal: "cursor_hesitation", direction: "bluff", strength: 0.3, text: "hesitant cursor path" });
-  }
-
-  // Voice.
-  if (snapshot.voice?.spoke) evidence.push({ signal: "talkative", direction: "strength", strength: 0.3, text: "talked during the decision" });
 
   const bluffScore = evidence.filter((e) => e.direction === "bluff").reduce((a, e) => a + e.strength, 0);
   const strengthScore = evidence.filter((e) => e.direction === "strength").reduce((a, e) => a + e.strength, 0);
