@@ -180,6 +180,7 @@ export type TableEvent =
   | { type: "tells"; playerId: string; tells: PlayerTells }
   | { type: "ai_decision"; playerId: string; decision: VillainDecision; handNumber: number; street: Street }
   | { type: "hand_end"; hand: HandView }
+  | { type: "rematch"; code: string }
   | { type: "ended"; code: string };
 
 // ---------- Tells ----------

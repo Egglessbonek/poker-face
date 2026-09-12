@@ -10,5 +10,5 @@ export default async function TablePage(props: PageProps<"/table/[code]">) {
     if (fixed.length === 4 && fixed !== code) redirect(`/table/${fixed}`);
     notFound();
   }
-  return <TableClient code={code} />;
+  return <TableClient key={code} code={code} />;
 }

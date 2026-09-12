@@ -17,6 +17,7 @@ import { isSeatableModelId } from "@/lib/llm/models";
 import { appendLog, createLog, endLog, getLog, setBaseline, syncLogPlayers } from "@/lib/store";
 import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
 import { generateCode } from "@/lib/rail/code";
+import { aiGuestList } from "@/lib/game/rematch";
 import {
   DEFAULT_TABLE,
   type ActionBounds,
@@ -63,6 +64,8 @@ interface Table {
   driving: boolean;
   createdAt: number;
   standings?: TableState["standings"];
+  /** The table this one was rematched into, so a repeat request returns the same new code. */
+  rematch?: Promise<{ code: string; playerId: string; token: string }>;
 }
 
 const g = globalThis as unknown as { __tables?: Map<string, Table> };
@@ -203,6 +206,28 @@ export function endTable(code: string, token: string): void {
     t.hand = null;
   }
   finishTable(t, "host ended the match");
+}
+
+/**
+ * Host reopens a finished table at a fresh code: same config, same AI guests in the same seat order
+ * (duplicates included). Anyone still on the old table's stream is told the new code. A repeat call
+ * returns the same new table while it is open, so a double click or a retry cannot open two.
+ */
+export async function rematchTable(code: string, token: string): Promise<{ code: string; playerId: string; token: string }> {
+  const t = must(code);
+  requireHost(t, token);
+  if (t.phase !== "finished") throw new TableError("The match has not finished yet");
+  const prev = t.rematch ? await t.rematch.catch(() => null) : null;
+  const open = prev ? tables.get(prev.code) : undefined;
+  if (prev && open && open.phase !== "finished") {
+    publish(t.code, { type: "rematch", code: prev.code });
+    return prev;
+  }
+  const host = playerByToken(t, token);
+  t.rematch = createTable({ ...t.config, aiPlayers: aiGuestList(t.players) }, host.name);
+  const next = await t.rematch;
+  publish(t.code, { type: "rematch", code: next.code });
+  return next;
 }
 
 // ---------- play ----------
