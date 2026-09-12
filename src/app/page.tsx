@@ -1,17 +1,24 @@
 import Link from "next/link";
 import CodeEntry from "@/components/CodeEntry";
+import LandingBackdrop from "@/components/LandingBackdrop";
+import styles from "./landing.module.css";
 
 export default function Landing() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-10 px-6 py-16 text-center">
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-sm uppercase tracking-[0.3em] text-gold">Poker Face</p>
-        <h1 className="max-w-3xl text-5xl font-semibold leading-tight sm:text-6xl">The only opponents who can see your pulse.</h1>
-        <p className="max-w-xl text-lg text-muted">
-          Hold&apos;em with friends and whichever AI models you invite: Claude, GPT, DeepSeek, Gemini, Grok and hundreds more, each playing as itself. They read your face, your hesitation, and your cursor. Spectators watch your tells live from the rail.
-        </p>
+    <main className={`${styles.landing} mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center gap-10 px-6 py-12 sm:px-10 lg:py-16`}>
+      <div className={styles.hero}>
+        <div className={`${styles.copy} flex flex-col items-start gap-4`}>
+          <p className="text-sm uppercase tracking-[0.3em] text-gold">Poker Face</p>
+          <h1 className="max-w-3xl text-5xl leading-tight sm:text-6xl">The only opponents who can see your pulse.</h1>
+          <p className="max-w-xl text-lg text-muted">
+            Hold&apos;em with friends and whichever AI models you invite: Claude, GPT, DeepSeek, Gemini, Grok and hundreds more, each playing as itself. They read your face, your hesitation, and your cursor. Spectators watch your tells live from the rail.
+          </p>
+        </div>
+        <div className={styles.chipSlot}>
+          <LandingBackdrop />
+        </div>
       </div>
-      <div className="grid w-full max-w-3xl gap-4 sm:grid-cols-3">
+      <div className={`${styles.actions} grid w-full gap-4 sm:grid-cols-3`}>
         <Link href="/table/new" className="flex flex-col gap-2 rounded-2xl border border-gold/60 bg-gold/10 p-5 text-left transition hover:bg-gold/20">
           <span className="text-xs uppercase tracking-widest text-gold">Host</span>
           <span className="text-xl font-semibold">Create a table</span>
