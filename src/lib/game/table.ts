@@ -35,6 +35,7 @@ import {
   type TableEvent,
   type TableLog,
   type TableState,
+  type TableListing,
   type TellFrame,
   type TellVector,
   type Viewer,
@@ -75,6 +76,24 @@ interface Table {
 
 const g = globalThis as unknown as { __tables?: Map<string, Table> };
 const tables = (g.__tables ??= new Map<string, Table>());
+
+/** Tables anyone can watch right now: in play first, then lobbies filling up; newest first within each. */
+export function listOpenTables(limit = 24): TableListing[] {
+  const order: Record<string, number> = { playing: 0, lobby: 1 };
+  return [...tables.values()]
+    .filter((t) => t.phase === "playing" || t.phase === "lobby")
+    .sort((a, b) => order[a.phase] - order[b.phase] || b.createdAt - a.createdAt)
+    .slice(0, limit)
+    .map((t) => ({
+      code: t.code,
+      phase: t.phase,
+      handNumber: t.handNumber,
+      handsPerMatch: t.config.handsPerMatch,
+      humans: t.players.filter((p) => p.kind === "human").map((p) => p.name),
+      ais: t.players.filter((p) => p.kind === "ai").map((p) => p.name),
+      createdAt: t.createdAt,
+    }));
+}
 
 export class TableError extends Error {
   constructor(message: string, public status = 400) {
