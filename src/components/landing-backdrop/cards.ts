@@ -2,6 +2,8 @@ import * as THREE from "three";
 
 const INNER_RADIUS = 3.2;
 export const CARD_BELT_OUTER_RADIUS = 9.2;
+const REPULSION_RADIUS = 2.4;
+const REPULSION_DISTANCE = 3.4;
 
 /** Instanced playing cards orbit and repel from the pointer like the reference belt. */
 export function createDistantCards(ivory: string, red: string, blue: string) {
@@ -164,18 +166,18 @@ export function createDistantCards(ivory: string, red: string, blue: string) {
           orbital.set(Math.cos(angle) * radius, card.height, Math.sin(angle) * radius);
           push.copy(orbital).sub(cursor);
           const distance = push.length();
-          const nearby = distance < 1.25;
+          const nearby = distance < REPULSION_RADIUS;
           if (nearby) {
-            const strength = (1.25 - distance) / 1.25;
-            push.multiplyScalar(strength * 1.125 / ((distance + 0.001) * (1 + card.size * 2)));
+            const strength = (REPULSION_RADIUS - distance) / REPULSION_RADIUS;
+            push.multiplyScalar(strength * REPULSION_DISTANCE / ((distance + 0.001) * (1 + card.size * 2)));
           } else push.set(0, 0, 0);
           if (time === 0) {
             card.displacement.set(0, 0, 0);
             card.brightness = 1;
           } else {
-            // Time-based easing preserves the reference's soft, size-dependent
-            // repulsion and brighter hover response at our capped 30fps.
-            card.displacement.lerp(push, 1 - Math.exp(-delta * (2.5 / card.size)));
+            // Respond decisively near the pointer, then ease back more slowly.
+            const response = nearby ? 5 : 2.5;
+            card.displacement.lerp(push, 1 - Math.exp(-delta * (response / card.size)));
             card.brightness = THREE.MathUtils.lerp(card.brightness, nearby ? 5 : 1, 1 - Math.exp(-delta * 12));
           }
           dummy.position.copy(orbital).add(card.displacement);
