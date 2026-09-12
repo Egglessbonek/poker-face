@@ -183,6 +183,8 @@ export function act(code: string, token: string, req: Omit<ActionRequest, "seat"
   if (t.phase !== "playing" || !t.hand || t.hand.over) throw new TableError("No hand in progress");
   if (t.hand.toAct !== me.seat) throw new TableError("Not your turn");
   clearTurnTimer(t);
+  // The fused read for this decision is the freshest tell data; the AIs use it on their next turn.
+  if (tells) t.tells[me.id] = { frame: t.tells[me.id]?.frame ?? null, vector: tells, at: Date.now() };
   applyAndPublish(t, { ...req, seat: me.seat }, tells);
   void drive(t);
 }

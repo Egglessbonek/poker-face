@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { llmAvailable } from "@/lib/llm/provider";
+import { currentProvider, llmAvailable } from "@/lib/llm/provider";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +10,13 @@ export async function GET() {
     ok: true,
     uptimeSec: Math.round(process.uptime()),
     llm: llmAvailable(),
+    provider: (() => {
+      try {
+        return currentProvider();
+      } catch {
+        return "invalid";
+      }
+    })(),
     voice: !!process.env.ELEVENLABS_API_KEY,
   });
 }
