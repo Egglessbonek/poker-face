@@ -297,6 +297,8 @@ export interface VillainDecisionInput {
   equity: number;
   potOdds: number; // 0-1
   modelId: string;
+  /** This seat's most recent table-talk lines, newest last, so it does not repeat itself. */
+  recentTalk: string[];
 }
 
 export interface VillainDecision {
