@@ -98,6 +98,7 @@ function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells
         stack: seat ? seat.stack : p.stack,
         committed: seat?.committed ?? 0,
         cards: seat ? seat.holeCards.map(toRailCard) : [],
+        inHand,
         cardsVisible: !!seat && seat.holeCards.length > 0,
         folded: !inHand || !!seat?.folded,
         allIn: !!seat?.allIn,

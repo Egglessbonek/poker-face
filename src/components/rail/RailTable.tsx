@@ -14,15 +14,32 @@ function cardCode(card: RailCard): Card {
   return `${card.rank}${SUIT_CODE[card.suit]}` as Card;
 }
 
+function cardLabel(card: RailCard): string {
+  const rank = { A: "Ace", K: "King", Q: "Queen", J: "Jack", T: "Ten" }[card.rank] ?? card.rank;
+  return `${rank} of ${card.suit}`;
+}
+
 function PlayerCards({ player }: { player: RailPlayerView }) {
   if (player.cardsVisible) {
     return (
       <div className="flex gap-1">
-        {player.cards.map((card, index) => <PlayingCard key={`${player.id}-${index}`} card={cardCode(card)} size="sm" />)}
+        {player.cards.map((card, index) => (
+          <div key={`${player.id}-${index}`} role="img" aria-label={cardLabel(card)}>
+            <div aria-hidden="true"><PlayingCard card={cardCode(card)} size="sm" /></div>
+          </div>
+        ))}
       </div>
     );
   }
-  return <div className="flex gap-1">{[0, 1].map((index) => <PlayingCard key={index} size="sm" />)}</div>;
+  return (
+    <div className="flex gap-1">
+      {[0, 1].map((index) => (
+        <div key={index} role="img" aria-label={`Hidden hole card ${index + 1}`}>
+          <div aria-hidden="true"><PlayingCard size="sm" /></div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function PlayerSeat({ player, active }: { player: RailPlayerView; active: boolean }) {
@@ -51,10 +68,10 @@ function PlayerSeat({ player, active }: { player: RailPlayerView; active: boolea
 
       <div className="mt-2 flex items-baseline justify-between gap-2 border-t border-felt-edge pt-1.5">
         <p className="min-w-0 truncate text-left text-xs font-semibold text-foreground" title={player.bestHand}>
-          {player.bestHand ?? "Calculating…"}
+          {!player.inHand ? "Not in hand" : player.bestHand ?? "Calculating…"}
         </p>
         <p className="shrink-0 font-mono text-xs text-gold">
-          {player.equity !== undefined ? `${player.equity}%` : "—"}
+          {player.inHand && player.equity !== undefined ? `${player.equity}%` : "—"}
         </p>
       </div>
     </div>
@@ -83,8 +100,12 @@ export default function RailTable({ table }: { table: RailTableSnapshot }) {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
             <div className="flex h-20 items-center gap-2">
               {Array.from({ length: 5 }, (_, index) => table.board[index]
-                ? <PlayingCard key={index} card={cardCode(table.board[index])} />
-                : <div key={index} className="h-20 w-14 rounded-lg border border-dashed border-white/15" />)}
+                ? (
+                  <div key={index} role="img" aria-label={`Community card ${index + 1}: ${cardLabel(table.board[index])}`}>
+                    <div aria-hidden="true"><PlayingCard card={cardCode(table.board[index])} /></div>
+                  </div>
+                )
+                : <div key={index} aria-hidden="true" className="h-20 w-14 rounded-lg border border-dashed border-white/15" />)}
             </div>
             <PotDisplay table={table} />
           </div>

@@ -63,6 +63,22 @@ describe("equity", () => {
     expect(result.two.equity).toBe(0.5);
     expect(result.one.bestHand).toBe("Straight Flush");
   });
+  it("samples preflop equity deterministically and preserves the whole pot", () => {
+    const players = [
+      { id: "aces", hole: ["As", "Ah"], folded: false },
+      { id: "kings", hole: ["Ks", "Kh"], folded: false },
+      { id: "folded", hole: ["Qs", "Qh"], folded: true },
+    ] as const;
+
+    const input = () => players.map((player) => ({ ...player, hole: [...player.hole] }));
+    const first = knownTableEquities(input(), [], 80);
+    const second = knownTableEquities(input(), [], 80);
+
+    expect(second).toEqual(first);
+    expect(first.aces.samples).toBe(80);
+    expect(first.folded.equity).toBe(0);
+    expect(first.aces.equity + first.kings.equity).toBeCloseTo(1, 10);
+  });
 });
 
 describe("engine", () => {

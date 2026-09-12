@@ -43,6 +43,8 @@ export interface RailPlayerView {
   stack: number;
   committed: number;
   cards: RailCard[];
+  /** Whether this seat was dealt into the current hand. */
+  inHand: boolean;
   /** The server controls whether this viewer may see the cards. */
   cardsVisible: boolean;
   folded: boolean;
@@ -52,7 +54,7 @@ export interface RailPlayerView {
   isSmallBlind?: boolean;
   isBigBlind?: boolean;
   lastAction?: string;
-  /** Chance to win against the other face-up rail hands on a completed board. */
+  /** Current showdown equity against the other non-folded dealt hands, including possible runouts. */
   equity?: number;
   /** Best made-hand category on the current street. */
   bestHand?: string;

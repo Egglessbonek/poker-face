@@ -136,7 +136,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     const liveSnapshot = snapshotTells(now - 4000, {
       handNumber: hand.handNumber,
       street: hand.street,
-      // Live display updates should not invent a fast/slow action tell between decisions.
+      // This rolling feed keeps the rail current and gives AIs the latest webcam read on their next turn.
+      // Keep decision latency neutral here because no new player decision occurred.
       decisionLatencyMs: baseline.decisionLatencyMs,
     });
     const history = liveVectorHistory.current.length >= 2 ? liveVectorHistory.current : [lastVector.vector, lastVector.vector];

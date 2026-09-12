@@ -10,8 +10,8 @@ function Meter({ value, color }: { value: number; color: string }) {
 }
 
 function TrendIcon({ trend }: { trend: "rising" | "falling" | "stable" }) {
-  if (trend === "rising") return <TrendingUp size={13} className="text-danger" />;
-  if (trend === "falling") return <TrendingDown size={13} className="text-ok" />;
+  if (trend === "rising") return <TrendingUp size={13} className="text-ok" />;
+  if (trend === "falling") return <TrendingDown size={13} className="text-danger" />;
   return <Minus size={13} className="text-white/45" />;
 }
 
