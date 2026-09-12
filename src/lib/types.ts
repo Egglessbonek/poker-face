@@ -330,8 +330,10 @@ export interface VillainDecision {
   reasoning: string;
   tableTalk: string;
   tellsUsed: string[];
-  /** What the math layer alone would have done. Shown on the reveal. */
+  /** What the strategy would do with no tell data at all. */
   mathAction: ActionType;
+  /** What the strategy does once the opponents' tells adjust the equity. Differs from mathAction only because of tells. */
+  tellAction?: ActionType;
   llmUsed: boolean;
 }
 

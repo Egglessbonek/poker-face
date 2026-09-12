@@ -37,21 +37,26 @@ export function monteCarloEquity(hole: Card[], board: Card[], opponents = 1, sam
   let tie = 0;
   let tieShare = 0;
 
+  const rand = rng ?? Math.random;
   for (let i = 0; i < samples; i++) {
-    const deck = shuffle(remaining, rng);
-    // Deal each opponent from the top of the deck, skipping hands outside their range (bounded retries).
+    // Pool of undealt cards for this sample; opponents draw pairs by index so a rejected pair goes back to the pool.
+    const pool = [...remaining];
     const dealt: Card[] = [];
-    let cursor = 0;
     for (let k = 0; k < n; k++) {
       const pct = ranges?.[k] ?? 1;
-      let tries = 0;
-      while (cursor + 1 < deck.length) {
-        const a = deck[cursor], b = deck[cursor + 1];
-        cursor += 2;
-        if (inRange(a, b, pct) || ++tries > 12) { dealt.push(a, b); break; }
+      let a = 0, b = 1;
+      for (let tries = 0; tries < 24; tries++) {
+        a = Math.floor(rand() * pool.length);
+        b = Math.floor(rand() * (pool.length - 1));
+        if (b >= a) b++;
+        if (inRange(pool[a], pool[b], pct)) break;
       }
+      const [hi, lo] = a > b ? [a, b] : [b, a];
+      dealt.push(pool[a], pool[b]);
+      pool.splice(hi, 1);
+      pool.splice(lo, 1);
     }
-    const runout = deck.slice(cursor, cursor + (5 - board.length));
+    const runout = shuffle(pool, rng).slice(0, 5 - board.length);
     const fullBoard = [...board, ...runout];
     const mine = Hand.solve([...hole, ...fullBoard]);
     const hands = [mine];

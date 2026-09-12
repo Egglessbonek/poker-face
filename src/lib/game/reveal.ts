@@ -131,8 +131,9 @@ export function buildReveal(log: TableLog): RevealData {
     decisionsByPlayer.set(a.playerId, list);
   }
 
+  const tellChanged = (d: AIDecisionData) => (d.decision.tellAction ?? d.decision.mathAction) !== d.decision.mathAction || (d.decision.action !== d.decision.mathAction && d.decision.tellsUsed.length > 0);
   const tellMoments: TellMoment[] = aiDecisions
-    .filter((d) => d.decision.tellsUsed.length > 0 || d.decision.mathAction !== d.decision.action)
+    .filter(tellChanged)
     .map((d) => ({
       handNumber: d.handNumber,
       street: d.street,
@@ -182,7 +183,7 @@ export function buildReveal(log: TableLog): RevealData {
     humans,
     tellMoments,
     aiDecisions: aiDecisions.length,
-    aiTellChanged: aiDecisions.filter((d) => d.decision.mathAction !== d.decision.action && d.decision.tellsUsed.length > 0).length,
+    aiTellChanged: aiDecisions.filter(tellChanged).length,
   };
 }
 
