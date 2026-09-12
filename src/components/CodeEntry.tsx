@@ -14,8 +14,6 @@ export default function CodeEntry({ title, hint, mode, label, rank, suit }: { ti
       className={`${styles.card} ${suit === "♥" || suit === "♦" ? styles.red : ""}`}
     >
       <PlayingCardMarks rank={rank} suit={suit} />
-      <span className={styles.category}>Code</span>
-      <span className={styles.title}>{title}</span>
       <span className={styles.hint}>{hint}</span>
       <div className={styles.entry}>
         <input

@@ -1,0 +1,53 @@
+/* OptionWheel (React Bits), as a CSS module. Each option is absolutely centered, then offset along the
+   curve by the rAF loop through transform/opacity/filter, so everything stays in step. */
+.wheel {
+  --ow-text-color: #a6a6a6;
+  --ow-active-color: #ffffff;
+  --ow-font-size: 3rem;
+  --ow-inset: 80px;
+  --ow-center: 50%;
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  outline: none;
+}
+
+.wheel:focus-visible {
+  box-shadow: inset 0 0 0 1px rgb(212 175 55 / 45%);
+  border-radius: 16px;
+}
+
+.dragging {
+  cursor: grabbing;
+}
+
+.item {
+  position: absolute;
+  top: var(--ow-center);
+  left: var(--ow-inset);
+  white-space: nowrap;
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: var(--ow-font-size);
+  font-weight: 400;
+  line-height: 1;
+  transform-origin: left center;
+  cursor: pointer;
+  will-change: transform, opacity, filter;
+  /* --ow-p goes 0 -> 1 as an option approaches the middle of the wheel */
+  color: color-mix(in srgb, var(--ow-active-color) calc(var(--ow-p, 0) * 100%), var(--ow-text-color));
+}
+
+.right .item {
+  left: auto;
+  right: var(--ow-inset);
+  transform-origin: right center;
+}
+
+.selected {
+  font-weight: 500;
+}
