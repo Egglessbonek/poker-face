@@ -341,10 +341,13 @@ export function mountBackdrop(host: HTMLDivElement): () => void {
       );
       // A broad field crosses the page midpoint behind the copy. Fit its full
       // projected diameter to the viewport independently of the chip's size.
-      const beltWidth = desktop ? host.clientWidth * 0.60 : slot.width * 0.96;
+      const beltWidth = desktop ? host.clientWidth * 0.90 : slot.width * 0.96;
       const beltScale = beltWidth * worldPerPixel / (12.4 * scale);
       const beltHeightScale = Math.min(beltScale, slot.height * 0.95 * worldPerPixel / (9 * scale));
       cards.group.scale.set(beltScale, beltHeightScale, beltScale);
+      // Spread the wider field behind the copy while retaining the chip's
+      // position and keeping the belt's outer edges inside the viewport.
+      cards.group.position.x = desktop ? (host.clientWidth * 0.52 - centerX) * worldPerPixel / scale : 0;
       key.intensity = 85 * scale ** 2;
       key.shadow.camera.near = 0.5 * scale;
       key.shadow.camera.far = 15 * scale;
