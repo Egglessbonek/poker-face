@@ -17,6 +17,8 @@ import { emotionFromBlendshapes } from "./emotion";
 
 export interface FeatureExtractorState {
   blinkTimestamps: number[];
+  /** First frame time; the blink window is scaled by elapsed time until 20s have passed. */
+  startedAt?: number;
   eyesClosed: boolean;
   poseHistory: Array<{ t: number; x: number; y: number; z: number }>;
   ewma: Partial<Record<"tension" | "smile", number>>;
@@ -39,8 +41,11 @@ export function extractFrame(result: FaceLandmarkerResult, t: number, state: Fea
     state.eyesClosed = false;
   }
   const windowMs = 20_000;
+  state.startedAt ??= t;
   state.blinkTimestamps = state.blinkTimestamps.filter((ts) => t - ts < windowMs);
-  const blinkRate = (state.blinkTimestamps.length / windowMs) * 60_000;
+  // Divide by the span actually observed so the rate is not diluted during the first 20s (calibration is 10s).
+  const span = Math.max(2_000, Math.min(windowMs, t - state.startedAt));
+  const blinkRate = (state.blinkTimestamps.length / span) * 60_000;
 
   // Head motion from transformation matrix translation (TODO: include rotation).
   const m = result.facialTransformationMatrixes?.[0]?.data;
