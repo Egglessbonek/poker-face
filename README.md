@@ -47,6 +47,7 @@ npm install
 npm run dev                  # http://localhost:3000
 npm test
 npm run simulate -- --humans 2 --ais 2 --hands 10   # scripted match against the dev server; prints rail + reveal links
+npm run e2e                                          # real Chrome with a fake webcam (see scripts/e2e-fake-camera.mjs): camera -> tells -> AI -> reveal
 ```
 
 ## Deploy (Railway)

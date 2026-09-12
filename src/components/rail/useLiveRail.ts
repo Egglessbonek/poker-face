@@ -31,13 +31,14 @@ function dominantEmotion(frame: TellFrame | null): string {
 }
 
 function toRailTell(frame: TellFrame | null, vector: TellVector | null): RailTell | undefined {
-  if (!frame && !vector) return undefined;
+  // Arousal and bluff likelihood only exist once a decision has been fused; a bare camera frame is not a read.
+  if (!vector) return undefined;
   return {
-    arousal: vector?.arousal ?? Math.round((frame?.tension ?? 0) * 100),
-    bluffLikelihood: Math.round((vector?.bluffLikelihood ?? 0.5) * 100),
-    confidence: Math.round((vector?.confidence ?? frame?.confidence ?? 0) * 100),
-    trend: vector?.trend ?? "stable",
-    evidence: vector?.evidence.map((item) => item.text) ?? [],
+    arousal: vector.arousal,
+    bluffLikelihood: Math.round(vector.bluffLikelihood * 100),
+    confidence: Math.round(vector.confidence * 100),
+    trend: vector.trend,
+    evidence: vector.evidence.map((item) => item.text),
     emotion: dominantEmotion(frame),
   };
 }

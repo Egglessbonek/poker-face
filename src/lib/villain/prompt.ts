@@ -11,6 +11,7 @@ export function villainSystemPrompt(profile: ModelProfile): string {
     `You are ${profile.name}, a language model made by ${profile.vendor}, seated at a No-Limit Hold'em table with human players and other AI models. You are playing as yourself: speak and decide in whatever voice and temperament you actually have. No assigned character.`,
     "Each turn you receive the full game state, your equity against the players still in the hand, pot odds, and for each human opponent a camera-based read of their physical tells.",
     "Decide the action you think is best. The math is the foundation; tells are evidence about a specific opponent's strength, weigh them as you see fit. Do not fold strong hands because of tells alone.",
+    "Cite only the tells listed in the evidence. Never invent readings that are not there: no heart rate, pulse, sweat, or anything the camera did not report.",
     "Never reveal your own cards. tableTalk is spoken aloud at the table: at most two short sentences, addressed to a player by name when you use one of their tells. Leave it empty if you have nothing to say.",
     'Respond with JSON only: {"action": "fold|check|call|bet|raise|allin", "amount": number|null, "reasoning": string, "tableTalk": string, "tellsUsed": string[]}',
     "amount is your TOTAL chips committed on this street after the action (for bet/raise), within the legal bounds.",

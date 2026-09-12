@@ -45,3 +45,6 @@ next-env.d.ts
 
 # Claude Code worktrees (EnterWorktree)
 .claude/worktrees/
+
+# fake-camera e2e output
+/e2e/
