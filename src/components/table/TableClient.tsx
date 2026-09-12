@@ -158,7 +158,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
 
   return (
     <main className="flex flex-1 flex-col gap-4 px-3 py-4 sm:px-6">
-      <TableHeader code={code} playerName={me?.name} status={table.status} voiceOn={state.config.voice} muted={voice.muted} unavailable={voice.unavailable} speaking={!!voice.speaking} onToggleVoice={() => voice.setMuted(!voice.muted)} />
+      <TableHeader code={code} playerName={me?.name} status={table.status} voiceOn={state.config.voice} muted={voice.muted} unavailable={voice.unavailable} speaking={!!voice.speaking} onToggleVoice={() => voice.setMuted(!voice.muted)} isHost={state.hostId === identity.playerId} onEnd={table.end} />
       {table.error && <p className="rounded-xl bg-danger/15 px-4 py-2 text-sm text-danger">{table.error}</p>}
       <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
         <section className="flex min-w-0 flex-col gap-3">
@@ -196,7 +196,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
 
 function CameraSetup({ tells, done, onDone }: { tells: ReturnType<typeof useTells>; done: boolean; onDone: () => void }) {
   if (done || tells.baseline) {
-    return <div className="rounded-2xl border border-felt-edge p-3"><p className="mb-2 text-xs font-semibold text-gold">Your camera</p><WebcamFeed videoRef={tells.videoRef} className="aspect-[4/3] w-full" /><p className="mt-2 text-xs text-muted">{tells.baseline ? "Baseline captured. You are ready." : tells.status === "running" ? "Camera on without a baseline." : "Playing without a camera."}</p>{!tells.baseline && tells.status === "running" && <button onClick={() => tells.calibrate().then(onDone)} className="mt-2 w-full rounded-lg border border-felt-edge py-1.5 text-xs">Capture a 10s baseline</button>}</div>;
+    return <div className="rounded-2xl border border-felt-edge p-3"><p className="mb-2 text-xs font-semibold text-gold">Your camera</p><WebcamFeed videoRef={tells.videoRef} className="aspect-[4/3] w-full" /><p className="mt-2 text-xs text-muted">{tells.baseline ? `Baseline captured: ${tells.calibrationReport ?? "you are ready"}.` : tells.status === "running" ? "Camera on without a baseline." : "Playing without a camera."}</p>{!tells.baseline && tells.status === "running" && <button onClick={() => tells.calibrate().then(onDone)} className="mt-2 w-full rounded-lg border border-felt-edge py-1.5 text-xs">Capture a 10s baseline</button>}</div>;
   }
   return <Calibration videoRef={tells.videoRef} status={tells.status} progress={tells.calibrating?.progress ?? null} facePresent={!!tells.frame?.facePresent} onStartCamera={tells.start} onCalibrate={() => tells.calibrate().then(onDone)} onSkip={onDone} />;
 }
@@ -212,15 +212,31 @@ function OpponentTells({ player, tells }: { player: Player; tells: PlayerTells }
   );
 }
 
-function TableHeader({ code, playerName, status, voiceOn, muted, unavailable, speaking, onToggleVoice }: { code: string; playerName?: string; status: string; voiceOn: boolean; muted: boolean; unavailable: boolean; speaking: boolean; onToggleVoice: () => void }) {
+function TableHeader({ code, playerName, status, voiceOn, muted, unavailable, speaking, onToggleVoice, isHost, onEnd }: { code: string; playerName?: string; status: string; voiceOn: boolean; muted: boolean; unavailable: boolean; speaking: boolean; onToggleVoice: () => void; isHost: boolean; onEnd: () => void }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-felt-edge bg-background/90 px-4 py-3">
       <div className="flex items-center gap-3"><div><p className="text-[10px] uppercase tracking-[0.28em] text-muted">Poker Face</p><p className="text-sm">Table <span className="font-mono text-gold">{code}</span></p></div><span className="text-xs text-muted">{playerName}</span><span className={`h-2 w-2 rounded-full ${status === "live" ? "bg-ok" : "bg-danger"}`} title={status} /></div>
       <div className="flex items-center gap-2">
+        {isHost && <EndGameButton onEnd={onEnd} />}
         <Link href={`/rail/${code}`} target="_blank" className="rounded-full border border-felt-edge px-4 py-2 text-xs text-muted hover:border-gold hover:text-foreground">Open rail</Link>
         <button type="button" aria-label="Copy table code" onClick={() => navigator.clipboard?.writeText(code)} className="rounded-full border border-felt-edge p-2.5 text-muted hover:border-gold hover:text-foreground"><Copy size={15} /></button>
         {voiceOn && <button type="button" onClick={onToggleVoice} className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs ${!muted ? "border-gold/50 text-gold" : "border-felt-edge text-muted"}`}>{!muted ? <Mic2 size={14} className={speaking ? "animate-pulse" : ""} /> : <MicOff size={14} />}{muted ? "Muted" : unavailable ? "Voice unavailable" : "Voices on"}</button>}
       </div>
     </header>
+  );
+}
+
+/** Two clicks to end the match, so a stray click cannot kill a live game. */
+function EndGameButton({ onEnd }: { onEnd: () => void }) {
+  const [arming, setArming] = useState(false);
+  useEffect(() => {
+    if (!arming) return;
+    const id = setTimeout(() => setArming(false), 4000);
+    return () => clearTimeout(id);
+  }, [arming]);
+  return arming ? (
+    <button type="button" onClick={onEnd} className="rounded-full border border-danger bg-danger/20 px-4 py-2 text-xs font-semibold text-danger">Confirm: end the match</button>
+  ) : (
+    <button type="button" onClick={() => setArming(true)} className="rounded-full border border-felt-edge px-4 py-2 text-xs text-muted hover:border-danger hover:text-danger">End game</button>
   );
 }

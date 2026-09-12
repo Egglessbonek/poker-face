@@ -283,6 +283,24 @@ export interface OpponentView {
   /** Seat position label relative to the button: "BTN", "SB", "BB", "UTG", ... */
   position: string;
   tells: TellVector | null;
+  /** Tendencies observed this match. */
+  stats?: PlayerStats;
+  /** What they did preflop this hand: raised, called, limped, checked, or none yet. */
+  preflop?: "raised" | "called" | "limped" | "checked" | "none";
+}
+
+/** Running tendencies for one player over the match (poker-style stats). */
+export interface PlayerStats {
+  hands: number;
+  /** Hands where they voluntarily put chips in preflop. */
+  vpip: number;
+  /** Hands where they raised preflop. */
+  pfr: number;
+  /** Bets + raises across all streets. */
+  aggressive: number;
+  calls: number;
+  showdownsWon: number;
+  showdowns: number;
 }
 
 export interface VillainDecisionInput {
@@ -293,9 +311,13 @@ export interface VillainDecisionInput {
   names: Record<number, string>;
   legalActions: ActionType[];
   bounds: ActionBounds;
-  /** 0-1 equity vs random hands for every opponent still in the hand. */
+  /** 0-1 equity vs the live opponents' estimated ranges. */
   equity: number;
   potOdds: number; // 0-1
+  bigBlind: number;
+  /** Did this seat make the last bet or raise of the previous street? */
+  hasInitiative: boolean;
+  raisesThisStreet: number;
   modelId: string;
   /** This seat's most recent table-talk lines, newest last, so it does not repeat itself. */
   recentTalk: string[];

@@ -6,6 +6,7 @@
 import { Hand } from "pokersolver";
 import type { Card } from "@/lib/types";
 import { freshDeck, shuffle } from "./cards";
+import { chenScore, topShare } from "./strategy";
 
 export interface EquityResult {
   equity: number; // win + tie share, 0-1
@@ -15,22 +16,46 @@ export interface EquityResult {
   opponents: number;
 }
 
-/** Equity holding `hole` on `board` against `opponents` random hands. */
-export function monteCarloEquity(hole: Card[], board: Card[], opponents = 1, samples = 1500, rng?: () => number): EquityResult {
+/**
+ * Equity holding `hole` on `board` against `opponents` hands. `ranges` (one entry per opponent, 0-1) restricts each
+ * opponent to the top share of starting hands by Chen score, e.g. 0.2 for a preflop raiser, 1 for random; sampled
+ * by rejection so it stays exact for any board.
+ */
+export function monteCarloEquity(hole: Card[], board: Card[], opponents = 1, samples = 1500, rng?: () => number, ranges?: number[]): EquityResult {
   const n = Math.max(1, opponents);
   const known = new Set<Card>([...hole, ...board]);
   const remaining = freshDeck().filter((c) => !known.has(c));
+  const shareCache = new Map<number, number>();
+  const inRange = (a: Card, b: Card, pct: number) => {
+    if (pct >= 1) return true;
+    const s = chenScore([a, b]);
+    let sh = shareCache.get(s);
+    if (sh === undefined) { sh = topShare(s); shareCache.set(s, sh); }
+    return sh <= pct;
+  };
   let win = 0;
   let tie = 0;
   let tieShare = 0;
 
   for (let i = 0; i < samples; i++) {
     const deck = shuffle(remaining, rng);
-    const runout = deck.slice(n * 2, n * 2 + (5 - board.length));
+    // Deal each opponent from the top of the deck, skipping hands outside their range (bounded retries).
+    const dealt: Card[] = [];
+    let cursor = 0;
+    for (let k = 0; k < n; k++) {
+      const pct = ranges?.[k] ?? 1;
+      let tries = 0;
+      while (cursor + 1 < deck.length) {
+        const a = deck[cursor], b = deck[cursor + 1];
+        cursor += 2;
+        if (inRange(a, b, pct) || ++tries > 12) { dealt.push(a, b); break; }
+      }
+    }
+    const runout = deck.slice(cursor, cursor + (5 - board.length));
     const fullBoard = [...board, ...runout];
     const mine = Hand.solve([...hole, ...fullBoard]);
     const hands = [mine];
-    for (let k = 0; k < n; k++) hands.push(Hand.solve([deck[2 * k], deck[2 * k + 1], ...fullBoard]));
+    for (let k = 0; k < n; k++) hands.push(Hand.solve([dealt[2 * k], dealt[2 * k + 1], ...fullBoard]));
     const winners = Hand.winners(hands);
     if (!winners.includes(mine)) continue;
     if (winners.length === 1) win++;

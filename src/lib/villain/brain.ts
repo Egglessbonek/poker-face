@@ -11,6 +11,7 @@ import "server-only";
 import { z } from "zod";
 import type { ActionType, VillainDecision, VillainDecisionInput } from "@/lib/types";
 import { completeJSON, llmAvailable, perSeatModels } from "@/lib/llm/provider";
+import { decisionRoll, recommend, type Recommendation } from "@/lib/poker/strategy";
 import { getProfile } from "./profile";
 import { villainSystemPrompt, villainUserPrompt } from "./prompt";
 
@@ -31,30 +32,43 @@ export function tellAdjustment(input: VillainDecisionInput): number {
   return (avg - 0.5) * 0.3;
 }
 
-export function mathAction(input: VillainDecisionInput): ActionType {
-  const { equity, potOdds, legalActions } = input;
-  const eff = equity + tellAdjustment(input);
-  const has = (a: ActionType) => legalActions.includes(a);
-  const live = input.opponents.filter((o) => !o.folded).length;
-  // Fair share of the pot when everyone has random hands; betting above it is +EV.
-  const share = 1 / (live + 1);
+/** The strategy module's recommendation for this spot, with the tell adjustment folded into equity. */
+export function mathRecommendation(input: VillainDecisionInput): Recommendation {
+  return recommend({
+    street: input.hand.street,
+    hole: input.me.holeCards,
+    board: input.hand.board,
+    equity: Math.max(0, Math.min(1, input.equity + tellAdjustment(input))),
+    potOdds: input.potOdds,
+    pot: input.hand.pot,
+    toCall: input.bounds.toCall,
+    currentBet: input.hand.currentBet,
+    stack: input.me.stack,
+    committed: input.me.committed,
+    position: input.me.position,
+    live: input.opponents.filter((o) => !o.folded).length,
+    legal: input.legalActions,
+    minTotal: input.bounds.minTotal,
+    maxTotal: input.bounds.maxTotal,
+    bigBlind: input.bigBlind,
+    hasInitiative: input.hasInitiative,
+    raisesThisStreet: input.raisesThisStreet,
+    roll: decisionRoll(input.hand.handNumber, input.hand.street, input.me.holeCards),
+  });
+}
 
-  if (has("check")) {
-    const open = has("bet") ? "bet" : has("raise") ? "raise" : null;
-    return eff > share + 0.1 && open ? open : "check";
-  }
-  if (eff > Math.max(0.55, share + 0.25) && has("raise")) return "raise";
-  if (eff > potOdds && has("call")) return "call";
-  return "fold";
+export function mathAction(input: VillainDecisionInput): ActionType {
+  return mathRecommendation(input).action;
 }
 
 export async function decide(input: VillainDecisionInput): Promise<VillainDecision> {
   const profile = getProfile(input.modelId);
-  const baseline = mathAction(input);
+  const rec = mathRecommendation(input);
+  const baseline = rec.action;
 
   const mathOnly = (why: string): VillainDecision => ({
     action: baseline,
-    amount: clampAmount(baseline, undefined, input),
+    amount: clampAmount(baseline, rec.amount, input),
     reasoning: why,
     tableTalk: "",
     tellsUsed: [],
@@ -67,15 +81,17 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
   try {
     const out = await completeJSON({
       system: villainSystemPrompt(profile),
-      user: villainUserPrompt(input) + `\nFor reference, a plain equity-vs-pot-odds strategy would: ${baseline}.`,
+      user: villainUserPrompt(input, rec),
       schema: DecisionSchema,
       model: perSeatModels() ? profile.id : undefined,
-      temperature: 0.8,
+      temperature: 0.7,
+      // Bigger pots deserve more thought.
+      reasoningEffort: input.hand.pot + input.bounds.toCall >= 0.3 * (input.me.stack + input.me.committed) ? "medium" : "low",
     });
     const action = input.legalActions.includes(out.action) ? out.action : baseline;
     return {
       action,
-      amount: clampAmount(action, out.amount ?? undefined, input),
+      amount: clampAmount(action, out.amount ?? (action === baseline ? rec.amount : undefined), input),
       reasoning: out.reasoning,
       tableTalk: out.tableTalk,
       tellsUsed: out.tellsUsed,

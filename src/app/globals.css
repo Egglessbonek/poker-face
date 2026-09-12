@@ -27,7 +27,7 @@
   --color-card: var(--card);
   --color-danger: var(--danger);
   --color-ok: var(--ok);
-  --font-sans: var(--font-onest);
+  --font-sans: var(--font-pliant);
   --font-display: var(--font-newsreader);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -35,7 +35,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-onest), system-ui, sans-serif;
+  font-family: var(--font-pliant), system-ui, sans-serif;
 }
 
 h1, h2, h3 {
