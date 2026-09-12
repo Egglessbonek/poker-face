@@ -332,11 +332,19 @@ export function mountBackdrop(host: HTMLDivElement): () => void {
       const horizontalRoom = slot.width + (host.clientWidth >= 1024 ? 48 : 0);
       const scale = Math.min(slot.height * 0.92 / 7.4, horizontalRoom * 0.98 / 10.6) * worldPerPixel;
       stage.scale.setScalar(scale);
+      const desktop = host.clientWidth >= 1024;
+      const centerX = desktop ? host.clientWidth * 0.69 : slot.left + slot.width / 2;
       stage.position.set(
-        (slot.left + slot.width / 2 - host.clientWidth / 2) * worldPerPixel,
+        (centerX - host.clientWidth / 2) * worldPerPixel,
         (host.clientHeight / 2 - slot.top - slot.height / 2) * worldPerPixel,
         0,
       );
+      // A broad field crosses the page midpoint behind the copy. Fit its full
+      // projected diameter to the viewport independently of the chip's size.
+      const beltWidth = desktop ? host.clientWidth * 0.60 : slot.width * 0.96;
+      const beltScale = beltWidth * worldPerPixel / (12.4 * scale);
+      const beltHeightScale = Math.min(beltScale, slot.height * 0.95 * worldPerPixel / (9 * scale));
+      cards.group.scale.set(beltScale, beltHeightScale, beltScale);
       key.intensity = 85 * scale ** 2;
       key.shadow.camera.near = 0.5 * scale;
       key.shadow.camera.far = 15 * scale;

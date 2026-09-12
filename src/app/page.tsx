@@ -1,6 +1,8 @@
 import Link from "next/link";
 import CodeEntry from "@/components/CodeEntry";
 import LandingBackdrop from "@/components/LandingBackdrop";
+import PlayingCardMarks from "@/components/PlayingCardMarks";
+import cardStyles from "@/components/PlayingCard.module.css";
 import styles from "./landing.module.css";
 
 export default function Landing() {
@@ -18,14 +20,15 @@ export default function Landing() {
           <LandingBackdrop />
         </div>
       </div>
-      <div className={`${styles.actions} grid w-full gap-4 sm:grid-cols-3`}>
-        <Link href="/table/new" className="flex flex-col gap-2 rounded-2xl border border-gold/60 bg-gold/10 p-5 text-left transition hover:bg-gold/20">
-          <span className="text-xs uppercase tracking-widest text-gold">Host</span>
-          <span className="text-xl font-semibold">Create a table</span>
-          <span className="text-sm text-muted">Set the blinds, write the guest list, and decide who gets to see the tells.</span>
+      <div className={styles.actions}>
+        <Link href="/table/new" className={cardStyles.card}>
+          <PlayingCardMarks rank="A" suit="♠" />
+          <span className={cardStyles.category}>Host</span>
+          <span className={cardStyles.title}>Create a table</span>
+          <span className={cardStyles.hint}>Set the blinds, write the guest list, and decide who gets to see the tells.</span>
         </Link>
-        <CodeEntry title="Join a table" hint="Take a seat with the 4-digit code." hrefPrefix="/table/" label="Sit down" />
-        <CodeEntry title="Watch from the rail" hint="See every card and every tell." hrefPrefix="/rail/" label="Watch" />
+        <CodeEntry title="Join a table" hint="Take a seat with the 4-digit code." hrefPrefix="/table/" label="Sit down" rank="K" suit="♥" />
+        <CodeEntry title="Watch from the rail" hint="See every card and every tell." hrefPrefix="/rail/" label="Watch" rank="Q" suit="♣" />
       </div>
     </main>
   );

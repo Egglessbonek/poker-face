@@ -3,7 +3,9 @@ import * as THREE from "three";
 /** Instanced playing cards orbit and repel from the pointer like the reference belt. */
 export function createDistantCards(ivory: string, red: string, blue: string) {
   const group = new THREE.Group();
-  group.rotation.set(0.68, 0, -0.3);
+  const orbit = new THREE.Group();
+  orbit.rotation.set(0.68, 0, -0.3);
+  group.add(orbit);
   const textures: THREE.Texture[] = [];
   const materials: THREE.Material[] = [];
   const geometries: THREE.BufferGeometry[] = [];
@@ -98,14 +100,14 @@ export function createDistantCards(ivory: string, red: string, blue: string) {
     materials.push(paper);
     const back = print();
     const faces = [print("A", "♠"), print("K", "♥", red), print("A", "♦", red), print("Q", "♣")];
-    const count = 112;
+    const count = 180;
     const instanced = (shape: THREE.BufferGeometry, material: THREE.Material, total: number) => {
       const mesh = new THREE.InstancedMesh(shape, material, total);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       // The belt moves continuously; avoid stale per-instance bounding spheres.
       mesh.frustumCulled = false;
       instances.push(mesh);
-      group.add(mesh);
+      orbit.add(mesh);
       return mesh;
     };
     const fronts = faces.map((face) => instanced(surface, face, count / 4));
@@ -114,8 +116,8 @@ export function createDistantCards(ivory: string, red: string, blue: string) {
     const random = (seed: number) => THREE.MathUtils.euclideanModulo(Math.sin(seed * 127.1) * 43758.5453, 1);
     const cards = Array.from({ length: count }, (_, i) => ({
       angle: i / count * Math.PI * 2 + random(i + 1) * 0.2,
-      radius: 3.2 + random(i + 2) * 1.25,
-      height: (random(i + 3) - 0.5) * 0.7,
+      radius: 3.2 + random(i + 2) * 3,
+      height: (random(i + 3) - 0.5) * 1.1,
       size: 0.22 + random(i + 4) ** 3 * 0.55,
       displacement: new THREE.Vector3(),
       brightness: 1,
@@ -130,7 +132,7 @@ export function createDistantCards(ivory: string, red: string, blue: string) {
     const normal = new THREE.Vector3();
     const center = new THREE.Vector3();
     const point = new THREE.Vector3();
-    const rotation = new THREE.Quaternion();
+    const normalMatrix = new THREE.Matrix3();
     const plane = new THREE.Plane();
     const orbital = new THREE.Vector3();
     const push = new THREE.Vector3();
@@ -141,10 +143,11 @@ export function createDistantCards(ivory: string, red: string, blue: string) {
       dispose,
       clearPointer() { cursor.set(100000, 0, 0); },
       setPointer(ray: THREE.Ray) {
-        group.updateWorldMatrix(true, false);
-        normal.set(0, 1, 0).applyQuaternion(group.getWorldQuaternion(rotation));
-        plane.setFromNormalAndCoplanarPoint(normal, group.getWorldPosition(center));
-        if (ray.intersectPlane(plane, point)) cursor.copy(group.worldToLocal(point));
+        orbit.updateWorldMatrix(true, false);
+        normalMatrix.getNormalMatrix(orbit.matrixWorld);
+        normal.set(0, 1, 0).applyNormalMatrix(normalMatrix);
+        plane.setFromNormalAndCoplanarPoint(normal, orbit.getWorldPosition(center));
+        if (ray.intersectPlane(plane, point)) cursor.copy(orbit.worldToLocal(point));
         else cursor.set(100000, 0, 0);
       },
       update(time: number) {
