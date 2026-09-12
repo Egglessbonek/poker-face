@@ -6,8 +6,21 @@
  * real heading, and users who prefer reduced motion get the settled text with no animation.
  */
 
-import { motion, useReducedMotion, type Transition } from "motion/react";
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { motion, type Transition } from "motion/react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties } from "react";
+
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+const subscribeReducedMotion = (onChange: () => void) => {
+  const mq = window.matchMedia(REDUCED_MOTION_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+};
+/**
+ * Whether the viewer prefers reduced motion. The server snapshot is false and so is the first client render,
+ * so hydration matches; the real preference applies immediately after (motion's useReducedMotion reads
+ * matchMedia during the first render and mismatches the server HTML).
+ */
+const usePrefersReducedMotion = () => useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia(REDUCED_MOTION_QUERY).matches, () => false);
 
 type Snapshot = Record<string, string | number>;
 
@@ -54,7 +67,7 @@ export default function BlurText({
 }: BlurTextProps) {
   const elements = animateBy === "words" ? text.split(" ") : text.split("");
   const [inView, setInView] = useState(false);
-  const reduced = useReducedMotion() ?? false;
+  const reduced = usePrefersReducedMotion();
   const [node, setNode] = useState<HTMLElement | null>(null);
   const setRef = useCallback((el: HTMLElement | null) => setNode(el), []);
 

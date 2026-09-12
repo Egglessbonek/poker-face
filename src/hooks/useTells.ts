@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getFaceLandmarker, startDetectionLoop } from "@/lib/tells/landmarker";
 import { createFeatureState, extractFrame } from "@/lib/tells/features";
-import { CALIBRATION_MS, computeBaseline, updateLatencyBaseline } from "@/lib/tells/baseline";
+import { CALIBRATION_MS, computeBaseline, updateBaselineAfterDecision } from "@/lib/tells/baseline";
 import type { BaselineStats, Street, TellFrame, TellSnapshot } from "@/lib/types";
 
 export type CameraStatus = "idle" | "starting" | "running" | "denied" | "error";
@@ -116,9 +116,10 @@ export function useTells() {
     reveals.current = reveals.current.slice(-8);
   }, []);
 
-  const noteLatency = useCallback((latencyMs: number) => {
+  /** After each decision (and after fusing it): drift the latency and head-motion baselines toward how this player plays. */
+  const noteDecision = useCallback((snap: TellSnapshot, latencyMs: number) => {
     if (!baselineRef.current) return;
-    baselineRef.current = updateLatencyBaseline(baselineRef.current, latencyMs);
+    baselineRef.current = updateBaselineAfterDecision(baselineRef.current, snap, latencyMs);
     setBaseline(baselineRef.current);
   }, []);
 
@@ -141,5 +142,5 @@ export function useTells() {
     [],
   );
 
-  return { videoRef: attachVideo, status, frame, baseline, baselineRef, calibrating, calibrationReport, start, stop, calibrate, markReveal, noteLatency, snapshot };
+  return { videoRef: attachVideo, status, frame, baseline, baselineRef, calibrating, calibrationReport, start, stop, calibrate, markReveal, noteDecision, snapshot };
 }

@@ -28,8 +28,9 @@ export function tellAdjustment(input: VillainDecisionInput): number {
   const live = input.opponents.filter((o) => !o.folded && o.tells && o.tells.confidence > 0.2);
   if (!live.length) return 0;
   const avg = live.reduce((a, o) => a + o.tells!.bluffLikelihood * o.tells!.confidence, 0) / live.length;
-  // Opponents likely bluffing -> act as if we have more equity. Range: about -0.15 .. +0.15.
-  return (avg - 0.5) * 0.3;
+  // Opponents likely bluffing -> act as if we have more equity. Range: about -0.2 .. +0.2: enough that a
+  // confident read flips a marginal spot, which is the whole point of the table.
+  return (avg - 0.5) * 0.4;
 }
 
 /** The strategy module's recommendation for this spot. `withTells` folds the opponents' tells into equity. */

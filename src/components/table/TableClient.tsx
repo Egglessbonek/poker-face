@@ -116,7 +116,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
       const snapshot = tells.snapshot(promptedAt.current, { handNumber: hand.handNumber, street: hand.street, decisionLatencyMs: latency });
       vector = fuseTells(snapshot, tells.baselineRef.current, vectorHistory.current);
       vectorHistory.current = [...vectorHistory.current.slice(-20), vector];
-      tells.noteLatency(latency);
+      tells.noteDecision(snapshot, latency);
       setLastVector(vector);
     }
     void act(type, amount, latency, vector);

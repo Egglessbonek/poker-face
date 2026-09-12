@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MIN_BLINK_RATE, WARMUP_MS, computeBaseline } from "../baseline";
+import { MIN_BLINK_RATE, WARMUP_MS, computeBaseline, updateBaselineAfterDecision, updateMotionBaseline } from "../baseline";
 import type { TellFrame } from "@/lib/types";
 
 const frame = (t: number, over: Partial<TellFrame> = {}): TellFrame => ({
@@ -30,5 +30,33 @@ describe("computeBaseline", () => {
   it("skips frames without a face", () => {
     const frames = series(40, 250, (i) => (i % 2 ? { facePresent: false, headMotion: 9 } : {}));
     expect(computeBaseline(frames).headMotion).toBeCloseTo(0.002, 4);
+  });
+});
+
+describe("adaptive motion baseline", () => {
+  const base = () => computeBaseline(series(40, 250));
+
+  it("drifts toward how still the player actually is when deciding", () => {
+    let b = base();
+    for (let i = 0; i < 8; i++) b = updateMotionBaseline(b, 0.0006);
+    expect(b.headMotion).toBeLessThan(0.002 * 0.5);
+    expect(b.headMotion).toBeGreaterThan(0.0006 * 0.9);
+  });
+
+  it("caps the step so one wild decision cannot swing the baseline", () => {
+    const b = base();
+    expect(updateMotionBaseline(b, 1).headMotion / b.headMotion).toBeCloseTo(Math.pow(4, 0.25), 3);
+    expect(updateMotionBaseline(b, 1e-9).headMotion / b.headMotion).toBeCloseTo(Math.pow(0.25, 0.25), 3);
+    expect(updateMotionBaseline(b, 0).headMotion).toBe(b.headMotion);
+  });
+
+  it("needs a few face frames before a decision window moves head motion, but latency always adapts", () => {
+    const b = base();
+    const short = { handNumber: 1, street: "flop" as const, decisionLatencyMs: 8000, frames: series(2, 250, () => ({ headMotion: 0.0001 })), cardRevealReactions: [] };
+    const after = updateBaselineAfterDecision(b, short, 8000);
+    expect(after.headMotion).toBe(b.headMotion);
+    expect(after.decisionLatencyMs).toBeGreaterThan(b.decisionLatencyMs);
+    const long = { ...short, frames: series(12, 250, () => ({ headMotion: 0.0001 })) };
+    expect(updateBaselineAfterDecision(b, long, 8000).headMotion).toBeLessThan(b.headMotion);
   });
 });
