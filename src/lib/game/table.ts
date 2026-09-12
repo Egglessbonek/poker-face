@@ -50,6 +50,8 @@ interface Table {
   handNumber: number;
   button: number;
   tells: Record<string, PlayerTells>;
+  /** Per AI player: table-talk lines already spoken, for the no-repeat prompt. */
+  saidLines: Record<string, string[]>;
   turnDeadline?: number;
   turnTimer?: ReturnType<typeof setTimeout>;
   driving: boolean;
@@ -84,6 +86,7 @@ export async function createTable(configPatch: Partial<TableConfig>, hostName: s
     handNumber: 0,
     button: 0,
     tells: {},
+    saidLines: {},
     driving: false,
     createdAt: Date.now(),
   };
@@ -474,6 +477,7 @@ async function aiAct(t: Table, seat: number) {
     equity: eq.equity,
     potOdds: potOdds(b.toCall, hand.pot),
     modelId: player.modelId ?? DEFAULT_TABLE.aiPlayers[0],
+    recentTalk: (t.saidLines[player.id] ?? []).slice(-4),
   });
 
   // The table may have moved on while the LLM was thinking (e.g. host ended it).
@@ -494,6 +498,12 @@ async function aiAct(t: Table, seat: number) {
   appendLog(t.code, "ai_decision", { handNumber: hand.handNumber, street: hand.street, playerId: player.id, equity: eq.equity, opponents, decision });
   publish(t.code, { type: "ai_decision", playerId: player.id, decision, handNumber: hand.handNumber, street: hand.street });
   applyAndPublish(t, req, null);
+  if (decision.tableTalk) {
+    const said = (t.saidLines[player.id] ??= []);
+    // Drop an exact repeat rather than say it twice; the prompt already asks the model not to.
+    if (said.some((l) => l.trim().toLowerCase() === decision.tableTalk.trim().toLowerCase())) decision.tableTalk = "";
+    else said.push(decision.tableTalk);
+  }
   if (decision.tableTalk) {
     appendLog(t.code, "talk", { handNumber: hand.handNumber, playerId: player.id, text: decision.tableTalk });
     const talk: TableEvent = { type: "talk", playerId: player.id, text: decision.tableTalk, voiceId: player.voiceId ?? getProfile(player.modelId ?? DEFAULT_TABLE.aiPlayers[0]).voiceId };
