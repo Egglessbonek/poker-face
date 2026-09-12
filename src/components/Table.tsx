@@ -3,6 +3,7 @@
 import ActionBar from "@/components/ActionBar";
 import { PlayingCard } from "@/components/Card";
 import VillainAvatar from "@/components/VillainAvatar";
+import type { CursorTracker } from "@/lib/tells/cursor";
 import type { ActionType, PublicMatchState, VillainDecision } from "@/lib/types";
 
 interface Props {
@@ -14,9 +15,10 @@ interface Props {
   onNext: () => void;
   onStart: () => void;
   revealHref?: string;
+  cursor?: CursorTracker;
 }
 
-export default function Table({ state, decisions, pending, villainName, onAct, onNext, onStart, revealHref }: Props) {
+export default function Table({ state, decisions, pending, villainName, onAct, onNext, onStart, revealHref, cursor }: Props) {
   const hand = state?.hand ?? null;
   const hero = hand?.players.hero;
   const villain = hand?.players.villain;
@@ -67,7 +69,7 @@ export default function Table({ state, decisions, pending, villainName, onAct, o
         <button onClick={onStart} className="rounded-xl bg-gold py-3 font-medium text-background">Deal</button>
       )}
       {state && hand && !hand.over && (
-        <ActionBar legal={state.legalActions} bounds={state.bounds} pot={hand.pot} disabled={pending || hand.toAct !== "hero"} onAct={onAct} />
+        <ActionBar legal={state.legalActions} bounds={state.bounds} pot={hand.pot} disabled={pending || hand.toAct !== "hero"} onAct={onAct} cursor={cursor} />
       )}
       {state && hand?.over && !state.over && (
         <button onClick={onNext} disabled={pending} className="rounded-xl bg-gold py-3 font-medium text-background disabled:opacity-40">Next hand</button>

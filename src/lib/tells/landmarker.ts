@@ -27,14 +27,15 @@ export async function getFaceLandmarker(): Promise<FaceLandmarker> {
 export type DetectCallback = (result: FaceLandmarkerResult, timestampMs: number) => void;
 
 /**
- * Runs detectForVideo on every animation frame. Returns a stop function.
- * TODO(phase 2): throttle to ~30fps and skip when video.readyState < 2.
+ * Runs detectForVideo on every animation frame. `getVideo` is a getter so the loop survives the
+ * <video> element being remounted elsewhere in the tree. Returns a stop function.
  */
-export function startDetectionLoop(video: HTMLVideoElement, landmarker: FaceLandmarker, onResult: DetectCallback): () => void {
+export function startDetectionLoop(getVideo: () => HTMLVideoElement | null, landmarker: FaceLandmarker, onResult: DetectCallback): () => void {
   let raf = 0;
   let lastVideoTime = -1;
   const tick = () => {
-    if (video.currentTime !== lastVideoTime && video.readyState >= 2) {
+    const video = getVideo();
+    if (video && video.currentTime !== lastVideoTime && video.readyState >= 2) {
       lastVideoTime = video.currentTime;
       const ts = performance.now();
       const result = landmarker.detectForVideo(video, ts);
