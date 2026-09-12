@@ -8,12 +8,13 @@
 
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PlayingCard } from "@/components/Card";
-import type { RevealData, RevealDecision, RevealPlayer } from "@/lib/game/reveal";
+import type { Achievement, RevealData, RevealDecision, RevealPlayer } from "@/lib/game/reveal";
 
 const INK = { primary: "#ece7dc", muted: "#8a8f8b", grid: "#1d5c47" };
 const BLUFF = "#e5484d"; // status: caught
 const VALUE = "#46a758"; // status: honest
 const NEUTRAL = "#d4af37";
+const TONE: Record<Achievement["tone"], string> = { gold: "text-gold", danger: "text-danger", ok: "text-ok", muted: "text-muted" };
 
 export default function RevealView({ data }: { data: RevealData }) {
   const seatName = (seat: number) => data.players.find((p) => p.seat === seat)?.name ?? `Seat ${seat + 1}`;
@@ -107,6 +108,16 @@ function HumanSection({ h }: { h: RevealPlayer }) {
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-gold">{h.player.name}</p>
           <h2 className="text-2xl font-semibold">{verdict(h)}</h2>
+          {h.achievements.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-1.5">
+              {h.achievements.map((a) => (
+                <li key={a.id} className={`rounded-full border border-felt-edge px-2.5 py-0.5 text-xs ${TONE[a.tone]}`}>
+                  <span className="font-semibold">{a.title}</span>
+                  <span className="text-muted"> · {a.blurb}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="flex gap-6 text-center">
           <Stat label="Poker face" value={h.pokerFace === null ? "—" : `${h.pokerFace}`} unit={h.pokerFace === null ? "" : "/100"} />

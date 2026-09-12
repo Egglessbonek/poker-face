@@ -23,6 +23,13 @@ export interface RevealDecision {
   board: Card[];
 }
 
+export interface Achievement {
+  id: string;
+  title: string;
+  blurb: string;
+  tone: "gold" | "danger" | "ok" | "muted";
+}
+
 export interface RevealPlayer {
   player: Player;
   decisions: RevealDecision[];
@@ -33,6 +40,8 @@ export interface RevealPlayer {
   /** Most frequent evidence signals across the match. */
   leaks: Array<{ signal: string; text: string; count: number; direction: Evidence["direction"] }>;
   peakArousal: { handNumber: number; arousal: number } | null;
+  /** Badges earned this match: at most 5, in a fixed order. See `achievements()`. */
+  achievements: Achievement[];
 }
 
 export interface TellMoment {
@@ -122,6 +131,16 @@ export function buildReveal(log: TableLog): RevealData {
     decisionsByPlayer.set(a.playerId, list);
   }
 
+  const tellMoments: TellMoment[] = aiDecisions
+    .filter((d) => d.decision.tellsUsed.length > 0 || d.decision.mathAction !== d.decision.action)
+    .map((d) => ({
+      handNumber: d.handNumber,
+      street: d.street,
+      aiName: log.players.find((p) => p.id === d.playerId)?.name ?? "AI",
+      decision: d.decision,
+      reads: d.opponents.filter((o) => o.tells && !o.folded).map((o) => ({ name: o.name, bluffLikelihood: o.tells!.bluffLikelihood, evidence: o.tells!.evidence.map((e) => e.text) })),
+    }));
+
   const humans: RevealPlayer[] = log.players
     .filter((p) => p.kind === "human")
     .map((player) => {
@@ -149,18 +168,9 @@ export function buildReveal(log: TableLog): RevealData {
         }
       }
       const leaks = [...counts.entries()].map(([signal, c]) => ({ signal, ...c })).sort((a, b) => b.count - a.count).slice(0, 5);
-      return { player, decisions, pokerFace, readsRight: right, readsTotal: graded.length, leaks, peakArousal: peak };
+      const base = { player, decisions, pokerFace, readsRight: right, readsTotal: graded.length, leaks, peakArousal: peak };
+      return { ...base, achievements: achievements(base, tellMoments) };
     });
-
-  const tellMoments: TellMoment[] = aiDecisions
-    .filter((d) => d.decision.tellsUsed.length > 0 || d.decision.mathAction !== d.decision.action)
-    .map((d) => ({
-      handNumber: d.handNumber,
-      street: d.street,
-      aiName: log.players.find((p) => p.id === d.playerId)?.name ?? "AI",
-      decision: d.decision,
-      reads: d.opponents.filter((o) => o.tells && !o.folded).map((o) => ({ name: o.name, bluffLikelihood: o.tells!.bluffLikelihood, evidence: o.tells!.evidence.map((e) => e.text) })),
-    }));
 
   return {
     code: log.code,
@@ -174,4 +184,35 @@ export function buildReveal(log: TableLog): RevealData {
     aiDecisions: aiDecisions.length,
     aiTellChanged: aiDecisions.filter((d) => d.decision.mathAction !== d.decision.action && d.decision.tellsUsed.length > 0).length,
   };
+}
+
+const ACHIEVEMENT_CAP = 5;
+
+/**
+ * Badges a human earned this match, computed only from what the reveal already knows.
+ * Pure. Fixed order, first five that apply. `moments` are the table's TellMoments (any player's);
+ * only the ones that name this player count.
+ */
+export function achievements(player: Omit<RevealPlayer, "achievements">, moments: TellMoment[]): Achievement[] {
+  const { pokerFace, readsTotal, decisions, leaks } = player;
+  const bluffs = decisions.filter((d) => d.isBluff);
+  const slipped = bluffs.filter((d) => d.tells && d.tells.bluffLikelihood < 0.5).length;
+  const caught = bluffs.filter((d) => d.tells && d.tells.bluffLikelihood >= 0.7).length;
+  const aggressive = decisions.filter((d) => d.aggressive).length;
+  const topLeak = leaks[0]?.signal;
+  const overruled = moments.some((m) => m.decision.mathAction !== m.decision.action && m.reads.some((r) => r.name === player.player.name));
+
+  const rules: Array<[earned: boolean, badge: Achievement]> = [
+    [pokerFace !== null && pokerFace >= 80 && readsTotal >= 3, { id: "stone_cold", title: "Stone Cold", blurb: "They graded your face on every bet and learned nothing.", tone: "gold" }],
+    [pokerFace !== null && pokerFace <= 30, { id: "open_book", title: "Open Book", blurb: "Your cards were on your face the whole match.", tone: "danger" }],
+    [slipped >= 2, { id: "bluff_artist", title: "Bluff Artist", blurb: "Two or more bluffs walked straight past the camera.", tone: "gold" }],
+    [caught >= 1, { id: "caught_red_handed", title: "Caught Red-Handed", blurb: "You bluffed, and your face filed a report.", tone: "danger" }],
+    [topLeak === "chip_glance", { id: "chip_glancer", title: "Chip Glancer", blurb: "You look at your chips when you like your hand.", tone: "ok" }],
+    [topLeak === "freeze", { id: "frozen", title: "Frozen", blurb: "You go very still when it matters. They noticed.", tone: "muted" }],
+    [topLeak === "fast_action", { id: "speed_demon", title: "Speed Demon", blurb: "You act fastest when you have the least. Slow down.", tone: "muted" }],
+    [bluffs.length === 0 && aggressive >= 3, { id: "honest_to_a_fault", title: "Honest to a Fault", blurb: "You only bet when you had it. Admirable, and easy to play against.", tone: "ok" }],
+    [overruled, { id: "they_were_listening", title: "They Were Listening", blurb: "An AI overruled its own math on the strength of your face.", tone: "danger" }],
+    [decisions.length >= 10, { id: "marathon", title: "Marathon", blurb: "Ten or more decisions on the record.", tone: "muted" }],
+  ];
+  return rules.filter(([earned]) => earned).map(([, badge]) => badge).slice(0, ACHIEVEMENT_CAP);
 }
