@@ -51,6 +51,10 @@ export function HumanTellCard({ player, compact = false }: { player: RailPlayerV
         </div>
       ) : (
         <div className={compact ? "space-y-2" : "space-y-2.5"}>
+          <div>
+            <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Composure</span><span className="font-mono text-white/35">—</span></div>
+            <Meter value={0} color="bg-white/20" />
+          </div>
           <div className="flex justify-between text-xs"><span className="text-white/50">Blinks / min</span><span className="font-mono text-white">{tell.blinkRate ?? "—"}</span></div>
           <div>
             <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Tension</span><span className="font-mono text-white">{tell.tension ?? "—"}</span></div>
@@ -68,7 +72,7 @@ export function HumanTellCard({ player, compact = false }: { player: RailPlayerV
           <p className="mt-2 text-[11px] text-white/30">Signal confidence {tell.confidence ?? 0}%</p>
         </>
       ) : (
-        <p className="mt-2 text-[11px] text-white/30">Reading… the first read lands on their next bet.</p>
+        <p className="mt-2 text-[11px] text-white/30">Composure waiting for their first decision.</p>
       )}
     </article>
   );

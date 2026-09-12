@@ -76,6 +76,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   /** The prompt (hand + action count) an action was already sent for; a double-click must not send a second one. */
   const [sentFor, setSentFor] = useState<string | null>(null);
   const vectorHistory = useRef<TellVector[]>([]);
+  /** Rolling UI reads after the first decision; kept separate so live updates never change action-time AI evidence. */
+  const liveVectorHistory = useRef<TellVector[]>([]);
   const promptedAt = useRef(0);
   const wasMyTurn = useRef(false);
   const previousReveal = useRef("");
@@ -85,6 +87,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const baseline = tells.baseline;
   const frame = tells.frame;
   const markReveal = tells.markReveal;
+  const snapshotTells = tells.snapshot;
 
   useEffect(() => {
     if (baseline) sendTells({ baseline });
@@ -124,8 +127,23 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     const now = Date.now();
     if (now - lastTellsSent.current < 2000) return;
     lastTellsSent.current = now;
-    sendTells({ frame, vector: lastVector && lastVector.handNumber === hand?.handNumber ? lastVector.vector : null });
-  }, [frame, hand?.handNumber, lastVector, sendTells, state?.phase]);
+    if (!baseline || !hand || !lastVector || lastVector.handNumber !== hand.handNumber) {
+      liveVectorHistory.current = [];
+      sendTells({ frame, vector: null });
+      return;
+    }
+
+    const liveSnapshot = snapshotTells(now - 4000, {
+      handNumber: hand.handNumber,
+      street: hand.street,
+      // Live display updates should not invent a fast/slow action tell between decisions.
+      decisionLatencyMs: baseline.decisionLatencyMs,
+    });
+    const history = liveVectorHistory.current.length >= 2 ? liveVectorHistory.current : [lastVector.vector, lastVector.vector];
+    const liveVector = fuseTells(liveSnapshot, baseline, history);
+    liveVectorHistory.current = [...liveVectorHistory.current.slice(-19), liveVector];
+    sendTells({ frame, vector: liveVector });
+  }, [baseline, frame, hand, lastVector, sendTells, snapshotTells, state?.phase]);
 
   const onAct = useCallback((type: ActionType, amount?: number) => {
     if (!hand) return;
@@ -139,6 +157,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
       vectorHistory.current = [...vectorHistory.current.slice(-20), vector];
       tells.noteDecision(snapshot, latency);
       setLastVector({ vector, handNumber: hand.handNumber });
+      liveVectorHistory.current = [vector, vector];
     }
     // A rejected action (stale bet bounds) must hand the bar back, or the player is stuck until the timer folds them.
     void act(type, amount, latency, vector).then((ok) => {
