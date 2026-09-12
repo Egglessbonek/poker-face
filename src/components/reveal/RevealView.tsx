@@ -21,26 +21,8 @@ export type HallRanks = Record<string, { rank: number; of: number }>;
 
 export default function RevealView({ data, ranks = {} }: { data: RevealData; ranks?: HallRanks }) {
   const seatName = (seat: number) => data.players.find((p) => p.seat === seat)?.name ?? `Seat ${seat + 1}`;
-  return (
-    <main className="flex flex-1 flex-col gap-10 px-4 py-8 sm:px-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-gold">The Reveal · table {data.code}</p>
-          <h1 className="text-3xl font-semibold">What your face gave away</h1>
-          <p className="text-sm text-muted">{data.hands.length} hands · {data.aiDecisions} AI decisions · tells changed {data.aiTellChanged} of them</p>
-        </div>
-        <ol className="rounded-2xl border border-felt-edge text-sm">
-          {data.standings.map((s, i) => (
-            <li key={s.playerId} className="flex justify-between gap-6 px-4 py-1.5 first:pt-3 last:pb-3">
-              <span><span className="mr-2 font-mono text-muted">{i + 1}</span>{s.name}</span>
-              <span className="font-mono">{s.stack} <span className={s.net >= 0 ? "text-ok" : "text-danger"}>({s.net >= 0 ? "+" : ""}{s.net})</span></span>
-            </li>
-          ))}
-        </ol>
-      </header>
-
-      {data.humans.map((h) => <HumanSection key={h.player.id} h={h} rank={ranks[h.player.id]} />)}
-
+  // The proof the whole product exists for. It leads the page when there is any; the empty state goes last.
+  const moments = (
       <section>
         <h2 className="mb-3 text-lg font-medium">When the tells changed an AI&apos;s mind</h2>
         {data.tellMoments.length === 0 ? (
@@ -62,6 +44,28 @@ export default function RevealView({ data, ranks = {} }: { data: RevealData; ran
           </ul>
         )}
       </section>
+  );
+  return (
+    <main className="flex flex-1 flex-col gap-10 px-4 py-8 sm:px-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-gold">The Reveal · table {data.code}</p>
+          <h1 className="text-3xl font-semibold">What your face gave away</h1>
+          <p className="text-sm text-muted">{data.hands.length} hands · {data.aiDecisions} AI decisions · tells changed {data.aiTellChanged} of them</p>
+        </div>
+        <ol className="rounded-2xl border border-felt-edge text-sm">
+          {data.standings.map((s, i) => (
+            <li key={s.playerId} className="flex justify-between gap-6 px-4 py-1.5 first:pt-3 last:pb-3">
+              <span><span className="mr-2 font-mono text-muted">{i + 1}</span>{s.name}</span>
+              <span className="font-mono">{s.stack} <span className={s.net >= 0 ? "text-ok" : "text-danger"}>({s.net >= 0 ? "+" : ""}{s.net})</span></span>
+            </li>
+          ))}
+        </ol>
+      </header>
+
+      {data.tellMoments.length > 0 && moments}
+      {data.humans.map((h) => <HumanSection key={h.player.id} h={h} rank={ranks[h.player.id]} />)}
+      {data.tellMoments.length === 0 && moments}
 
       <section>
         <h2 className="mb-3 text-lg font-medium">Every hand, every card</h2>

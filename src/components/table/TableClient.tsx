@@ -73,6 +73,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const [cameraDone, setCameraDone] = useState(false);
   /** The callout banner that has finished animating; it unmounts so no blank strip is left above the felt. */
   const [calloutDone, setCalloutDone] = useState<string | null>(null);
+  /** The prompt (hand + action count) an action was already sent for; a double-click must not send a second one. */
+  const [sentFor, setSentFor] = useState<string | null>(null);
   const vectorHistory = useRef<TellVector[]>([]);
   const promptedAt = useRef(0);
   const wasMyTurn = useRef(false);
@@ -127,6 +129,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
 
   const onAct = useCallback((type: ActionType, amount?: number) => {
     if (!hand) return;
+    const promptKey = `${hand.handNumber}:${hand.actions.length}`;
+    setSentFor(promptKey);
     const latency = Date.now() - promptedAt.current;
     let vector: TellVector | null = null;
     if (tells.status === "running" && tells.baselineRef.current) {
@@ -197,7 +201,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
             </div>
           )}
           <OvalTable state={state} viewerSeat={me?.seat ?? null} lastActions={table.lastActions} talk={table.talk} speaking={voice.speaking} tells={table.tells} />
-          {hand && !hand.over && me && !me.sittingOut && <ActionBar legal={table.legal} bounds={table.bounds} pot={hand.pot} disabled={!myTurn} onAct={onAct} />}
+          {hand && !hand.over && me && !me.sittingOut && <ActionBar legal={table.legal} bounds={table.bounds} pot={hand.pot} disabled={!myTurn || sentFor === `${hand.handNumber}:${hand.actions.length}`} onAct={onAct} />}
           {hand?.over && <p className="text-center text-xs text-muted">Next hand in a moment…</p>}
         </section>
 
