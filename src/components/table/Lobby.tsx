@@ -1,6 +1,6 @@
 "use client";
 
-import { PERSONAS } from "@/lib/villain/personas";
+import { AI_MODELS, getAIModel } from "@/lib/llm/models";
 import type { TableState } from "@/lib/types";
 import { VISIBILITY_LABEL } from "./TableConfigForm";
 
@@ -49,7 +49,7 @@ export default function Lobby({ state, playerId, onAddAI, onRemove, onStart, onL
                       <p className="font-medium">
                         {p.name} {p.id === playerId && <span className="text-xs text-muted">(you)</span>} {p.id === state.hostId && <span className="text-xs text-gold">host</span>}
                       </p>
-                      <p className="text-xs text-muted">{p.kind === "ai" ? PERSONAS.find((x) => x.id === p.personaId)?.tagline ?? "AI" : p.connected ? "connected" : "not connected yet"}</p>
+                      <p className="text-xs text-muted">{p.kind === "ai" ? `${getAIModel(p.personaId ?? "")?.vendor ?? "AI"} · ${getAIModel(p.personaId ?? "")?.tagline ?? ""}` : p.connected ? "connected" : "not connected yet"}</p>
                     </div>
                   </div>
                   {isHost && p.id !== state.hostId && (
@@ -67,10 +67,10 @@ export default function Lobby({ state, playerId, onAddAI, onRemove, onStart, onL
 
           {isHost && free > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted">Add an AI:</span>
-              {PERSONAS.map((p) => (
-                <button key={p.id} onClick={() => onAddAI(p.id)} className="rounded-full border border-felt-edge px-3 py-1 text-sm hover:border-gold">
-                  + {p.name}
+              <span className="text-sm text-muted">Seat another model:</span>
+              {AI_MODELS.map((m) => (
+                <button key={m.id} onClick={() => onAddAI(m.id)} title={`${m.vendor} · ${m.openrouter}`} className="rounded-full border border-felt-edge px-3 py-1 text-sm hover:border-gold">
+                  + {m.label}
                 </button>
               ))}
             </div>

@@ -110,7 +110,7 @@ export interface TableConfig {
   /** Human auto check/fold when the timer expires. 0 = no timer. */
   turnTimerSec: number;
   tellVisibility: TellVisibility;
-  /** Persona ids seated at creation. */
+  /** AI model ids (lib/llm/models.ts) seated at creation; duplicates allowed. */
   aiPlayers: string[];
   /** Humans joining mid-game get a seat next hand. */
   allowLateJoin: boolean;
@@ -126,7 +126,7 @@ export const DEFAULT_TABLE: TableConfig = {
   handsPerMatch: 15,
   turnTimerSec: 30,
   tellVisibility: "ai_and_rail",
-  aiPlayers: ["vega", "dutch"],
+  aiPlayers: ["claude", "chatgpt"],
   allowLateJoin: true,
   voice: true,
 };
@@ -259,11 +259,15 @@ export interface TellVector {
 
 // ---------- AI players ----------
 
+/** An AI player: a specific LLM (via OpenRouter) with a table presence. */
 export interface Persona {
   id: string;
   name: string;
+  vendor: string;
   tagline: string;
   style: string; // prompt fragment
+  /** OpenRouter model id this player thinks with. */
+  model: string;
   /** ElevenLabs voice id for TTS table talk. */
   voiceId?: string;
   /** 0-1: how often to bet/raise beyond what the math suggests. */

@@ -10,7 +10,7 @@
 import "server-only";
 import { z } from "zod";
 import type { ActionType, VillainDecision, VillainDecisionInput } from "@/lib/types";
-import { completeJSON, llmAvailable } from "@/lib/llm/provider";
+import { completeJSON, llmAvailable, perSeatModels } from "@/lib/llm/provider";
 import { getPersona } from "./personas";
 import { villainSystemPrompt, villainUserPrompt } from "./prompt";
 
@@ -71,6 +71,7 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
       system: villainSystemPrompt(persona),
       user: villainUserPrompt(input) + `\nThe math-only recommendation is: ${baseline}.`,
       schema: DecisionSchema,
+      model: perSeatModels() ? persona.model : undefined,
       temperature: 0.8,
     });
     const action = input.legalActions.includes(out.action) ? out.action : baseline;
@@ -84,7 +85,7 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
       llmUsed: true,
     };
   } catch (err) {
-    console.error("AI LLM failed, using math action", err);
+    console.error(`AI ${persona.name} (${persona.model}) failed, using math action:`, (err as Error).message);
     return mathOnly("LLM unavailable; math-only decision.");
   }
 }

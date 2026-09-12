@@ -11,14 +11,14 @@ A No-Limit Hold'em table for friends and AI players. Create a table, share the 4
 | App | Next.js 16 (App Router), React 19, Tailwind v4 |
 | Camera tells | MediaPipe Face Landmarker (WASM, in-browser, 478 landmarks + 52 blendshapes) |
 | Poker | N-player NLHE engine with side pots, `pokersolver` + Monte Carlo equity |
-| AI players | Equity + tells -> LLM (Gemini or Claude, provider-abstracted) -> strict JSON action + table talk |
+| AI players | Each seat is a real model via OpenRouter (Claude, ChatGPT, DeepSeek, Gemini, Grok, Llama, Mistral, Qwen, Kimi): equity + tells -> that LLM -> strict JSON action + table talk |
 | Voice | ElevenLabs TTS, one voice per persona, played on every client |
 | Realtime | Server-Sent Events, in-memory bus, per-viewer filtering (private cards, tell visibility) |
 | Deploy | Railway (single Node process) |
 
 ## How a table works
 
-1. **Host** opens `/table/new`: seats (2-9), blinds, stacks, hands, turn timer, AI personas, and **who sees the tells** (AIs and rail by default; humans never see their own during play).
+1. **Host** opens `/table/new`: seats (2-9), blinds, stacks, hands, turn timer, **which models to play against** (any mix, duplicates allowed), and **who sees the tells** (AIs and rail by default; humans never see their own during play).
 2. **Players** open `/table/<code>`, type a name, and optionally calibrate a 10s face baseline in the lobby.
 3. The host deals. AI turns run on the server; humans get a turn timer that auto-checks/folds.
 4. **Spectators** open `/rail/<code>`: every card, every human's live tell HUD, the AIs' stated reads and table talk.
@@ -33,7 +33,7 @@ src/lib/game/           table manager (lobby, hand loop, AI turns, timers, log),
 src/lib/realtime/bus.ts per-viewer SSE pub/sub
 src/lib/tells/          landmarker, features, emotion, baseline, cursor, fuse (client-side)
 src/lib/villain/        brain, prompt, personas
-src/lib/llm/            provider abstraction (Gemini | Anthropic)
+src/lib/llm/            models.ts (the opponents catalog) + provider (OpenRouter | Gemini | Anthropic)
 src/lib/store.ts        in-memory table logs
 src/components/         table (oval, lobby, config), rail, reveal, tell HUD, action bar
 ```
@@ -41,7 +41,7 @@ src/components/         table (oval, lobby, config), rail, reveal, tell HUD, act
 ## Run
 
 ```bash
-cp .env.example .env.local   # keys are optional: without them the AIs play math-only and talk is silent
+cp .env.example .env.local   # set OPENROUTER_API_KEY; without it the AIs play math-only and stay silent
 npm install
 npm run dev                  # http://localhost:3000
 npm test

@@ -15,7 +15,7 @@ const humans = Number(flag("humans", 2));
 const ais = Number(flag("ais", 2));
 const hands = Number(flag("hands", 12));
 const slow = args.includes("--slow");
-const personas = ["vega", "dutch", "ada"];
+const personas = ["claude", "chatgpt", "deepseek", "gemini", "grok"];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const call = async (path, method, body) => {

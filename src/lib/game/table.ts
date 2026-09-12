@@ -111,7 +111,7 @@ export function addAI(code: string, token: string, personaId: string): void {
   const t = must(code);
   requireHost(t, token);
   if (t.phase !== "lobby") throw new TableError("AI players can only be added in the lobby");
-  if (!isPersonaId(personaId)) throw new TableError(`Unknown persona ${personaId}`);
+  if (!isPersonaId(personaId)) throw new TableError(`Unknown AI model ${personaId}`);
   if (freeSeat(t) === null) throw new TableError("Table is full", 409);
   seatAI(t, personaId);
   syncLogPlayers(code, t.players);
@@ -467,7 +467,7 @@ async function aiAct(t: Table, seat: number) {
     bounds: b,
     equity: eq.equity,
     potOdds: potOdds(b.toCall, hand.pot),
-    personaId: player.personaId ?? "vega",
+    personaId: player.personaId ?? "claude",
   });
 
   // The table may have moved on while the LLM was thinking (e.g. host ended it).
@@ -490,7 +490,7 @@ async function aiAct(t: Table, seat: number) {
   applyAndPublish(t, req, null);
   if (decision.tableTalk) {
     appendLog(t.code, "talk", { handNumber: hand.handNumber, playerId: player.id, text: decision.tableTalk });
-    const talk: TableEvent = { type: "talk", playerId: player.id, text: decision.tableTalk, voiceId: getPersona(player.personaId ?? "vega").voiceId };
+    const talk: TableEvent = { type: "talk", playerId: player.id, text: decision.tableTalk, voiceId: getPersona(player.personaId ?? "claude").voiceId };
     publish(t.code, talk);
   }
 }

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, lastName, saveIdentity } from "@/lib/client/identity";
-import { PERSONAS } from "@/lib/villain/personas";
+import { AI_MODELS, getAIModel } from "@/lib/llm/models";
 import { DEFAULT_TABLE, type TableConfig, type TellVisibility } from "@/lib/types";
 
 export const VISIBILITY_LABEL: Record<TellVisibility, string> = {
@@ -27,8 +27,10 @@ export default function TableConfigForm() {
   }, []);
 
   const set = <K extends keyof TableConfig>(k: K, v: TableConfig[K]) => setCfg((c) => ({ ...c, [k]: v }));
-  const toggleAI = (id: string) => set("aiPlayers", cfg.aiPlayers.includes(id) ? cfg.aiPlayers.filter((x) => x !== id) : [...cfg.aiPlayers, id]);
+  const addAI = (id: string) => set("aiPlayers", [...cfg.aiPlayers, id]);
+  const removeAI = (index: number) => set("aiPlayers", cfg.aiPlayers.filter((_, i) => i !== index));
   const seatsNeeded = 1 + cfg.aiPlayers.length;
+  const seatsLeft = cfg.maxSeats - seatsNeeded;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,17 +81,30 @@ export default function TableConfigForm() {
         </select>
       </Field>
 
-      <Field label="AI players">
-        <div className="grid gap-2 sm:grid-cols-3">
-          {PERSONAS.map((p) => {
-            const on = cfg.aiPlayers.includes(p.id);
-            return (
-              <button type="button" key={p.id} onClick={() => toggleAI(p.id)} className={`flex flex-col gap-1 rounded-xl border p-3 text-left transition ${on ? "border-gold bg-gold/10" : "border-felt-edge"}`} aria-pressed={on}>
-                <span className="font-semibold">{p.name}</span>
-                <span className="text-xs text-muted">{p.tagline}</span>
+      <Field label="AI opponents" hint="Each seat is a specific model, thinking for itself through OpenRouter. Seat the same model twice if you like.">
+        <div className="flex flex-col gap-3">
+          <ul className="flex flex-wrap gap-2">
+            {cfg.aiPlayers.map((id, i) => {
+              const m = getAIModel(id);
+              return (
+                <li key={`${id}-${i}`} className="flex items-center gap-2 rounded-full border border-gold bg-gold/10 py-1 pl-3 pr-1 text-sm">
+                  <span className="font-medium">{m?.label ?? id}</span>
+                  <span className="text-xs text-muted">{m?.vendor}</span>
+                  <button type="button" onClick={() => removeAI(i)} aria-label={`Remove ${m?.label ?? id}`} className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-background">×</button>
+                </li>
+              );
+            })}
+            {cfg.aiPlayers.length === 0 && <li className="text-sm text-muted">No AI opponents yet: humans only.</li>}
+          </ul>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {AI_MODELS.map((m) => (
+              <button type="button" key={m.id} onClick={() => addAI(m.id)} disabled={seatsLeft <= 0} className="flex flex-col gap-0.5 rounded-xl border border-felt-edge p-3 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40">
+                <span className="flex items-baseline justify-between gap-2"><span className="font-semibold">+ {m.label}</span><span className="text-[10px] uppercase tracking-wider text-muted">{m.vendor}</span></span>
+                <span className="text-xs text-muted">{m.tagline}</span>
               </button>
-            );
-          })}
+            ))}
+          </div>
+          {seatsLeft <= 0 && <p className="text-xs text-gold">Table is full. Add seats above to invite more models.</p>}
         </div>
       </Field>
 
