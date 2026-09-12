@@ -1,123 +1,101 @@
 "use client";
 
-/**
- * Spectator view: every card, every human's live tells, the AIs' stated reads, table talk, hand history.
- * Tells respect the table's `tellVisibility`; the server filters them before they reach this stream.
- */
-
 import Link from "next/link";
-import { useState } from "react";
-import BluffMeter from "@/components/BluffMeter";
-import TellHUD from "@/components/TellHUD";
-import Oval from "@/components/table/Oval";
-import { useTable } from "@/hooks/useTable";
-import { useTalk } from "@/hooks/useTalk";
-import type { Player } from "@/lib/types";
+import { Activity, Eye, Radio, RefreshCw, Spade, Users } from "lucide-react";
+import RailInspector from "./RailInspector";
+import RailTable from "./RailTable";
+import RailTicker from "./RailTicker";
+import { useFakeRail } from "./useFakeRail";
+import { useLiveRail } from "./useLiveRail";
+import type { RailConnectionState, RailViewModel } from "./model";
 
-export default function RailDashboard({ code }: { code: string }) {
-  const table = useTable(code, null, null);
-  const [voice, setVoice] = useState(false);
-  const talk = useTalk(table.talk, voice && (table.state?.config.voice ?? true));
-  const { state } = table;
-
-  if (!state) {
-    return (
-      <main className="flex flex-1 flex-col items-center justify-center gap-3 text-muted">
-        {table.status === "error" ? (
-          <>
-            <p>No live table with code <span className="font-mono text-gold">{code}</span>.</p>
-            <Link href="/rail" className="underline">try another code</Link>
-          </>
-        ) : (
-          "Connecting to the rail…"
-        )}
-      </main>
-    );
-  }
-
-  const humans = state.players.filter((p) => p.kind === "human");
-  const ais = state.players.filter((p) => p.kind === "ai");
-  const name = (id: string) => state.players.find((p) => p.id === id)?.name ?? "?";
-  const seatName = (seat: number) => state.players.find((p) => p.seat === seat)?.name ?? `Seat ${seat + 1}`;
+function ConnectionScreen({ state, code }: { state: Exclude<RailConnectionState, "live">; code: string }) {
+  const content = {
+    connecting: { title: "Finding table", body: `Connecting to table ${code}…`, icon: RefreshCw },
+    "not-found": { title: "No table found", body: `There is no active table using code ${code}. Check the code and try again.`, icon: Eye },
+    disconnected: { title: "The feed dropped", body: "The table is still running. Reconnect to resume the broadcast.", icon: Radio },
+    ended: { title: "This table has ended", body: "The final hand is complete. The full reveal will be available from the host.", icon: Activity },
+  }[state];
+  const Icon = content.icon;
 
   return (
-    <main className="flex flex-1 flex-col gap-3 px-3 py-4 sm:px-6">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">
-          The Rail · <span className="font-mono text-gold">{code}</span>
-          <span className="ml-3 text-xs font-normal uppercase tracking-widest text-muted">{state.phase === "lobby" ? "waiting in the lobby" : state.phase === "finished" ? "match over" : table.status}</span>
-        </h1>
-        <div className="flex items-center gap-3 text-xs">
-          <button onClick={() => setVoice((v) => !v)} className="rounded-full border border-felt-edge px-3 py-1">{voice ? "Voices on" : "Hear the AI voices"}</button>
-          {state.phase === "finished" && <Link href={`/reveal/${code}`} className="rounded-full bg-gold px-3 py-1 font-medium text-background">Open the reveal</Link>}
+    <main className="flex min-h-screen flex-1 items-center justify-center px-6 py-16">
+      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.035] p-8 text-center shadow-2xl">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-gold/25 bg-gold/8">
+          <Icon className={state === "connecting" ? "animate-spin text-gold" : "text-gold"} size={24} />
         </div>
-      </header>
-
-      <div className="grid flex-1 gap-4 xl:grid-cols-[1fr_360px]">
-        <section className="flex flex-col gap-3">
-          <Oval state={state} viewerSeat={null} lastActions={table.lastActions} talk={table.talk} speaking={talk.speaking} seatExtra={(p) => (p.kind === "human" && table.tells[p.id]?.vector ? <div className="mt-1 w-full"><BluffMeter value={table.tells[p.id].vector!.bluffLikelihood} compact /></div> : null)} />
-
-          {ais.length > 0 && (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {ais.map((ai) => {
-                const r = table.reads[ai.id];
-                return (
-                  <div key={ai.id} className="rounded-2xl border border-felt-edge p-3 text-xs">
-                    <p className="mb-1 font-semibold text-gold">{ai.name}&apos;s read</p>
-                    {r ? (
-                      <>
-                        <p className="text-muted">Hand {r.handNumber} · {r.street} · {r.decision.action}{r.decision.amount ? ` ${r.decision.amount}` : ""}{r.decision.mathAction !== r.decision.action && <span className="ml-1 text-gold">(math said {r.decision.mathAction})</span>}</p>
-                        <p className="mt-1">{r.decision.reasoning}</p>
-                        {r.decision.tellsUsed.length > 0 && <p className="mt-1 text-danger">tells used: {r.decision.tellsUsed.join(", ")}</p>}
-                      </>
-                    ) : (
-                      <p className="text-muted">waiting for a decision…</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <aside className="flex flex-col gap-3">
-          {humans.map((p) => <HumanPanel key={p.id} player={p} tells={table.tells[p.id]} />)}
-          {humans.length > 0 && Object.keys(table.tells).length === 0 && <p className="rounded-2xl border border-felt-edge p-3 text-xs text-muted">Tells are hidden from the rail at this table, or no camera is on yet.</p>}
-
-          <div className="rounded-2xl border border-felt-edge p-3 text-xs">
-            <p className="mb-2 font-semibold text-gold">Table talk</p>
-            <ul className="flex max-h-40 flex-col gap-1 overflow-auto">
-              {table.talk.slice().reverse().map((t) => (
-                <li key={t.id}><span className="font-medium">{name(t.playerId)}:</span> {t.text}</li>
-              ))}
-              {table.talk.length === 0 && <li className="text-muted">quiet so far</li>}
-            </ul>
-          </div>
-
-          <div className="rounded-2xl border border-felt-edge p-3 text-xs">
-            <p className="mb-2 font-semibold text-gold">Hand history</p>
-            <ul className="flex max-h-60 flex-col gap-1 overflow-auto">
-              {table.history.slice().reverse().map((h) => (
-                <li key={h.handNumber} className="flex justify-between gap-2">
-                  <span className="text-muted">#{h.handNumber}</span>
-                  <span className="flex-1 truncate">{(h.results ?? []).filter((r) => r.won > 0).map((r) => `${seatName(r.seat)} +${r.won}`).join(", ")}{h.foldedOut ? " (folds)" : ""}</span>
-                  <span className="font-mono text-muted">{h.board.join(" ")}</span>
-                </li>
-              ))}
-              {table.history.length === 0 && <li className="text-muted">no hands finished yet</li>}
-            </ul>
-          </div>
-        </aside>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-gold">Poker Face Rail</p>
+        <h1 className="text-2xl font-semibold text-white">{content.title}</h1>
+        <p className="mt-3 leading-relaxed text-white/50">{content.body}</p>
+        {state !== "connecting" && (
+          <Link href="/rail" className="mt-6 inline-flex rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-black">Enter another code</Link>
+        )}
       </div>
     </main>
   );
 }
 
-function HumanPanel({ player, tells }: { player: Player; tells?: { frame: import("@/lib/types").TellFrame | null; vector: import("@/lib/types").TellVector | null } }) {
+function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
+  if (view.connection !== "live" || !view.table) {
+    const state = view.connection === "live" ? "disconnected" : view.connection;
+    return <ConnectionScreen state={state} code={code} />;
+  }
+
+  const table = view.table;
+  const humans = table.players.filter((player) => player.kind === "human");
+  const ais = table.players.filter((player) => player.kind === "ai");
+  const currentPlayer = table.players.find((player) => player.id === table.currentPlayerId);
+
   return (
-    <div>
-      <p className="mb-1 text-xs font-semibold">{player.name}</p>
-      <TellHUD frame={tells?.frame ?? null} baseline={null} vector={tells?.vector ?? null} cameraStatus={tells ? "live" : "no feed"} />
-    </div>
+    <main className="min-h-screen flex-1 bg-[radial-gradient(circle_at_top,#14241d_0%,#0b0f0d_38%)] px-3 py-3 sm:px-5 xl:flex xl:h-dvh xl:flex-col xl:overflow-hidden">
+      <header className="mx-auto mb-3 flex w-full max-w-[1600px] shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/8 pb-3">
+        <div className="flex items-center gap-4">
+          <div className="hidden h-9 w-9 items-center justify-center rounded-full bg-gold text-black sm:flex"><Spade size={17} fill="currentColor" /></div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">Poker Face · Rail</p>
+            <h1 className="mt-0.5 text-xl font-semibold text-white">Table <span className="font-mono text-gold">{code}</span></h1>
+          </div>
+          <span className="flex items-center gap-1.5 rounded-full border border-ok/25 bg-ok/8 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-ok">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok" /> Live
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-full border border-white/8 bg-white/[0.035] px-3 py-1.5 text-white/55">Hand <strong className="font-mono text-white">{table.handNumber}/{table.handsPerMatch}</strong></span>
+          <span className="rounded-full border border-white/8 bg-white/[0.035] px-3 py-1.5 uppercase text-white/55">{table.street}</span>
+          <span className="flex items-center gap-1.5 rounded-full border border-white/8 bg-white/[0.035] px-3 py-1.5 text-white/55"><Users size={14} />{table.spectators} watching</span>
+        </div>
+      </header>
+
+      <div className="mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-h-0 flex-col">
+          <div className="mb-2 flex shrink-0 items-center justify-between rounded-xl border border-gold/15 bg-gold/[0.055] px-3.5 py-2">
+            <div className="flex items-center gap-2 text-sm text-white/55">
+              <span className="h-2 w-2 rounded-full bg-gold shadow-[0_0_10px_rgba(212,175,55,0.8)]" />
+              <strong className="text-white">{currentPlayer?.name ?? "Table"}</strong> to act
+            </div>
+            <div className="font-mono text-sm text-gold">{table.turnSecondsRemaining ?? "—"}s</div>
+          </div>
+          <div className="min-h-0 xl:flex-1"><RailTable table={table} /></div>
+        </div>
+        <RailInspector humans={humans} ais={ais} history={view.history} />
+      </div>
+      <div className="mx-auto mt-2 hidden w-full max-w-[1600px] shrink-0 overflow-hidden rounded-xl border border-white/8 xl:block">
+        <RailTicker entries={view.history} />
+      </div>
+    </main>
   );
+}
+
+function FakeRailDashboard({ code }: { code: string }) {
+  return <RailSurface code={code} view={useFakeRail(code)} />;
+}
+
+function LiveRailDashboard({ code }: { code: string }) {
+  return <RailSurface code={code} view={useLiveRail(code)} />;
+}
+
+export default function RailDashboard({ code, demo = false }: { code: string; demo?: boolean }) {
+  return demo
+    ? <FakeRailDashboard key={`demo-${code}`} code={code} />
+    : <LiveRailDashboard key={`live-${code}`} code={code} />;
 }
