@@ -354,3 +354,24 @@ export interface TableLog {
   baselines: Record<string, BaselineStats>;
   entries: TableLogEntry[];
 }
+
+// ---------- Hall ----------
+
+/** One human's poker-face result from a finished match. Feeds the landing-page Hall of Poker Faces. */
+export interface HallEntry {
+  name: string;
+  /** Table code the result came from. */
+  code: string;
+  /** 0-100. High = the face gave nothing away. */
+  pokerFace: number;
+  /** Aggressive actions made with weak equity. */
+  bluffs: number;
+  /** Bluffs the tells flagged (bluffLikelihood >= 0.5). */
+  bluffsCaught: number;
+  readsRight: number;
+  readsTotal: number;
+  /** First line of AI table talk that mentioned this player, if any. */
+  bestLine?: string;
+  /** Epoch ms when the match ended. */
+  at: number;
+}
