@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { FEATURED_MODEL_IDS, OPENROUTER_ID, describeModelId, formatPrice, type CatalogModel } from "@/lib/llm/models";
+import { FEATURED_MODEL_IDS, OPENROUTER_ID, describeModelId, formatPrice, tierOf, type CatalogModel } from "@/lib/llm/models";
 
 interface Props {
   onAdd: (id: string) => void;
@@ -61,23 +61,33 @@ export default function ModelPicker({ onAdd, disabled, compact }: Props) {
       <div>
         <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">The regulars</p>
         <div className={compact ? "flex flex-wrap gap-2" : "grid gap-2 sm:grid-cols-3"}>
-          {regulars.map((m) => (
-            <button
-              type="button"
-              key={m.id}
-              disabled={disabled}
-              onClick={() => onAdd(m.id)}
-              title={m.id}
-              className={
-                compact
-                  ? "rounded-full border border-felt-edge px-3 py-1 text-sm hover:border-gold disabled:opacity-40"
-                  : "flex items-baseline justify-between gap-2 rounded-xl border border-felt-edge px-3 py-2.5 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40"
-              }
-            >
-              <span className="font-medium">{compact ? "+ " : ""}{m.name}</span>
-              {!compact && <span className="text-[10px] uppercase tracking-wider text-muted">{m.vendor}</span>}
-            </button>
-          ))}
+          {regulars.map((m) => {
+            const tier = tierOf(m.id);
+            return (
+              <button
+                type="button"
+                key={m.id}
+                disabled={disabled}
+                onClick={() => onAdd(m.id)}
+                title={m.id}
+                className={
+                  compact
+                    ? "rounded-full border border-felt-edge px-3 py-1 text-sm hover:border-gold disabled:opacity-40"
+                    : "flex flex-col gap-0.5 rounded-xl border border-felt-edge px-3 py-2.5 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40"
+                }
+              >
+                <span className="font-medium">{compact ? "+ " : ""}{m.name}</span>
+                {compact
+                  ? tier && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted">{tier}</span>
+                  : (
+                    <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted">
+                      {m.vendor}
+                      {tier && <span className="rounded border border-felt-edge px-1">{tier}</span>}
+                    </span>
+                  )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
