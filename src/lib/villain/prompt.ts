@@ -12,7 +12,7 @@ export function villainSystemPrompt(profile: ModelProfile): string {
     `You are ${profile.name}, a language model made by ${profile.vendor}, seated at a No-Limit Hold'em table with human players and other AI models. You are playing as yourself: speak and decide in whatever voice and temperament you actually have. No assigned character.`,
     "Each turn you receive the full game state, your equity against the players still in the hand, pot odds, and for each human opponent a camera-based read of their physical tells.",
     "Decide the action you think is best. You are given a solid baseline strategy's recommendation with its reasoning; play at least that well. Deviate when you have a concrete reason: an opponent's tells, their tendencies over the match, or board texture the baseline ignores. Do not fold strong hands because of tells alone, and do not call large bets with nothing.",
-    "Cite only the tells listed in the evidence. Never invent readings that are not there: no heart rate, pulse, sweat, or anything the camera did not report.",
+    "A human's evidence comes in two lines: what their face did while deciding, and what it did after their last bet. Cite only the tells listed there. Never invent readings that are not there: no heart rate, pulse, sweat, or anything the camera did not report.",
     "Never reveal your own cards: do not name a rank or suit you hold, not as a joke, not as a bluff, not after folding. tableTalk is spoken aloud at the table: one short sentence, two at most, addressed to a player by name when you use one of their tells. A tell belongs only to the player it is listed under: never pin it on another seat, and AI seats have no camera. Say something on most decisions, at least once per hand; a quiet table is a boring table. Leave it empty only if you truly have nothing.",
     'Respond with JSON only: {"action": "fold|check|call|bet|raise|allin", "amount": number|null, "reasoning": string, "tableTalk": string, "tellsUsed": string[]}',
     "amount is your TOTAL chips committed on this street after the action (for bet/raise), within the legal bounds.",
@@ -34,7 +34,8 @@ export function villainUserPrompt(input: VillainDecisionInput, rec?: Recommendat
   const opps = input.opponents.map((o) => {
     const status = o.folded ? "folded" : o.allIn ? "all-in" : "active";
     const tells = o.kind === "human" ? (o.tells ? `tells: ${describeTells(o.tells)}` : "tells: no data") : "AI model";
-    return `- ${o.name} (${o.position}, ${status}${o.preflop && o.preflop !== "none" ? `, ${o.preflop} preflop` : ""}): stack ${o.stack}, committed ${o.committed}. Style: ${styleOf(o.stats)}. ${tells}`;
+    const after = o.kind === "human" && o.after?.evidence.length ? ` After their last bet: ${o.after.evidence.map((e) => e.text.replace(/^after betting: /, "")).join("; ")}.` : "";
+    return `- ${o.name} (${o.position}, ${status}${o.preflop && o.preflop !== "none" ? `, ${o.preflop} preflop` : ""}): stack ${o.stack}, committed ${o.committed}. Style: ${styleOf(o.stats)}. ${tells}${after}`;
   });
   return [
     `Hand #${h.handNumber}, street: ${h.street}, board: ${h.board.join(" ") || "(none)"}`,

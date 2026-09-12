@@ -31,10 +31,10 @@ const tells = (evidence: Array<[string, string]>, bluffLikelihood = 0.59): TellV
 const opp = (name: string, t: TellVector | null, kind: "human" | "ai" = "human", folded = false) => ({ name, kind, folded, tells: t } as unknown as OpponentView);
 
 describe("canonicalTells", () => {
-  const raghu = opp("Raghu", tells([["chip_glance", "glanced at chips after the flop"], ["fast_action", "acted unusually fast"]]));
+  const raghu = opp("Raghu", tells([["controls_glance", "eyed the bet controls right after the flop"], ["fast_action", "acted unusually fast"]]));
 
   it("maps paraphrases to the recorded evidence, named after the player", () => {
-    expect(canonicalTells(["that quick look at the chips"], [raghu])).toEqual(["Raghu: glanced at chips after the flop"]);
+    expect(canonicalTells(["that quick look at the chips"], [raghu])).toEqual(["Raghu: eyed the bet controls right after the flop"]);
     expect(canonicalTells(["Raghu snap-called"], [raghu])).toEqual(["Raghu: acted unusually fast"]);
   });
 
@@ -47,6 +47,21 @@ describe("canonicalTells", () => {
   it("never attributes a tell to a folded seat or an AI, and does not repeat", () => {
     const folded = opp("Sam", tells([["freeze", "went unusually still (20% of usual motion)"]]), "human", true);
     expect(canonicalTells(["Sam froze"], [raghu, folded])).toEqual([]);
-    expect(canonicalTells(["chips", "chip glance"], [raghu])).toEqual(["Raghu: glanced at chips after the flop"]);
+    expect(canonicalTells(["chips", "chip glance"], [raghu])).toEqual(["Raghu: eyed the bet controls right after the flop"]);
+  });
+});
+
+describe("canonicalTells with a post-bet line", () => {
+  const both = { ...opp("Raghu", tells([["freeze", "went unusually still (30% of usual motion)"]])), after: tells([["post_freeze", "after betting: froze (20% of usual motion)"], ["post_gaze_away", "after betting: looked away and never up"]]) } as unknown as OpponentView;
+
+  it("maps a line about the bet's aftermath to the post-bet evidence, and a plain line to the decision read", () => {
+    expect(canonicalTells(["Raghu froze after that bet"], [both])).toEqual(["Raghu: after betting: froze (20% of usual motion)"]);
+    expect(canonicalTells(["Raghu went still"], [both])).toEqual(["Raghu: went unusually still (30% of usual motion)"]);
+    expect(canonicalTells(["would not look at me after betting"], [both])).toEqual(["Raghu: after betting: looked away and never up"]);
+  });
+
+  it("finds post-bet-only evidence when the decision read has none of that signal", () => {
+    const onlyAfter = { ...opp("Raghu", tells([])), after: tells([["post_lean_back", "after betting: sat back"]]) } as unknown as OpponentView;
+    expect(canonicalTells(["Raghu relaxed"], [onlyAfter])).toEqual(["Raghu: after betting: sat back"]);
   });
 });

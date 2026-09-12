@@ -36,9 +36,12 @@ function bigPotEffort(): "low" | "medium" | "high" {
 }
 
 export function tellAdjustment(input: VillainDecisionInput): number {
-  const live = input.opponents.filter((o) => !o.folded && o.tells && o.tells.confidence > 0.2);
-  if (!live.length) return 0;
-  const avg = live.reduce((a, o) => a + (o.tells!.bluffLikelihood - 0.5) * o.tells!.confidence, 0) / live.length;
+  // Two reads per live human: on their decision, and after their bet. Each counts by distance from neutral times confidence.
+  const reads = input.opponents
+    .filter((o) => !o.folded)
+    .flatMap((o) => [o.tells, o.after].filter((v): v is NonNullable<typeof v> => !!v && v.confidence > 0.2));
+  if (!reads.length) return 0;
+  const avg = reads.reduce((a, v) => a + (v.bluffLikelihood - 0.5) * v.confidence, 0) / reads.length;
   return avg * 0.4;
 }
 

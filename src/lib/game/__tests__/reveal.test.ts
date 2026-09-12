@@ -59,8 +59,8 @@ describe("achievements", () => {
 
   it("top leak signal picks exactly one of chip_glancer, frozen, speed_demon", () => {
     const leak = (signal: string) => ({ signal, text: signal, count: 3, direction: "bluff" as const });
-    expect(ids(human({ leaks: [leak("chip_glance"), leak("freeze")] }))).toEqual(["chip_glancer"]);
-    expect(ids(human({ leaks: [leak("freeze"), leak("chip_glance")] }))).toEqual(["frozen"]);
+    expect(ids(human({ leaks: [leak("controls_glance"), leak("freeze")] }))).toEqual(["chip_glancer"]);
+    expect(ids(human({ leaks: [leak("freeze"), leak("controls_glance")] }))).toEqual(["frozen"]);
     expect(ids(human({ leaks: [leak("fast_action")] }))).toEqual(["speed_demon"]);
     expect(ids(human({ leaks: [leak("blink_rate"), leak("freeze")] }))).toEqual([]);
   });
@@ -96,7 +96,7 @@ describe("achievements", () => {
       bluff(0.9), bluff(0.1), bluff(0.2), // caught once, slipped twice (out of order on purpose)
       ...Array.from({ length: 7 }, value), // pads to 10 decisions for marathon
     ];
-    const p = human({ pokerFace: 85, readsTotal: 4, readsRight: 3, decisions, leaks: [{ signal: "chip_glance", text: "glanced at chips", count: 4, direction: "strength" }] });
+    const p = human({ pokerFace: 85, readsTotal: 4, readsRight: 3, decisions, leaks: [{ signal: "controls_glance", text: "eyed the bet controls right after the flop", count: 4, direction: "strength" }] });
     // Six rules apply: stone_cold, bluff_artist, caught_red_handed, chip_glancer, they_were_listening, marathon.
     expect(ids(p, [listened])).toEqual(["stone_cold", "bluff_artist", "caught_red_handed", "chip_glancer", "they_were_listening"]);
     expect(achievements(p, [listened])).toHaveLength(5);

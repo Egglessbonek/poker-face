@@ -147,7 +147,7 @@ export function useTable(code: string, token: string | null, playerId: string | 
   /** Host only, once finished: open a new table with the same config and AI seats. Null when the request failed (see `error`). */
   const rematch = useCallback(() => call<RematchResult>("/rematch", "POST").catch((): null => null), [call]);
   const sendTells = useCallback(
-    (payload: { frame?: TellFrame | null; vector?: TellVector | null; baseline?: BaselineStats }) =>
+    (payload: { frame?: TellFrame | null; vector?: TellVector | null; after?: TellVector | null; live?: TellVector | null; baseline?: BaselineStats }) =>
       fetch(`/api/table/${code}/tells`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, ...payload }), keepalive: true }).catch(() => {}),
     [code, token],
   );
