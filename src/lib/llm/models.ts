@@ -21,13 +21,10 @@ export interface CatalogModel {
 export const FEATURED_MODEL_IDS: string[] = [
   "anthropic/claude-sonnet-5",
   "openai/gpt-5.6-terra",
-  "deepseek/deepseek-v3.2",
-  "google/gemini-3.8-flash",
   "x-ai/grok-4.6",
   "meta-llama/llama-4-maverick",
-  "mistralai/mistral-medium-3-5",
-  "qwen/qwen3.8-flash",
-  "moonshotai/kimi-k2.6",
+  "google/gemini-3.8-flash",
+  "deepseek/deepseek-v3.2",
 ];
 
 const VENDOR_NAMES: Record<string, string> = {

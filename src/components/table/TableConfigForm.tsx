@@ -97,7 +97,7 @@ export default function TableConfigForm() {
                   </li>
                 );
               })}
-              {cfg.aiPlayers.length === 0 && <li className="text-sm text-muted">Just humans so far. Lonely table.</li>}
+              {cfg.aiPlayers.length === 0 && <li className="text-sm text-muted">Just humans so far.</li>}
             </ul>
           </div>
           <ModelPicker onAdd={addAI} disabled={seatsLeft <= 0} />

@@ -15,7 +15,7 @@ const humans = Number(flag("humans", 2));
 const ais = Number(flag("ais", 2));
 const hands = Number(flag("hands", 12));
 const slow = args.includes("--slow");
-const guests = ["anthropic/claude-sonnet-5", "openai/gpt-5.6-terra", "deepseek/deepseek-v3.2", "google/gemini-3.8-flash", "x-ai/grok-4.6"];
+const guests = ["anthropic/claude-sonnet-5", "openai/gpt-5.6-terra", "x-ai/grok-4.6", "meta-llama/llama-4-maverick", "google/gemini-3.8-flash", "deepseek/deepseek-v3.2"];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const call = async (path, method, body) => {

@@ -11,7 +11,7 @@ A No-Limit Hold'em table for friends and AI players. Create a table, share the 4
 | App | Next.js 16 (App Router), React 19, Tailwind v4 |
 | Camera tells | MediaPipe Face Landmarker (WASM, in-browser, 478 landmarks + 52 blendshapes) |
 | Poker | N-player NLHE engine with side pots, `pokersolver` + Monte Carlo equity |
-| AI players | Real models via OpenRouter, each playing as itself (no scripted personas): the regulars are pinned, the whole catalog is a search away. Equity + tells -> that model -> strict JSON action + table talk in its own voice |
+| AI players | Real models via OpenRouter, each playing as itself (no scripted personas): six regulars (Claude, ChatGPT, Grok, Llama, Gemini, DeepSeek) are pinned, the whole catalog is in a dropdown. Equity + tells -> that model -> strict JSON action + table talk in its own voice |
 | Voice | ElevenLabs TTS, one voice per persona, played on every client |
 | Realtime | Server-Sent Events, in-memory bus, per-viewer filtering (private cards, tell visibility) |
 | Deploy | Railway (single Node process) |

@@ -2,7 +2,7 @@
 
 /**
  * The guest list. Every AI at the table is a real model playing as itself; this is where the host
- * decides who gets a chair. The regulars are pinned; everyone else OpenRouter knows is behind a search.
+ * decides who gets a chair. Six regulars up front, everyone else OpenRouter knows in a dropdown.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -11,18 +11,15 @@ import { FEATURED_MODEL_IDS, OPENROUTER_ID, describeModelId, formatPrice, type C
 interface Props {
   onAdd: (id: string) => void;
   disabled?: boolean;
-  /** Lobby mode: one row of regulars plus a "more" toggle. */
+  /** Lobby mode: chips instead of cards. */
   compact?: boolean;
 }
-
-const PAGE = 40;
 
 export default function ModelPicker({ onAdd, disabled, compact }: Props) {
   const [all, setAll] = useState<CatalogModel[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const [limit, setLimit] = useState(PAGE);
+  const [choice, setChoice] = useState("");
+  const [typed, setTyped] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -42,16 +39,22 @@ export default function ModelPicker({ onAdd, disabled, compact }: Props) {
   const byId = useMemo(() => new Map((all ?? []).map((m) => [m.id, m])), [all]);
   const regulars = FEATURED_MODEL_IDS.map((id) => byId.get(id) ?? fallback(id));
 
-  const results = useMemo(() => {
-    if (!all) return [];
-    const needle = q.trim().toLowerCase();
-    if (!needle) return all;
-    return all.filter((m) => `${m.vendor} ${m.name} ${m.id}`.toLowerCase().includes(needle));
-  }, [all, q]);
+  /** Catalog grouped by vendor for <optgroup>, regulars excluded. */
+  const groups = useMemo(() => {
+    const g = new Map<string, CatalogModel[]>();
+    for (const m of all ?? []) {
+      if (FEATURED_MODEL_IDS.includes(m.id)) continue;
+      g.set(m.vendor, [...(g.get(m.vendor) ?? []), m]);
+    }
+    return [...g.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [all]);
 
-  const custom = q.trim();
-  const customLooksLikeId = OPENROUTER_ID.test(custom) && !byId.has(custom);
-  const count = all?.length;
+  const invite = () => {
+    if (!choice) return;
+    onAdd(choice);
+    setChoice("");
+  };
+  const typedOk = OPENROUTER_ID.test(typed.trim());
 
   return (
     <div className="flex flex-col gap-3">
@@ -75,54 +78,33 @@ export default function ModelPicker({ onAdd, disabled, compact }: Props) {
               {!compact && <span className="text-[10px] uppercase tracking-wider text-muted">{m.vendor}</span>}
             </button>
           ))}
-          <button type="button" onClick={() => setOpen((o) => !o)} className={compact ? "rounded-full border border-dashed border-felt-edge px-3 py-1 text-sm text-muted hover:border-gold" : "flex items-center justify-center rounded-xl border border-dashed border-felt-edge px-3 py-2.5 text-sm text-muted transition hover:border-gold"}>
-            {open ? "That's enough guests" : count ? `Everyone else we know · ${count}` : "Everyone else we know"}
-          </button>
         </div>
       </div>
 
-      {open && (
-        <div className="flex flex-col gap-2 rounded-xl border border-felt-edge/70 p-3">
-          <input
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setLimit(PAGE);
-            }}
-            placeholder="Looking for someone in particular?"
-            aria-label="Search models"
-            autoFocus
-            className="w-full rounded-lg border border-felt-edge bg-background px-3 py-2 text-sm"
-          />
-          {failed && <p className="text-xs text-danger">Couldn&apos;t reach the guest book. Type an OpenRouter id (vendor/model) and we&apos;ll still set a place.</p>}
-          {!all && !failed && <p className="text-xs text-muted">Flipping through the guest book…</p>}
-          {customLooksLikeId && (
-            <button type="button" disabled={disabled} onClick={() => onAdd(custom)} className="flex items-center justify-between rounded-lg border border-dashed border-gold px-3 py-2 text-left text-sm hover:bg-gold/10 disabled:opacity-40">
-              <span>Set a place for <span className="font-mono">{custom}</span></span>
-              <span className="text-xs text-muted">{describeModelId(custom).vendor}</span>
-            </button>
-          )}
-          {all && (
-            <ul className="max-h-72 divide-y divide-felt-edge/40 overflow-auto text-sm">
-              {results.slice(0, limit).map((m) => (
-                <li key={m.id}>
-                  <button type="button" disabled={disabled} onClick={() => onAdd(m.id)} className="flex w-full items-center gap-3 px-2 py-1.5 text-left hover:bg-gold/10 disabled:opacity-40">
-                    <span className="w-24 shrink-0 truncate text-[11px] uppercase tracking-wider text-muted">{m.vendor}</span>
-                    <span className="flex-1 truncate">{m.name}<span className="ml-2 font-mono text-[11px] text-muted">{m.id}</span></span>
-                    <span className="shrink-0 font-mono text-[11px] text-muted">{formatPrice(m)}</span>
-                  </button>
-                </li>
+      <div>
+        <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">Anyone else?</p>
+        {failed ? (
+          <div className="flex flex-wrap gap-2">
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="vendor/model id from openrouter.ai/models" aria-label="OpenRouter model id" className="min-w-0 flex-1 rounded-lg border border-felt-edge bg-background px-3 py-2 font-mono text-sm" />
+            <button type="button" disabled={disabled || !typedOk} onClick={() => { onAdd(typed.trim()); setTyped(""); }} className="rounded-lg bg-gold px-4 py-2 text-sm font-medium text-background disabled:opacity-40">Set a place</button>
+            <p className="w-full text-xs text-muted">Couldn&apos;t reach the guest book, so type an id and we&apos;ll still set a place.</p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <select value={choice} onChange={(e) => setChoice(e.target.value)} disabled={disabled || !all} aria-label="More models" className="min-w-0 flex-1 rounded-lg border border-felt-edge bg-background px-3 py-2 text-sm disabled:opacity-60">
+              <option value="">{all ? `Everyone else we know · ${groups.reduce((n, [, ms]) => n + ms.length, 0)}` : "Flipping through the guest book…"}</option>
+              {groups.map(([vendor, ms]) => (
+                <optgroup key={vendor} label={vendor}>
+                  {ms.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name} · {formatPrice(m)}</option>
+                  ))}
+                </optgroup>
               ))}
-              {results.length === 0 && !customLooksLikeId && <li className="px-2 py-2 text-muted">Nobody by that name.</li>}
-              {results.length > limit && (
-                <li>
-                  <button type="button" onClick={() => setLimit((l) => l + PAGE)} className="w-full px-2 py-2 text-center text-xs text-muted underline">show {Math.min(PAGE, results.length - limit)} more of {results.length}</button>
-                </li>
-              )}
-            </ul>
-          )}
-        </div>
-      )}
+            </select>
+            <button type="button" disabled={disabled || !choice} onClick={invite} className="rounded-lg bg-gold px-4 py-2 text-sm font-medium text-background disabled:opacity-40">Invite</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
