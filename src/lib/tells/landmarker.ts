@@ -10,9 +10,30 @@ const MODEL_PATH =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
 let instance: FaceLandmarker | null = null;
+let consoleFiltered = false;
+
+/**
+ * MediaPipe's WASM runtime writes its stderr through console.error, including plain status lines
+ * like "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." The Next dev overlay shows every
+ * console.error as an error, so drop the INFO/WARNING chatter and let real errors through.
+ */
+function filterMediaPipeChatter() {
+  if (consoleFiltered || typeof console === "undefined") return;
+  consoleFiltered = true;
+  const original = console.error.bind(console);
+  console.error = (...args: unknown[]) => {
+    const first = args[0];
+    if (typeof first === "string" && /^(INFO|WARNING|W\d{4}|I\d{4}):/.test(first.trimStart())) {
+      console.debug(...args);
+      return;
+    }
+    original(...args);
+  };
+}
 
 export async function getFaceLandmarker(): Promise<FaceLandmarker> {
   if (instance) return instance;
+  filterMediaPipeChatter();
   const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
   instance = await FaceLandmarker.createFromOptions(vision, {
     baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" },
@@ -27,14 +48,15 @@ export async function getFaceLandmarker(): Promise<FaceLandmarker> {
 export type DetectCallback = (result: FaceLandmarkerResult, timestampMs: number) => void;
 
 /**
- * Runs detectForVideo on every animation frame. Returns a stop function.
- * TODO(phase 2): throttle to ~30fps and skip when video.readyState < 2.
+ * Runs detectForVideo on every animation frame. `getVideo` is a getter so the loop survives the
+ * <video> element being remounted elsewhere in the tree. Returns a stop function.
  */
-export function startDetectionLoop(video: HTMLVideoElement, landmarker: FaceLandmarker, onResult: DetectCallback): () => void {
+export function startDetectionLoop(getVideo: () => HTMLVideoElement | null, landmarker: FaceLandmarker, onResult: DetectCallback): () => void {
   let raf = 0;
   let lastVideoTime = -1;
   const tick = () => {
-    if (video.currentTime !== lastVideoTime && video.readyState >= 2) {
+    const video = getVideo();
+    if (video && video.currentTime !== lastVideoTime && video.readyState >= 2) {
       lastVideoTime = video.currentTime;
       const ts = performance.now();
       const result = landmarker.detectForVideo(video, ts);
