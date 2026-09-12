@@ -29,6 +29,14 @@ export interface AIRead {
   at: number;
 }
 
+/** One action as it happened, for tickers and histories. */
+export interface ActionEvent {
+  id: number;
+  playerId: string;
+  action: Action;
+  handNumber: number;
+}
+
 export interface HandRecord {
   handNumber: number;
   board: string[];
@@ -46,7 +54,9 @@ export function useTable(code: string, token: string | null, playerId: string | 
   const [talk, setTalk] = useState<TalkEvent[]>([]);
   const [lastActions, setLastActions] = useState<Record<string, Action>>({});
   const [history, setHistory] = useState<HandRecord[]>([]);
+  const [actions, setActions] = useState<ActionEvent[]>([]);
   const talkId = useRef(0);
+  const actionId = useRef(0);
   const handRef = useRef<number>(0);
   const streetRef = useRef<string>("");
 
@@ -71,6 +81,7 @@ export function useTable(code: string, token: string | null, playerId: string | 
         }
         case "action":
           setLastActions((prev) => ({ ...prev, [ev.playerId]: ev.action }));
+          setActions((prev) => [...prev.slice(-199), { id: ++actionId.current, playerId: ev.playerId, action: ev.action, handNumber: handRef.current }]);
           break;
         case "tells":
           setTells((prev) => ({ ...prev, [ev.playerId]: ev.tells }));
@@ -126,5 +137,5 @@ export function useTable(code: string, token: string | null, playerId: string | 
     [code, token],
   );
 
-  return { state, status, error, tells, reads, talk, lastActions, history, me, hand, myTurn, legal, bounds, act, start, addAI, removePlayer, updateConfig, leave, sendTells };
+  return { state, status, error, tells, reads, talk, lastActions, actions, history, me, hand, myTurn, legal, bounds, act, start, addAI, removePlayer, updateConfig, leave, sendTells };
 }
