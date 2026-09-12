@@ -1,21 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { isValidCode, normalizeCode } from "@/lib/rail/code";
+import Link from "next/link";
+import { useCodeEntry, type CodeEntryMode } from "@/hooks/useCodeEntry";
 import PlayingCardMarks from "./PlayingCardMarks";
 import styles from "./PlayingCard.module.css";
 
-export default function CodeEntry({ title, hint, hrefPrefix, label, rank, suit }: { title: string; hint: string; hrefPrefix: string; label: string; rank: string; suit: string }) {
-  const [code, setCode] = useState("");
-  const router = useRouter();
-  const valid = isValidCode(code);
+export default function CodeEntry({ title, hint, mode, label, rank, suit }: { title: string; hint: string; mode: CodeEntryMode; label: string; rank: string; suit: string }) {
+  const { code, setCode, valid, checking, error, revealHref, submit } = useCodeEntry(mode);
   return (
     <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (valid) router.push(`${hrefPrefix}${code}`);
-      }}
+      onSubmit={submit}
       aria-label={title}
       className={`${styles.card} ${suit === "♥" || suit === "♦" ? styles.red : ""}`}
     >
@@ -30,12 +24,24 @@ export default function CodeEntry({ title, hint, hrefPrefix, label, rank, suit }
           spellCheck={false}
           maxLength={4}
           value={code}
-          onChange={(e) => setCode(normalizeCode(e.target.value))}
+          onChange={(e) => setCode(e.target.value)}
+          aria-invalid={!!error}
           placeholder="KXTR"
           aria-label="Table code"
         />
-        <button disabled={!valid}>{label}</button>
+        <button disabled={!valid || checking}>{checking ? "Checking…" : label}</button>
       </div>
+      {error && (
+        <span role="alert" className="mt-2 block text-xs text-danger">
+          {error}
+          {revealHref && (
+            <>
+              {" "}
+              <Link href={revealHref} className="underline">See the reveal</Link>
+            </>
+          )}
+        </span>
+      )}
     </form>
   );
 }
