@@ -95,12 +95,7 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
       ) : (
         <div className="mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start xl:overflow-hidden">
           <div className="min-w-0">
-            {finished ? (
-              <Link href={`/reveal/${code}`} aria-live="polite" className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/40 bg-gold px-4 py-3 text-black shadow-[0_10px_30px_rgba(212,175,55,0.25)]">
-                <span className="flex items-center gap-2 text-sm font-semibold"><Trophy size={16} /> The match is over. See what every face gave away.</span>
-                <span className="rounded-full bg-black/85 px-3 py-1 text-xs font-semibold text-gold">Open the Reveal →</span>
-              </Link>
-            ) : (
+            {!finished && (
               <div className="mb-2 flex shrink-0 items-center justify-between rounded-xl border border-gold/15 bg-gold/[0.055] px-3.5 py-2">
                 <div className="flex items-center gap-2 text-sm text-white/55">
                   <span className="h-2 w-2 rounded-full bg-gold shadow-[0_0_10px_rgba(212,175,55,0.8)]" />
@@ -143,6 +138,14 @@ function FinalStandings({ table }: { table: RailTableSnapshot }) {
           </li>
         ))}
       </ol>
+      <div className="mx-auto mt-5 grid w-full max-w-md gap-2 sm:grid-cols-2" aria-live="polite">
+        <Link href={`/reveal/${table.code}`} className="inline-flex items-center justify-center gap-2 rounded-full bg-gold px-5 py-3 text-sm font-semibold text-black transition-transform hover:-translate-y-0.5">
+          <Trophy size={15} /> Open the Reveal
+        </Link>
+        <Link href="/" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white/70 transition-colors hover:border-gold/50 hover:text-gold">
+          <Home size={15} /> Back to home
+        </Link>
+      </div>
     </section>
   );
 }
