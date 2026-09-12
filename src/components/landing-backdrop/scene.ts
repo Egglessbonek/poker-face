@@ -4,7 +4,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { chipAngle, renderPixelRatio, viewHeight } from "./motion";
-import { createDistantCards } from "./cards";
+import { CARD_BELT_OUTER_RADIUS, createDistantCards } from "./cards";
 
 // Tone mapping, display conversion and film effects share one fullscreen pass.
 // Grain is added in display space so it survives in the darkest parts of the image.
@@ -293,13 +293,14 @@ export function mountBackdrop(host: HTMLDivElement): () => void {
     let elapsed = 0;
     let previous = 0;
     let contextLost = false;
+    let beltOuterRadius = CARD_BELT_OUTER_RADIUS;
 
     const draw = () => {
       chip.rotation.set(0.045 + Math.sin(elapsed * 0.31) * 0.018, chipAngle(elapsed), -0.075 + Math.sin(elapsed * 0.23) * 0.018);
       chip.position.y = Math.sin(elapsed * 0.55) * 0.16;
       film.uniforms.time.value = elapsed;
       dustMaterial.uniforms.time.value = elapsed;
-      cards.update(elapsed);
+      cards.update(elapsed, beltOuterRadius);
       pipeline.render();
     };
     const tick = (now: number) => {
@@ -339,15 +340,9 @@ export function mountBackdrop(host: HTMLDivElement): () => void {
         (host.clientHeight / 2 - slot.top - slot.height / 2) * worldPerPixel,
         0,
       );
-      // A broad field crosses the page midpoint behind the copy. Fit its full
-      // projected diameter to the viewport independently of the chip's size.
-      const beltWidth = desktop ? host.clientWidth * 0.90 : slot.width * 0.96;
-      const beltScale = beltWidth * worldPerPixel / (12.4 * scale);
-      const beltHeightScale = Math.min(beltScale, slot.height * 0.95 * worldPerPixel / (9 * scale));
-      cards.group.scale.set(beltScale, beltHeightScale, beltScale);
-      // Spread the wider field behind the copy while retaining the chip's
-      // position and keeping the belt's outer edges inside the viewport.
-      cards.group.position.x = desktop ? (host.clientWidth * 0.52 - centerX) * worldPerPixel / scale : 0;
+      // Both objects share the same center and world scale. On small screens,
+      // reduce only the outer radius to fit; the inner radius remains 3.2.
+      beltOuterRadius = desktop ? CARD_BELT_OUTER_RADIUS : 4.45;
       key.intensity = 85 * scale ** 2;
       key.shadow.camera.near = 0.5 * scale;
       key.shadow.camera.far = 15 * scale;

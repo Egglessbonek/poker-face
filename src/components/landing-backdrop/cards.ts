@@ -1,5 +1,8 @@
 import * as THREE from "three";
 
+const INNER_RADIUS = 3.2;
+export const CARD_BELT_OUTER_RADIUS = 9.2;
+
 /** Instanced playing cards orbit and repel from the pointer like the reference belt. */
 export function createDistantCards(ivory: string, red: string, blue: string) {
   const group = new THREE.Group();
@@ -100,7 +103,7 @@ export function createDistantCards(ivory: string, red: string, blue: string) {
     materials.push(paper);
     const back = print();
     const faces = [print("A", "♠"), print("K", "♥", red), print("A", "♦", red), print("Q", "♣")];
-    const count = 180;
+    const count = 280;
     const instanced = (shape: THREE.BufferGeometry, material: THREE.Material, total: number) => {
       const mesh = new THREE.InstancedMesh(shape, material, total);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -116,7 +119,7 @@ export function createDistantCards(ivory: string, red: string, blue: string) {
     const random = (seed: number) => THREE.MathUtils.euclideanModulo(Math.sin(seed * 127.1) * 43758.5453, 1);
     const cards = Array.from({ length: count }, (_, i) => ({
       angle: i / count * Math.PI * 2 + random(i + 1) * 0.2,
-      radius: 3.2 + random(i + 2) * 3,
+      radialPosition: random(i + 2),
       height: (random(i + 3) - 0.5) * 1.1,
       size: 0.22 + random(i + 4) ** 3 * 0.55,
       displacement: new THREE.Vector3(),
@@ -150,12 +153,15 @@ export function createDistantCards(ivory: string, red: string, blue: string) {
         if (ray.intersectPlane(plane, point)) cursor.copy(orbit.worldToLocal(point));
         else cursor.set(100000, 0, 0);
       },
-      update(time: number) {
+      update(time: number, outerRadius = CARD_BELT_OUTER_RADIUS) {
         const delta = Math.max(0, Math.min(time - previousTime, 0.1));
         previousTime = time;
         cards.forEach((card, i) => {
-          const angle = card.angle + time * (0.3 / card.radius + 0.01);
-          orbital.set(Math.cos(angle) * card.radius, card.height, Math.sin(angle) * card.radius);
+          // Widen only the outside of the annulus. The inner edge and card
+          // sizes stay fixed relative to the chip; no belt scaling or offset.
+          const radius = INNER_RADIUS + card.radialPosition * (outerRadius - INNER_RADIUS);
+          const angle = card.angle + time * (0.3 / radius + 0.01);
+          orbital.set(Math.cos(angle) * radius, card.height, Math.sin(angle) * radius);
           push.copy(orbital).sub(cursor);
           const distance = push.length();
           const nearby = distance < 1.25;
