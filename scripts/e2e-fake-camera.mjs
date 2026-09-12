@@ -29,10 +29,12 @@ page.on("pageerror", (e) => errors.push(`pageerror: ${String(e).slice(0, 200)}`)
 try {
   await page.goto(`${BASE}/table/new`, { waitUntil: "networkidle", timeout: 60000 });
   await page.getByPlaceholder("Host").fill("E2E Human");
-  await page.getByLabel("Hands").fill("3");
-  await page.getByLabel("Turn timer (seconds)").fill("0");
+  await page.getByLabel(/hands/i).fill("3");
+  const timer = page.getByLabel(/turn timer/i);
+  if ((await timer.evaluate((el) => el.tagName)) === "SELECT") await timer.selectOption("0");
+  else await timer.fill("0");
   await shot(page, "01-config");
-  await page.getByRole("button", { name: /open the table/i }).click();
+  await page.locator("form button[type=submit], form button:not([type=button])").last().click();
   await page.waitForURL(/\/table\/[A-Z]{4}$/, { timeout: 30000 });
   const code = page.url().split("/").pop();
   log("table", code);
@@ -53,8 +55,8 @@ try {
 
   let acted = 0, shots = 0; const start = Date.now();
   while (Date.now() - start < 8 * 60_000) {
-    if (await page.getByText(/match over/i).isVisible().catch(() => false)) break;
-    const btn = async (a) => page.locator(`[data-action="${a}"]:enabled`).first();
+    if (await page.getByText(/match over|took the table|standings|final chips|play again/i).first().isVisible().catch(() => false)) break;
+    const btn = async (a) => page.locator(`[data-action="${a}"]:enabled, button:enabled:has-text("${{ fold: "Fold", call: "Call", check: "Check", bet: "Raise" }[a]}")`).first();
     const call = await btn("call"), check = await btn("check"), bet = await btn("bet"), fold = await btn("fold");
     const canCall = await call.count(), canCheck = await check.count(), canBet = await bet.count();
     if (canCall || canCheck || canBet) {
