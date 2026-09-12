@@ -82,7 +82,7 @@ export default function TableConfigForm() {
         </select>
       </Field>
 
-      <Field label="Your guest list" hint="Every AI at the table is a real model playing as itself, nobody in costume. Invite whoever you like, twice if you dare.">
+      <Field block label="Your guest list" hint="Every AI at the table is a real model playing as itself, nobody in costume. Invite whoever you like, twice if you dare.">
         <div className="flex flex-col gap-4">
           <div>
             <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">Coming tonight</p>
@@ -118,13 +118,15 @@ export default function TableConfigForm() {
 
 const input = "w-full rounded-lg border border-felt-edge bg-background px-3 py-2 text-sm";
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+/** `block` renders a div instead of a label: use it when the children hold several controls, since a click anywhere on a label activates the first one. */
+function Field({ label, hint, children, block }: { label: string; hint?: string; children: React.ReactNode; block?: boolean }) {
+  const Tag = block ? "div" : "label";
   return (
-    <label className="flex flex-col gap-1.5">
+    <Tag className="flex flex-col gap-1.5">
       <span className="text-sm font-medium">{label}</span>
       {children}
       {hint && <span className="text-xs text-muted">{hint}</span>}
-    </label>
+    </Tag>
   );
 }
 
