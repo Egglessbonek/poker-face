@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getFaceLandmarker, startDetectionLoop } from "@/lib/tells/landmarker";
 import { createFeatureState, extractFrame } from "@/lib/tells/features";
 import { CALIBRATION_MS, computeBaseline, updateLatencyBaseline } from "@/lib/tells/baseline";
-import type { BaselineStats, CursorStats, Street, TellFrame, TellSnapshot, VoiceStats } from "@/lib/types";
+import type { BaselineStats, Street, TellFrame, TellSnapshot } from "@/lib/types";
 
 export type CameraStatus = "idle" | "starting" | "running" | "denied" | "error";
 type RevealEvent = TellSnapshot["cardRevealReactions"][number]["event"];
@@ -123,7 +123,7 @@ export function useTells() {
   }, []);
 
   const snapshot = useCallback(
-    (sinceMs: number, extras: { handNumber: number; street: Street; decisionLatencyMs: number; cursor?: CursorStats; voice?: VoiceStats }): TellSnapshot => {
+    (sinceMs: number, extras: { handNumber: number; street: Street; decisionLatencyMs: number }): TellSnapshot => {
       const frames = buffer.current.filter((f) => f.t >= sinceMs);
       const cardRevealReactions = reveals.current
         .filter((r) => r.t >= sinceMs - REACTION_WINDOW_MS)
@@ -136,7 +136,7 @@ export function useTells() {
             peakTension: win.reduce((m, f) => Math.max(m, f.tension), 0),
           };
         });
-      return { handNumber: extras.handNumber, street: extras.street, decisionLatencyMs: extras.decisionLatencyMs, frames, cursor: extras.cursor, voice: extras.voice, cardRevealReactions };
+      return { handNumber: extras.handNumber, street: extras.street, decisionLatencyMs: extras.decisionLatencyMs, frames, cardRevealReactions };
     },
     [],
   );

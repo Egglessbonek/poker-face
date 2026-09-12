@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Eye, Mic2, MicOff, Radio } from "lucide-react";
 import ActionBar from "@/components/ActionBar";
 import BluffMeter from "@/components/BluffMeter";
@@ -16,7 +16,6 @@ import { useTable } from "@/hooks/useTable";
 import { useTalk } from "@/hooks/useTalk";
 import { useTells } from "@/hooks/useTells";
 import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/client/identity";
-import { createCursorTracker } from "@/lib/tells/cursor";
 import { dominantEmotion } from "@/lib/tells/emotion";
 import { fuseTells } from "@/lib/tells/fuse";
 import type { ActionType, Player, PlayerTells, TellVector } from "@/lib/types";
@@ -64,7 +63,6 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const table = useTable(code, identity.token, identity.playerId);
   const tells = useTells();
   const voice = useTalk(table.talk, table.state?.config.voice ?? true);
-  const cursor = useMemo(() => createCursorTracker(), []);
   const [lastVector, setLastVector] = useState<TellVector | null>(null);
   const [cameraDone, setCameraDone] = useState(false);
   const vectorHistory = useRef<TellVector[]>([]);
@@ -98,10 +96,9 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   useEffect(() => {
     if (myTurn && !wasMyTurn.current) {
       promptedAt.current = Date.now();
-      cursor.start();
     }
     wasMyTurn.current = myTurn;
-  }, [cursor, myTurn]);
+  }, [myTurn]);
 
   useEffect(() => {
     if (state?.phase !== "playing" || !frame) return;
@@ -116,14 +113,14 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     const latency = Date.now() - promptedAt.current;
     let vector: TellVector | null = null;
     if (tells.status === "running" && tells.baselineRef.current) {
-      const snapshot = tells.snapshot(promptedAt.current, { handNumber: hand.handNumber, street: hand.street, decisionLatencyMs: latency, cursor: cursor.finish() });
+      const snapshot = tells.snapshot(promptedAt.current, { handNumber: hand.handNumber, street: hand.street, decisionLatencyMs: latency });
       vector = fuseTells(snapshot, tells.baselineRef.current, vectorHistory.current);
       vectorHistory.current = [...vectorHistory.current.slice(-20), vector];
       tells.noteLatency(latency);
       setLastVector(vector);
     }
     void act(type, amount, latency, vector);
-  }, [act, cursor, hand, tells]);
+  }, [act, hand, tells]);
 
   const finishCamera = useCallback(() => setCameraDone(true), []);
   // Safety net: if the camera somehow stopped between the lobby and the first hand, bring it back so tells keep flowing.
@@ -171,7 +168,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
       <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
         <section className="flex min-w-0 flex-col gap-3">
           <OvalTable state={state} viewerSeat={me?.seat ?? null} lastActions={table.lastActions} talk={table.talk} speaking={voice.speaking} tells={table.tells} />
-          {hand && !hand.over && me && !me.sittingOut && <ActionBar legal={table.legal} bounds={table.bounds} pot={hand.pot} disabled={!myTurn} onAct={onAct} cursor={cursor} />}
+          {hand && !hand.over && me && !me.sittingOut && <ActionBar legal={table.legal} bounds={table.bounds} pot={hand.pot} disabled={!myTurn} onAct={onAct} />}
           {hand?.over && <p className="text-center text-xs text-muted">Next hand in a moment…</p>}
         </section>
 

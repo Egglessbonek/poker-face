@@ -204,33 +204,11 @@ export interface TellFrame {
   fakeSmile: boolean;
 }
 
-/** Cursor behavior over the action bar during one decision. */
-export interface CursorStats {
-  timeToFirstMoveMs: number;
-  tortuosity: number; // path length / straight-line distance (1 = straight)
-  reversals: number;
-  hoverFoldMs: number;
-  hoverBetMs: number;
-  peakVelocity: number;
-}
-
-/** Voice-derived features for one decision window (optional; player need not talk). */
-export interface VoiceStats {
-  spoke: boolean;
-  words: number;
-  pitchDelta: number; // ratio vs baseline (1 = same)
-  energyDelta: number;
-  responseLatencyMs?: number;
-  transcript?: string;
-}
-
 export interface BaselineStats {
   blinkRate: number;
   headMotion: number;
   tension: number;
   smile: number;
-  pitchHz?: number;
-  energy?: number;
   decisionLatencyMs: number; // running median, updated during play
   calibratedAt: number;
 }
@@ -248,8 +226,6 @@ export interface TellSnapshot {
   street: Street;
   decisionLatencyMs: number;
   frames: TellFrame[]; // frames in the decision window
-  cursor?: CursorStats;
-  voice?: VoiceStats;
   cardRevealReactions: Array<{ event: "hole" | "flop" | "turn" | "river"; smileLeak: boolean; chipGlance: boolean; peakTension: number }>;
 }
 

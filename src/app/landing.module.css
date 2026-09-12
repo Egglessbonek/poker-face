@@ -33,13 +33,10 @@
   margin-inline: auto;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .actions {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-}
-
-@media (min-width: 1024px) {
   .hero {
     grid-template-columns: 1fr 1fr;
     gap: 3rem;

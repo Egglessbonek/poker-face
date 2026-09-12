@@ -1,8 +1,8 @@
 # Poker Face
 
-**The only opponents who can see your pulse.**
+**The only opponents who can read your face.**
 
-A No-Limit Hold'em table for friends and AI players. Create a table, share the 4-letter code, and sit down. Every AI at the table also gets your tells: blink rate, gaze, stillness, tension, micro-expressions, decision latency, and cursor hesitation, read from your webcam in the browser. Spectators join the **Rail** with the same code and watch the tells live. After the match, the **Reveal** shows exactly which bluffs your face captioned.
+A No-Limit Hold'em table for friends and AI players. Create a table, share the 4-letter code, and sit down. Every AI at the table also gets your tells: blink rate, gaze, stillness, tension, micro-expressions, and decision timing, read from your webcam in the browser. No microphone, no cursor tracking. Spectators join the **Rail** with the same code and watch the tells live. After the match, the **Reveal** shows exactly which bluffs your face captioned.
 
 ## Stack
 
@@ -31,7 +31,7 @@ src/app/                landing, /table/new, /table/[code], /rail, /rail/[code],
 src/lib/poker/          cards, engine (N-player NLHE + side pots), equity
 src/lib/game/           table manager (lobby, hand loop, AI turns, timers, log), reveal analysis
 src/lib/realtime/bus.ts per-viewer SSE pub/sub
-src/lib/tells/          landmarker, features, emotion, baseline, cursor, fuse (client-side)
+src/lib/tells/          landmarker, features, emotion, baseline, fuse (client-side)
 src/lib/villain/        brain, prompt, personas
 src/lib/llm/            models.ts (id helpers + pinned regulars), catalog.ts (cached OpenRouter list), provider
 src/lib/villain/        profile (who a seat is), prompt, brain
