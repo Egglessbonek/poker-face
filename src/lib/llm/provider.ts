@@ -10,7 +10,8 @@ import { z } from "zod";
 
 export type Provider = "openrouter" | "gemini" | "anthropic";
 
-const TIMEOUT_MS = 25_000;
+// A seat that has not answered in 12s plays the math instead; a live table cannot wait longer than that.
+const TIMEOUT_MS = 12_000;
 
 export function currentProvider(): Provider {
   const p = process.env.LLM_PROVIDER ?? (process.env.OPENROUTER_API_KEY ? "openrouter" : "gemini");

@@ -42,3 +42,14 @@ h1, h2, h3 {
   font-family: var(--font-newsreader), Georgia, serif;
   font-weight: 400;
 }
+
+/* The tell callout banner: slides in, holds, then fades so it never needs a timer to clear. */
+@keyframes callout {
+  0% { opacity: 0; transform: translateY(-6px); }
+  6% { opacity: 1; transform: translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.animate-callout {
+  animation: callout 9s ease-out forwards;
+}

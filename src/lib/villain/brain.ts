@@ -12,6 +12,7 @@ import { z } from "zod";
 import type { ActionType, VillainDecision, VillainDecisionInput } from "@/lib/types";
 import { completeJSON, llmAvailable, perSeatModels } from "@/lib/llm/provider";
 import { decisionRoll, recommend, type Recommendation } from "@/lib/poker/strategy";
+import { canonicalTells, leaksOwnCards } from "./guard";
 import { getProfile } from "./profile";
 import { villainSystemPrompt, villainUserPrompt } from "./prompt";
 
@@ -23,13 +24,22 @@ const DecisionSchema = z.object({
   tellsUsed: z.array(z.string()).default([]),
 });
 
-/** Average bluff likelihood across live opponents with tell data, or 0. */
+/**
+ * Equity shift from the live opponents' tells, or 0. Each read counts by its distance from neutral (0.5) scaled
+ * by its confidence, so a low-confidence read shrinks toward zero rather than toward "opponent is strong".
+ * Opponents likely bluffing -> act as if we have more equity. Range: -0.2 .. +0.2, enough that a confident
+ * read flips a marginal spot, which is the whole point of the table.
+ */
+function bigPotEffort(): "low" | "medium" | "high" {
+  const e = process.env.AI_BIG_POT_EFFORT;
+  return e === "medium" || e === "high" ? e : "low";
+}
+
 export function tellAdjustment(input: VillainDecisionInput): number {
   const live = input.opponents.filter((o) => !o.folded && o.tells && o.tells.confidence > 0.2);
   if (!live.length) return 0;
-  const avg = live.reduce((a, o) => a + o.tells!.bluffLikelihood * o.tells!.confidence, 0) / live.length;
-  // Opponents likely bluffing -> act as if we have more equity. Range: about -0.15 .. +0.15.
-  return (avg - 0.5) * 0.3;
+  const avg = live.reduce((a, o) => a + (o.tells!.bluffLikelihood - 0.5) * o.tells!.confidence, 0) / live.length;
+  return avg * 0.4;
 }
 
 /** The strategy module's recommendation for this spot. `withTells` folds the opponents' tells into equity. */
@@ -88,16 +98,21 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
       schema: DecisionSchema,
       model: perSeatModels() ? profile.id : undefined,
       temperature: 0.7,
-      // Bigger pots deserve more thought.
-      reasoningEffort: input.hand.pot + input.bounds.toCall >= 0.3 * (input.me.stack + input.me.committed) ? "medium" : "low",
+      // Bigger pots can get more thought (AI_BIG_POT_EFFORT=medium|high); default low keeps every turn under a few seconds.
+      reasoningEffort: input.hand.pot + input.bounds.toCall >= 0.3 * (input.me.stack + input.me.committed) ? bigPotEffort() : "low",
     });
     const action = input.legalActions.includes(out.action) ? out.action : baseline;
+    let tableTalk = out.tableTalk;
+    if (leaksOwnCards(tableTalk, input.me.holeCards, input.hand.board)) {
+      console.warn(`${profile.name} named its own cards in table talk; line dropped:`, tableTalk);
+      tableTalk = "";
+    }
     return {
       action,
       amount: clampAmount(action, out.amount ?? (action === baseline ? rec.amount : undefined), input),
       reasoning: out.reasoning,
-      tableTalk: out.tableTalk,
-      tellsUsed: out.tellsUsed,
+      tableTalk,
+      tellsUsed: canonicalTells(out.tellsUsed, input.opponents),
       mathAction: pure,
       tellAction: baseline,
       llmUsed: true,

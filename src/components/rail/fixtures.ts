@@ -18,7 +18,7 @@ export const FAKE_TABLE: RailTableSnapshot = {
   ],
   currentPlayerId: "vega",
   turnSecondsRemaining: 13,
-  spectators: 18,
+  seatCount: 6,
   tellVisibility: "rail",
   players: [
     {
@@ -35,6 +35,8 @@ export const FAKE_TABLE: RailTableSnapshot = {
       position: "UTG",
       lastAction: "Bet 32",
       tell: {
+        read: true,
+        faceLocked: true,
         arousal: 76,
         bluffLikelihood: 68,
         confidence: 91,
@@ -81,6 +83,8 @@ export const FAKE_TABLE: RailTableSnapshot = {
       position: "CO",
       lastAction: "All-in 18",
       tell: {
+        read: true,
+        faceLocked: true,
         arousal: 42,
         bluffLikelihood: 29,
         confidence: 84,
@@ -128,6 +132,8 @@ export const FAKE_TABLE: RailTableSnapshot = {
       isSmallBlind: true,
       lastAction: "Fold",
       tell: {
+        read: true,
+        faceLocked: true,
         arousal: 24,
         bluffLikelihood: 47,
         confidence: 88,
@@ -150,12 +156,13 @@ export const FAKE_TABLE: RailTableSnapshot = {
       position: "BB",
       isBigBlind: true,
       lastAction: "Fold",
+      // Camera on, no bet yet: the rail shows raw signals until the first read.
       tell: {
-        arousal: 55,
-        bluffLikelihood: 52,
-        confidence: 63,
-        trend: "stable",
-        evidence: ["brief gaze away"],
+        read: false,
+        faceLocked: true,
+        blinkRate: 17,
+        tension: 22,
+        evidence: [],
         emotion: "uncertain",
       },
     },
@@ -165,7 +172,7 @@ export const FAKE_TABLE: RailTableSnapshot = {
 export const FAKE_HISTORY: RailHistoryEntry[] = [
   { id: "h1", handNumber: 6, street: "preflop", message: "Maya opened to 8", playerName: "Maya", tone: "action" },
   { id: "h2", handNumber: 6, street: "preflop", message: "Theo called 8", playerName: "Theo", tone: "action" },
-  { id: "h3", handNumber: 6, street: "preflop", message: "Vega raised to 18", playerName: "Vega", tone: "action" },
+  { id: "h3", handNumber: 6, street: "preflop", message: "Vega raised to 18", playerName: "Vega", isAi: true, tone: "action" },
   { id: "h4", handNumber: 6, street: "flop", message: "Flop dealt: A♥ 7♣ 7♠", tone: "deal" },
   { id: "h5", handNumber: 6, street: "flop", message: "Theo moved all-in for 18", playerName: "Theo", tone: "action" },
   { id: "h6", handNumber: 6, street: "turn", message: "Turn dealt: J♦", tone: "deal" },

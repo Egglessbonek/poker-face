@@ -210,6 +210,8 @@ export interface BaselineStats {
   tension: number;
   smile: number;
   decisionLatencyMs: number; // running median, updated during play
+  /** Mean head motion of this player's recent decision windows (newest last). The stillness reference for "freeze". */
+  recentHeadMotion?: number[];
   calibratedAt: number;
 }
 

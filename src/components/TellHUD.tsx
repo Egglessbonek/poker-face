@@ -1,13 +1,16 @@
 "use client";
 
 import BluffMeter from "@/components/BluffMeter";
+import { decidingHeadMotion } from "@/lib/tells/baseline";
 import { dominantEmotion } from "@/lib/tells/emotion";
 import type { BaselineStats, Emotion, TellFrame, TellVector } from "@/lib/types";
 
 const EMOTIONS: Emotion[] = ["neutral", "happy", "surprise", "fear", "anger", "disgust", "sad"];
 
 export default function TellHUD({ frame, baseline, vector, cameraStatus }: { frame: TellFrame | null; baseline: BaselineStats | null; vector: TellVector | null; cameraStatus: string }) {
-  const stillness = frame && baseline ? Math.min(2, frame.headMotion / baseline.headMotion) : null;
+  // Stillness is relative to how the player usually sits while deciding (calibration until the first decision).
+  const usual = baseline ? (decidingHeadMotion(baseline) ?? baseline.headMotion) : null;
+  const stillness = frame && usual ? Math.min(2, frame.headMotion / usual) : null;
   const blinkRatio = frame && baseline ? frame.blinkRate / baseline.blinkRate : null;
   return (
     <aside className="flex flex-col gap-4 rounded-2xl border border-felt-edge p-4 text-xs">

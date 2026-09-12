@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MIN_BLINK_RATE, WARMUP_MS, computeBaseline } from "../baseline";
+import { MIN_BLINK_RATE, WARMUP_MS, computeBaseline, decidingHeadMotion, updateBaselineAfterDecision } from "../baseline";
 import type { TellFrame } from "@/lib/types";
 
 const frame = (t: number, over: Partial<TellFrame> = {}): TellFrame => ({
@@ -30,5 +30,44 @@ describe("computeBaseline", () => {
   it("skips frames without a face", () => {
     const frames = series(40, 250, (i) => (i % 2 ? { facePresent: false, headMotion: 9 } : {}));
     expect(computeBaseline(frames).headMotion).toBeCloseTo(0.002, 4);
+  });
+});
+
+describe("stillness reference from recent decisions", () => {
+  const base = () => computeBaseline(series(40, 250));
+  const snap = (n: number, headMotion: number) => ({ handNumber: 1, street: "flop" as const, decisionLatencyMs: 4000, frames: series(n, 250, () => ({ headMotion })), cardRevealReactions: [] });
+
+  it("has no reference before the first decision window, then the median of recent windows", () => {
+    let b = base();
+    expect(decidingHeadMotion(b)).toBeNull();
+    b = updateBaselineAfterDecision(b, snap(12, 0.001), 4000);
+    expect(decidingHeadMotion(b)).toBeCloseTo(0.001, 6);
+    for (const m of [0.003, 0.002]) b = updateBaselineAfterDecision(b, snap(12, m), 4000);
+    expect(decidingHeadMotion(b)).toBeCloseTo(0.002, 6);
+  });
+
+  it("gives no reference for a feed that reports no motion at all", () => {
+    let b = base();
+    for (let i = 0; i < 3; i++) b = updateBaselineAfterDecision(b, snap(12, 0), 4000);
+    expect(decidingHeadMotion(b)).toBeNull();
+  });
+
+  it("keeps only the last seven windows", () => {
+    let b = base();
+    for (let i = 1; i <= 10; i++) b = updateBaselineAfterDecision(b, snap(12, i), 4000);
+    expect(b.recentHeadMotion).toEqual([4, 5, 6, 7, 8, 9, 10]);
+  });
+
+  it("is not dragged down by a minority of frozen decisions", () => {
+    let b = base();
+    for (const m of [1, 1, 0.3, 1, 1, 0.3, 1]) b = updateBaselineAfterDecision(b, snap(12, m), 4000);
+    expect(decidingHeadMotion(b)).toBe(1);
+  });
+
+  it("needs a few face frames before a window counts, but latency always adapts", () => {
+    const b = base();
+    const after = updateBaselineAfterDecision(b, snap(2, 0.0001), 8000);
+    expect(after.recentHeadMotion).toBeUndefined();
+    expect(after.decisionLatencyMs).toBeGreaterThan(b.decisionLatencyMs);
   });
 });

@@ -155,7 +155,7 @@ function HumanSection({ h, rank }: { h: RevealPlayer; rank?: { rank: number; of:
           </div>
         </div>
       ) : (
-        <p className="text-sm text-muted">No bets or raises with tell data. Turn the camera on next time and the AIs will show you what they saw.</p>
+        <p className="text-sm text-muted">{withTells.length ? "The camera was on, but you never bet or raised, so there was nothing to grade. Bluff at least once next time." : "No bets or raises with tell data. Turn the camera on next time and the AIs will show you what they saw."}</p>
       )}
 
       {arousal.length > 2 && (
@@ -243,7 +243,7 @@ function Stat({ label, value, unit }: { label: string; value: string; unit?: str
 }
 
 function verdict(h: RevealPlayer): string {
-  if (h.pokerFace === null) return "No camera, no verdict.";
+  if (h.pokerFace === null) return h.decisions.some((d) => d.tells) ? "Never bet, never bluffed, never graded." : "No camera, no verdict.";
   if (h.pokerFace >= 70) return "Stone cold. Your face told them nothing.";
   if (h.pokerFace >= 50) return "Mostly unreadable, with a few cracks.";
   if (h.pokerFace >= 30) return "Your face was talking. They were listening.";

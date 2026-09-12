@@ -77,7 +77,7 @@ export interface RevealData {
 
 interface HandStartData { handNumber: number; button: number; seats: Array<{ seat: number; playerId: string; stack: number; holeCards: Card[] }> }
 interface ActionData { handNumber: number; playerId?: string; action: Action; tells: TellVector | null }
-interface HandEndData { handNumber: number; board: Card[]; pots?: Pot[]; results?: HandResult[]; foldedOut?: boolean }
+interface HandEndData { handNumber: number; board: Card[]; pots?: Pot[]; results?: HandResult[]; foldedOut?: boolean; voided?: boolean }
 interface AIDecisionData { handNumber: number; street: string; playerId: string; equity: number; opponents: OpponentView[]; decision: VillainDecision }
 interface TableEndData { reason: string; standings: RevealData["standings"] }
 
@@ -90,7 +90,11 @@ export function buildReveal(log: TableLog): RevealData {
   const aiDecisions: AIDecisionData[] = [];
   let standings: RevealData["standings"] = [];
 
+  // A hand the host ended mid-way was voided (chips returned): it has no board and nothing in it was graded.
+  const voided = new Set(log.entries.filter((e) => e.kind === "hand_end" && (e.data as HandEndData).voided).map((e) => (e.data as HandEndData).handNumber));
   for (const e of log.entries) {
+    const handNumber = (e.data as { handNumber?: number })?.handNumber;
+    if (handNumber !== undefined && voided.has(handNumber)) continue;
     if (e.kind === "hand_start") starts.set((e.data as HandStartData).handNumber, e.data as HandStartData);
     else if (e.kind === "hand_end") ends.set((e.data as HandEndData).handNumber, e.data as HandEndData);
     else if (e.kind === "action") actions.push(e.data as ActionData);

@@ -18,7 +18,7 @@ export default function RailHistory({ entries, embedded = false }: { entries: Ra
       <ol className={`${embedded ? "min-h-0 flex-1" : "max-h-64"} overflow-y-auto px-4 py-2`}>
         {[...entries].reverse().map((entry, index) => {
           const Icon = ICON[entry.tone];
-          const isAi = entry.playerName === "Vega" || entry.playerName === "Dutch";
+          const isAi = entry.isAi ?? false;
           return (
             <li key={entry.id} className={`flex gap-2.5 border-b border-white/5 py-2.5 last:border-0 ${index === 0 ? "text-white" : "text-white/50"}`}>
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5">
