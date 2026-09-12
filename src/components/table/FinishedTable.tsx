@@ -23,8 +23,7 @@ export default function FinishedTable({ state, playerId, rematchCode, onRematch,
       setBusy(false);
     }
   };
-  // One gold button per screen: the rematch call to action when there is one, otherwise the reveal.
-  const revealIsPrimary = !isHost && !rematchCode;
+  // The Reveal is the climax and always the gold button; a rematch is the outlined follow-up.
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-10 sm:px-8">
       <header className="text-center">
@@ -44,7 +43,7 @@ export default function FinishedTable({ state, playerId, rematchCode, onRematch,
       </ol>
       {isHost && (
         <div className="flex flex-col gap-2">
-          <button type="button" onClick={rematch} disabled={busy} className="flex items-center justify-center gap-2 rounded-full bg-gold px-5 py-3 font-semibold text-background disabled:opacity-40"><RotateCcw size={16} />{busy ? "Opening a new table…" : "Rematch with the same table"}</button>
+          <button type="button" onClick={rematch} disabled={busy} className="flex items-center justify-center gap-2 rounded-full border border-gold/60 px-5 py-3 font-semibold text-gold hover:bg-gold/10 disabled:opacity-40"><RotateCcw size={16} />{busy ? "Opening a new table…" : "Rematch with the same table"}</button>
           <p className="text-center text-xs text-muted">Same stakes, same AI seats, fresh code. Everyone still here gets a link to follow you.</p>
         </div>
       )}
@@ -57,7 +56,7 @@ export default function FinishedTable({ state, playerId, rematchCode, onRematch,
       )}
       {error && <p className="rounded-xl bg-danger/15 px-4 py-2 text-center text-sm text-danger">{error}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Link href={`/reveal/${state.code}`} className={revealIsPrimary ? "rounded-full bg-gold px-5 py-3 text-center font-semibold text-background" : "rounded-full border border-felt-edge px-5 py-3 text-center font-medium hover:border-gold"}>See the reveal</Link>
+        <Link href={`/reveal/${state.code}`} className="rounded-full bg-gold px-5 py-3 text-center font-semibold text-background">See what your face gave away</Link>
         <Link href="/table/new" className="rounded-full border border-felt-edge px-5 py-3 text-center font-medium hover:border-gold">Open another table</Link>
       </div>
     </main>
