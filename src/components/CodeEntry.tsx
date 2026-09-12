@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { isValidCode } from "@/lib/rail/code";
+import { isValidCode, normalizeCode } from "@/lib/rail/code";
 
 export default function CodeEntry({ title, hint, hrefPrefix, label }: { title: string; hint: string; hrefPrefix: string; label: string }) {
   const [code, setCode] = useState("");
@@ -21,13 +21,15 @@ export default function CodeEntry({ title, hint, hrefPrefix, label }: { title: s
       <span className="text-sm text-muted">{hint}</span>
       <div className="mt-2 flex gap-2">
         <input
-          inputMode="numeric"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
           maxLength={4}
           value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-          placeholder="4821"
+          onChange={(e) => setCode(normalizeCode(e.target.value))}
+          placeholder="KXTR"
           aria-label="Table code"
-          className="w-28 rounded-lg border border-felt-edge bg-background px-3 py-2 text-center font-mono text-xl tracking-[0.3em]"
+          className="w-28 rounded-lg border border-felt-edge bg-background px-3 py-2 text-center font-mono text-xl uppercase tracking-[0.3em]"
         />
         <button disabled={!valid} className="flex-1 rounded-lg bg-gold font-medium text-background disabled:opacity-40">{label}</button>
       </div>
