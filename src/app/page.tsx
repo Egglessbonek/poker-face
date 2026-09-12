@@ -1,5 +1,6 @@
 import Link from "next/link";
 import CodeEntry from "@/components/CodeEntry";
+import BlurText from "@/components/landing/BlurText";
 import HallOfPokerFaces from "@/components/landing/HallOfPokerFaces";
 import LandingBackdrop from "@/components/LandingBackdrop";
 import PlayingCardMarks from "@/components/PlayingCardMarks";
@@ -11,8 +12,8 @@ export default function Landing() {
     <main className={`${styles.landing} mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center gap-10 px-6 py-12 sm:px-10 lg:py-16`}>
       <div className={styles.hero}>
         <div className={`${styles.copy} flex flex-col items-start gap-4`}>
-          <p className="text-sm uppercase tracking-[0.3em] text-gold">Poker Face</p>
-          <h1 className="max-w-3xl text-5xl leading-tight sm:text-6xl">The only opponents who can see your pulse.</h1>
+          <BlurText as="h1" text="Poker Face" animateBy="letters" delay={90} stepDuration={0.3} className="font-display text-7xl leading-none tracking-tight text-gold sm:text-8xl lg:text-9xl" />
+          <p className="max-w-3xl font-display text-3xl leading-tight sm:text-4xl">The only opponents who can see your pulse.</p>
           <p className="max-w-xl text-lg text-muted">
             Hold&apos;em with friends and whichever AI models you invite: Claude, GPT, DeepSeek, Gemini, Grok and hundreds more, each playing as itself. They read your face, your hesitation, and your cursor. Spectators watch your tells live from the rail.
           </p>
