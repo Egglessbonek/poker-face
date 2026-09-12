@@ -54,7 +54,7 @@ export default function TableConfigForm() {
       </Field>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <Field label="Seats" hint={`${seatsNeeded} taken by you and the AI players`}>
+        <Field label="Chairs at the table" hint={`${seatsNeeded} spoken for: you and ${cfg.aiPlayers.length} guest${cfg.aiPlayers.length === 1 ? "" : "s"}`}>
           <input type="number" min={Math.max(2, seatsNeeded)} max={9} value={cfg.maxSeats} onChange={(e) => set("maxSeats", Number(e.target.value))} className={input} />
         </Field>
         <Field label="Starting stack">
@@ -82,23 +82,26 @@ export default function TableConfigForm() {
         </select>
       </Field>
 
-      <Field label="AI opponents" hint="Each seat is a specific LLM thinking for itself through OpenRouter: the nine regulars, or any of the hundreds in the catalog. Seat the same model twice if you like.">
-        <div className="flex flex-col gap-3">
-          <ul className="flex flex-wrap gap-2">
-            {cfg.aiPlayers.map((id, i) => {
-              const m = describeModelId(id);
-              return (
-                <li key={`${id}-${i}`} className="flex items-center gap-2 rounded-full border border-gold bg-gold/10 py-1 pl-3 pr-1 text-sm" title={id}>
-                  <span className="font-medium">{m.label}</span>
-                  <span className="text-xs text-muted">{m.vendor}</span>
-                  <button type="button" onClick={() => removeAI(i)} aria-label={`Remove ${m.label}`} className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-background">×</button>
-                </li>
-              );
-            })}
-            {cfg.aiPlayers.length === 0 && <li className="text-sm text-muted">No AI opponents yet: humans only.</li>}
-          </ul>
+      <Field label="Your guest list" hint="Every AI at the table is a real model playing as itself, nobody in costume. Invite whoever you like, twice if you dare.">
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">Coming tonight</p>
+            <ul className="flex flex-wrap gap-2">
+              {cfg.aiPlayers.map((id, i) => {
+                const m = describeModelId(id);
+                return (
+                  <li key={`${id}-${i}`} className="flex items-center gap-2 rounded-full border border-gold bg-gold/10 py-1 pl-3 pr-1 text-sm" title={id}>
+                    <span className="font-medium">{m.label}</span>
+                    <span className="text-xs text-muted">{m.vendor}</span>
+                    <button type="button" onClick={() => removeAI(i)} aria-label={`Uninvite ${m.label}`} className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-background">×</button>
+                  </li>
+                );
+              })}
+              {cfg.aiPlayers.length === 0 && <li className="text-sm text-muted">Just humans so far. Lonely table.</li>}
+            </ul>
+          </div>
           <ModelPicker onAdd={addAI} disabled={seatsLeft <= 0} />
-          {seatsLeft <= 0 && <p className="text-xs text-gold">Table is full. Add seats above to invite more models.</p>}
+          {seatsLeft <= 0 && <p className="text-xs text-gold">No chairs left. Add seats above to invite more.</p>}
         </div>
       </Field>
 

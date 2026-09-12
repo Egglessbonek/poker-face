@@ -11,8 +11,8 @@ import type { ActionRequest } from "@/lib/poker/engine";
 import { applyAction, bounds, dealtSeats, legalActions, liveSeats, newHand, nextSeat, positionLabel, publicHand } from "@/lib/poker/engine";
 import { monteCarloEquity, potOdds } from "@/lib/poker/equity";
 import { decide } from "@/lib/villain/brain";
-import { getPersona, isPersonaId } from "@/lib/villain/personas";
-import { warmCatalog } from "@/lib/llm/catalog";
+import { getProfile, resolveProfile } from "@/lib/villain/profile";
+import { isSeatableModelId } from "@/lib/llm/models";
 import { appendLog, createLog, endLog, getLog, setBaseline, syncLogPlayers } from "@/lib/store";
 import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
 import { generateCode } from "@/lib/rail/code";
@@ -67,9 +67,8 @@ export class TableError extends Error {
 
 // ---------- lobby ----------
 
-export function createTable(configPatch: Partial<TableConfig>, hostName: string): { code: string; playerId: string; token: string } {
+export async function createTable(configPatch: Partial<TableConfig>, hostName: string): Promise<{ code: string; playerId: string; token: string }> {
   const config = sanitizeConfig({ ...DEFAULT_TABLE, ...configPatch });
-  warmCatalog();
   const code = generateCode((c) => tables.has(c));
   const hostId = crypto.randomUUID();
   const token = crypto.randomUUID();
@@ -89,7 +88,7 @@ export function createTable(configPatch: Partial<TableConfig>, hostName: string)
   };
   tables.set(code, t);
   openChannel(code);
-  for (const personaId of config.aiPlayers) seatAI(t, personaId);
+  for (const modelId of config.aiPlayers) await seatAI(t, modelId);
   createLog(code, config, t.players);
   return { code, playerId: hostId, token };
 }
@@ -109,13 +108,13 @@ export function joinTable(code: string, name: string): { playerId: string; token
   return { playerId, token };
 }
 
-export function addAI(code: string, token: string, personaId: string): void {
+export async function addAI(code: string, token: string, modelId: string): Promise<void> {
   const t = must(code);
   requireHost(t, token);
   if (t.phase !== "lobby") throw new TableError("AI players can only be added in the lobby");
-  if (!isPersonaId(personaId)) throw new TableError(`Unknown AI model ${personaId}`);
+  if (!isSeatableModelId(modelId)) throw new TableError(`Not an OpenRouter model id: ${modelId}`);
   if (freeSeat(t) === null) throw new TableError("Table is full", 409);
-  seatAI(t, personaId);
+  await seatAI(t, modelId);
   syncLogPlayers(code, t.players);
   broadcastState(t);
 }
@@ -291,17 +290,17 @@ function freeSeat(t: Table): number | null {
   return null;
 }
 
-function seatAI(t: Table, personaId: string) {
+async function seatAI(t: Table, modelId: string) {
   const seat = freeSeat(t);
-  if (seat === null || !isPersonaId(personaId)) return;
-  const persona = getPersona(personaId);
-  const dupes = t.players.filter((p) => p.personaId === personaId).length;
+  if (seat === null || !isSeatableModelId(modelId)) return;
+  const profile = await resolveProfile(modelId);
+  const dupes = t.players.filter((p) => p.modelId === modelId).length;
   t.players.push({
-    id: `ai-${personaId}-${crypto.randomUUID().slice(0, 6)}`,
+    id: `ai-${crypto.randomUUID().slice(0, 8)}`,
     seat,
-    name: dupes ? `${persona.name} ${dupes + 1}` : persona.name,
+    name: dupes ? `${profile.name} ${dupes + 1}` : profile.name,
     kind: "ai",
-    personaId,
+    modelId,
     stack: t.config.startingStack,
     connected: true,
     sittingOut: false,
@@ -328,7 +327,7 @@ function sanitizeConfig(c: TableConfig): TableConfig {
     handsPerMatch: int(c.handsPerMatch, 0, 1000, DEFAULT_TABLE.handsPerMatch),
     turnTimerSec: int(c.turnTimerSec, 0, 600, DEFAULT_TABLE.turnTimerSec),
     tellVisibility: vis.includes(c.tellVisibility) ? c.tellVisibility : DEFAULT_TABLE.tellVisibility,
-    aiPlayers: Array.isArray(c.aiPlayers) ? c.aiPlayers.filter((x) => typeof x === "string" && isPersonaId(x)).slice(0, 8) : DEFAULT_TABLE.aiPlayers,
+    aiPlayers: Array.isArray(c.aiPlayers) ? c.aiPlayers.filter((x) => typeof x === "string" && isSeatableModelId(x)).slice(0, 8) : DEFAULT_TABLE.aiPlayers,
     allowLateJoin: c.allowLateJoin !== false,
     voice: c.voice !== false,
   };
@@ -469,7 +468,7 @@ async function aiAct(t: Table, seat: number) {
     bounds: b,
     equity: eq.equity,
     potOdds: potOdds(b.toCall, hand.pot),
-    personaId: player.personaId ?? "claude",
+    modelId: player.modelId ?? DEFAULT_TABLE.aiPlayers[0],
   });
 
   // The table may have moved on while the LLM was thinking (e.g. host ended it).
@@ -492,7 +491,7 @@ async function aiAct(t: Table, seat: number) {
   applyAndPublish(t, req, null);
   if (decision.tableTalk) {
     appendLog(t.code, "talk", { handNumber: hand.handNumber, playerId: player.id, text: decision.tableTalk });
-    const talk: TableEvent = { type: "talk", playerId: player.id, text: decision.tableTalk, voiceId: getPersona(player.personaId ?? "claude").voiceId };
+    const talk: TableEvent = { type: "talk", playerId: player.id, text: decision.tableTalk, voiceId: getProfile(player.modelId ?? DEFAULT_TABLE.aiPlayers[0]).voiceId };
     publish(t.code, talk);
   }
 }

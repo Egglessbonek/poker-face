@@ -116,7 +116,7 @@ export function useTable(code: string, token: string | null, playerId: string | 
 
   const act = useCallback((type: ActionType, amount?: number, latencyMs?: number, tellVector?: TellVector | null) => call("/act", "POST", { type, amount, latencyMs, tells: tellVector ?? null }).catch(() => {}), [call]);
   const start = useCallback(() => call("/start", "POST").catch(() => {}), [call]);
-  const addAI = useCallback((personaId: string) => call("/ai", "POST", { personaId }).catch(() => {}), [call]);
+  const addAI = useCallback((modelId: string) => call("/ai", "POST", { modelId }).catch(() => {}), [call]);
   const removePlayer = useCallback((id: string) => call("/ai", "DELETE", { playerId: id }).catch(() => {}), [call]);
   const updateConfig = useCallback((config: Partial<TableConfig>) => call("/config", "PATCH", { config }).catch(() => {}), [call]);
   const leave = useCallback(() => call("/leave", "POST").catch(() => {}), [call]);

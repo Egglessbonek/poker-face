@@ -1,6 +1,6 @@
 "use client";
 
-import { describeModelId, getAIModel } from "@/lib/llm/models";
+import { describeModelId } from "@/lib/llm/models";
 import ModelPicker from "./ModelPicker";
 import type { TableState } from "@/lib/types";
 import { VISIBILITY_LABEL } from "./TableConfigForm";
@@ -8,7 +8,7 @@ import { VISIBILITY_LABEL } from "./TableConfigForm";
 interface Props {
   state: TableState;
   playerId: string;
-  onAddAI: (personaId: string) => void;
+  onAddAI: (modelId: string) => void;
   onRemove: (playerId: string) => void;
   onStart: () => void;
   onLeave: () => void;
@@ -50,7 +50,7 @@ export default function Lobby({ state, playerId, onAddAI, onRemove, onStart, onL
                       <p className="font-medium">
                         {p.name} {p.id === playerId && <span className="text-xs text-muted">(you)</span>} {p.id === state.hostId && <span className="text-xs text-gold">host</span>}
                       </p>
-                      <p className="text-xs text-muted">{p.kind === "ai" ? `${describeModelId(p.personaId ?? "").vendor} · ${getAIModel(p.personaId ?? "")?.tagline ?? p.personaId}` : p.connected ? "connected" : "not connected yet"}</p>
+                      <p className="text-xs text-muted">{p.kind === "ai" ? `${describeModelId(p.modelId ?? "").vendor} · ${p.modelId}` : p.connected ? "connected" : "not connected yet"}</p>
                     </div>
                   </div>
                   {isHost && p.id !== state.hostId && (
@@ -67,7 +67,10 @@ export default function Lobby({ state, playerId, onAddAI, onRemove, onStart, onL
           </ul>
 
           {isHost && free > 0 && (
-            <ModelPicker onAdd={onAddAI} compact />
+            <div>
+              <p className="mb-2 text-sm text-muted">Pull up a chair for…</p>
+              <ModelPicker onAdd={onAddAI} compact />
+            </div>
           )}
 
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1 rounded-xl bg-background/60 p-4 text-sm sm:grid-cols-3">

@@ -4,11 +4,11 @@ import { addAI, removePlayer } from "@/lib/game/table";
 
 export const runtime = "nodejs";
 
-/** POST { token, personaId } — host adds an AI player (lobby only). */
+/** POST { token, modelId } — host seats an OpenRouter model (lobby only). */
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/table/[code]/ai">) {
   const { code } = await ctx.params;
-  const b = await body<{ token: string; personaId: string }>(req);
-  return handle(() => addAI(code, b.token, b.personaId));
+  const b = await body<{ token: string; modelId: string }>(req);
+  return handle(() => addAI(code, b.token, b.modelId));
 }
 
 /** DELETE { token, playerId } — host removes a player (lobby only). */

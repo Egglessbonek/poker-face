@@ -110,7 +110,7 @@ export interface TableConfig {
   /** Human auto check/fold when the timer expires. 0 = no timer. */
   turnTimerSec: number;
   tellVisibility: TellVisibility;
-  /** AI model ids (lib/llm/models.ts) seated at creation; duplicates allowed. */
+  /** OpenRouter model ids seated at creation; duplicates allowed. */
   aiPlayers: string[];
   /** Humans joining mid-game get a seat next hand. */
   allowLateJoin: boolean;
@@ -126,7 +126,7 @@ export const DEFAULT_TABLE: TableConfig = {
   handsPerMatch: 15,
   turnTimerSec: 30,
   tellVisibility: "ai_and_rail",
-  aiPlayers: ["claude", "chatgpt"],
+  aiPlayers: ["anthropic/claude-sonnet-5", "openai/gpt-5.6-terra"],
   allowLateJoin: true,
   voice: true,
 };
@@ -136,7 +136,8 @@ export interface Player {
   seat: number;
   name: string;
   kind: "human" | "ai";
-  personaId?: string;
+  /** OpenRouter model id for AI seats. */
+  modelId?: string;
   stack: number;
   connected: boolean;
   sittingOut: boolean;
@@ -259,19 +260,14 @@ export interface TellVector {
 
 // ---------- AI players ----------
 
-/** An AI player: a specific LLM (via OpenRouter) with a table presence. */
-export interface Persona {
+/** Who an AI seat is: an OpenRouter model, named as OpenRouter names it. */
+export interface ModelProfile {
+  /** OpenRouter model id, e.g. "anthropic/claude-sonnet-5". */
   id: string;
   name: string;
   vendor: string;
-  tagline: string;
-  style: string; // prompt fragment
-  /** OpenRouter model id this player thinks with. */
-  model: string;
   /** ElevenLabs voice id for TTS table talk. */
   voiceId?: string;
-  /** 0-1: how often to bet/raise beyond what the math suggests. */
-  aggression: number;
 }
 
 export interface OpponentView {
@@ -298,7 +294,7 @@ export interface VillainDecisionInput {
   /** 0-1 equity vs random hands for every opponent still in the hand. */
   equity: number;
   potOdds: number; // 0-1
-  personaId: string;
+  modelId: string;
 }
 
 export interface VillainDecision {

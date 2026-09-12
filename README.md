@@ -11,14 +11,14 @@ A No-Limit Hold'em table for friends and AI players. Create a table, share the 4
 | App | Next.js 16 (App Router), React 19, Tailwind v4 |
 | Camera tells | MediaPipe Face Landmarker (WASM, in-browser, 478 landmarks + 52 blendshapes) |
 | Poker | N-player NLHE engine with side pots, `pokersolver` + Monte Carlo equity |
-| AI players | Each seat is a real model via OpenRouter: nine regulars (Claude, ChatGPT, DeepSeek, Gemini, Grok, Llama, Mistral, Qwen, Kimi) or any of the hundreds in OpenRouter's live catalog. Equity + tells -> that LLM -> strict JSON action + table talk |
+| AI players | Real models via OpenRouter, each playing as itself (no scripted personas): the regulars are pinned, the whole catalog is a search away. Equity + tells -> that model -> strict JSON action + table talk in its own voice |
 | Voice | ElevenLabs TTS, one voice per persona, played on every client |
 | Realtime | Server-Sent Events, in-memory bus, per-viewer filtering (private cards, tell visibility) |
 | Deploy | Railway (single Node process) |
 
 ## How a table works
 
-1. **Host** opens `/table/new`: seats (2-9), blinds, stacks, hands, turn timer, **which models to play against** (any mix, duplicates allowed), and **who sees the tells** (AIs and rail by default; humans never see their own during play).
+1. **Host** opens `/table/new`: chairs (2-9), blinds, stacks, hands, turn timer, **the guest list** (any OpenRouter models, duplicates allowed), and **who sees the tells** (AIs and rail by default; humans never see their own during play).
 2. **Players** open `/table/<code>`, type a name, and optionally calibrate a 10s face baseline in the lobby.
 3. The host deals. AI turns run on the server; humans get a turn timer that auto-checks/folds.
 4. **Spectators** open `/rail/<code>`: every card, every human's live tell HUD, the AIs' stated reads and table talk.
@@ -33,7 +33,8 @@ src/lib/game/           table manager (lobby, hand loop, AI turns, timers, log),
 src/lib/realtime/bus.ts per-viewer SSE pub/sub
 src/lib/tells/          landmarker, features, emotion, baseline, cursor, fuse (client-side)
 src/lib/villain/        brain, prompt, personas
-src/lib/llm/            models.ts (curated seats + id helpers), catalog.ts (cached OpenRouter list), provider
+src/lib/llm/            models.ts (id helpers + pinned regulars), catalog.ts (cached OpenRouter list), provider
+src/lib/villain/        profile (who a seat is), prompt, brain
 src/lib/store.ts        in-memory table logs
 src/components/         table (oval, lobby, config), rail, reveal, tell HUD, action bar
 ```

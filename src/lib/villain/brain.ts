@@ -1,28 +1,28 @@
 /**
- * AI player brain: math baseline -> tell adjustment -> LLM final call. Server only.
+ * AI seat brain: math baseline -> tell adjustment -> the seat's own model makes the call. Server only.
  *
- * Layer 1 (math): equity vs pot odds picks a baseline action; persona aggression widens betting.
+ * Layer 1 (math): equity vs pot odds picks a baseline action (the same for every model).
  * Layer 2 (tells): the live opponents' bluffLikelihood shifts the perceived strength of their ranges.
- * Layer 3 (LLM): gets everything and returns a validated JSON decision + table talk.
- * Falls back to the math action on any LLM failure. Every call is logged for the reveal.
+ * Layer 3 (LLM): the model gets everything, including the baseline, and returns a validated JSON
+ * decision + table talk in its own voice. Falls back to the math action on any failure.
  */
 
 import "server-only";
 import { z } from "zod";
 import type { ActionType, VillainDecision, VillainDecisionInput } from "@/lib/types";
 import { completeJSON, llmAvailable, perSeatModels } from "@/lib/llm/provider";
-import { getPersona } from "./personas";
+import { getProfile } from "./profile";
 import { villainSystemPrompt, villainUserPrompt } from "./prompt";
 
 const DecisionSchema = z.object({
   action: z.enum(["fold", "check", "call", "bet", "raise", "allin"]),
   amount: z.number().nullable().optional(),
   reasoning: z.string(),
-  tableTalk: z.string(),
+  tableTalk: z.string().default(""),
   tellsUsed: z.array(z.string()).default([]),
 });
 
-/** Average bluff likelihood across live opponents with tell data, or null. */
+/** Average bluff likelihood across live opponents with tell data, or 0. */
 export function tellAdjustment(input: VillainDecisionInput): number {
   const live = input.opponents.filter((o) => !o.folded && o.tells && o.tells.confidence > 0.2);
   if (!live.length) return 0;
@@ -32,18 +32,16 @@ export function tellAdjustment(input: VillainDecisionInput): number {
 }
 
 export function mathAction(input: VillainDecisionInput): ActionType {
-  const persona = getPersona(input.personaId);
   const { equity, potOdds, legalActions } = input;
   const eff = equity + tellAdjustment(input);
   const has = (a: ActionType) => legalActions.includes(a);
   const live = input.opponents.filter((o) => !o.folded).length;
   // Fair share of the pot when everyone has random hands; betting above it is +EV.
   const share = 1 / (live + 1);
-  const betEdge = 0.15 - persona.aggression * 0.15; // aggressive personas bet thinner
 
   if (has("check")) {
     const open = has("bet") ? "bet" : has("raise") ? "raise" : null;
-    return eff > share + betEdge && open ? open : "check";
+    return eff > share + 0.1 && open ? open : "check";
   }
   if (eff > Math.max(0.55, share + 0.25) && has("raise")) return "raise";
   if (eff > potOdds && has("call")) return "call";
@@ -51,7 +49,7 @@ export function mathAction(input: VillainDecisionInput): ActionType {
 }
 
 export async function decide(input: VillainDecisionInput): Promise<VillainDecision> {
-  const persona = getPersona(input.personaId);
+  const profile = getProfile(input.modelId);
   const baseline = mathAction(input);
 
   const mathOnly = (why: string): VillainDecision => ({
@@ -68,10 +66,10 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
 
   try {
     const out = await completeJSON({
-      system: villainSystemPrompt(persona),
-      user: villainUserPrompt(input) + `\nThe math-only recommendation is: ${baseline}.`,
+      system: villainSystemPrompt(profile),
+      user: villainUserPrompt(input) + `\nFor reference, a plain equity-vs-pot-odds strategy would: ${baseline}.`,
       schema: DecisionSchema,
-      model: perSeatModels() ? persona.model : undefined,
+      model: perSeatModels() ? profile.id : undefined,
       temperature: 0.8,
     });
     const action = input.legalActions.includes(out.action) ? out.action : baseline;
@@ -85,18 +83,15 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
       llmUsed: true,
     };
   } catch (err) {
-    console.error(`AI ${persona.name} (${persona.model}) failed, using math action:`, (err as Error).message);
-    return mathOnly("LLM unavailable; math-only decision.");
+    console.error(`${profile.name} (${profile.id}) failed, using math action:`, (err as Error).message);
+    return mathOnly("Model unavailable; math-only decision.");
   }
 }
 
 function clampAmount(action: ActionType, amount: number | undefined, input: VillainDecisionInput): number | undefined {
   const { minTotal, maxTotal } = input.bounds;
   if (action === "bet" || action === "raise") {
-    // Default sizing: 50-90% of pot on top of the current bet, scaled by persona aggression.
-    const persona = getPersona(input.personaId);
-    const frac = 0.5 + persona.aggression * 0.4;
-    const def = input.hand.currentBet + Math.round(input.hand.pot * frac);
+    const def = input.hand.currentBet + Math.round(input.hand.pot * 0.66); // 2/3 pot if the model gave no size
     return Math.max(minTotal, Math.min(maxTotal, Math.round(amount ?? def)));
   }
   if (action === "allin") return maxTotal;

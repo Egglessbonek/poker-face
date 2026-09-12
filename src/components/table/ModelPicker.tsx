@@ -1,17 +1,17 @@
 "use client";
 
 /**
- * Pick AI opponents: nine curated seats up front, then OpenRouter's whole catalog behind a search box.
- * Used by the table config form and the lobby's "seat another model" control.
+ * The guest list. Every AI at the table is a real model playing as itself; this is where the host
+ * decides who gets a chair. The regulars are pinned; everyone else OpenRouter knows is behind a search.
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { AI_MODELS, describeModelId, type CatalogModel } from "@/lib/llm/models";
+import { FEATURED_MODEL_IDS, OPENROUTER_ID, describeModelId, formatPrice, type CatalogModel } from "@/lib/llm/models";
 
 interface Props {
   onAdd: (id: string) => void;
   disabled?: boolean;
-  /** Compact = chips only plus the search box (lobby). */
+  /** Lobby mode: one row of regulars plus a "more" toggle. */
   compact?: boolean;
 }
 
@@ -21,7 +21,7 @@ export default function ModelPicker({ onAdd, disabled, compact }: Props) {
   const [all, setAll] = useState<CatalogModel[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState(!compact);
+  const [open, setOpen] = useState(false);
   const [limit, setLimit] = useState(PAGE);
 
   useEffect(() => {
@@ -39,6 +39,9 @@ export default function ModelPicker({ onAdd, disabled, compact }: Props) {
     };
   }, []);
 
+  const byId = useMemo(() => new Map((all ?? []).map((m) => [m.id, m])), [all]);
+  const regulars = FEATURED_MODEL_IDS.map((id) => byId.get(id) ?? fallback(id));
+
   const results = useMemo(() => {
     if (!all) return [];
     const needle = q.trim().toLowerCase();
@@ -47,54 +50,56 @@ export default function ModelPicker({ onAdd, disabled, compact }: Props) {
   }, [all, q]);
 
   const custom = q.trim();
-  const customLooksLikeId = /^[a-z0-9][a-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(custom) && !results.some((m) => m.id === custom);
+  const customLooksLikeId = OPENROUTER_ID.test(custom) && !byId.has(custom);
+  const count = all?.length;
 
   return (
     <div className="flex flex-col gap-3">
-      {compact ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted">Seat another model:</span>
-          {AI_MODELS.map((m) => (
-            <button key={m.id} type="button" disabled={disabled} onClick={() => onAdd(m.id)} title={`${m.vendor} · ${m.openrouter}`} className="rounded-full border border-felt-edge px-3 py-1 text-sm hover:border-gold disabled:opacity-40">
-              + {m.label}
+      <div>
+        <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">The regulars</p>
+        <div className={compact ? "flex flex-wrap gap-2" : "grid gap-2 sm:grid-cols-3"}>
+          {regulars.map((m) => (
+            <button
+              type="button"
+              key={m.id}
+              disabled={disabled}
+              onClick={() => onAdd(m.id)}
+              title={m.id}
+              className={
+                compact
+                  ? "rounded-full border border-felt-edge px-3 py-1 text-sm hover:border-gold disabled:opacity-40"
+                  : "flex items-baseline justify-between gap-2 rounded-xl border border-felt-edge px-3 py-2.5 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40"
+              }
+            >
+              <span className="font-medium">{compact ? "+ " : ""}{m.name}</span>
+              {!compact && <span className="text-[10px] uppercase tracking-wider text-muted">{m.vendor}</span>}
             </button>
           ))}
-          <button type="button" onClick={() => setOpen((o) => !o)} className="rounded-full border border-dashed border-felt-edge px-3 py-1 text-sm text-muted hover:border-gold">
-            {open ? "hide catalog" : `… ${all ? all.length : "more"} models`}
+          <button type="button" onClick={() => setOpen((o) => !o)} className={compact ? "rounded-full border border-dashed border-felt-edge px-3 py-1 text-sm text-muted hover:border-gold" : "flex items-center justify-center rounded-xl border border-dashed border-felt-edge px-3 py-2.5 text-sm text-muted transition hover:border-gold"}>
+            {open ? "That's enough guests" : count ? `Everyone else we know · ${count}` : "Everyone else we know"}
           </button>
         </div>
-      ) : (
-        <div className="grid gap-2 sm:grid-cols-3">
-          {AI_MODELS.map((m) => (
-            <button type="button" key={m.id} disabled={disabled} onClick={() => onAdd(m.id)} className="flex flex-col gap-0.5 rounded-xl border border-felt-edge p-3 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40">
-              <span className="flex items-baseline justify-between gap-2"><span className="font-semibold">+ {m.label}</span><span className="text-[10px] uppercase tracking-wider text-muted">{m.vendor}</span></span>
-              <span className="text-xs text-muted">{m.tagline}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      </div>
 
       {open && (
         <div className="flex flex-col gap-2 rounded-xl border border-felt-edge/70 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium">Every model on OpenRouter{all ? <span className="text-muted"> · {all.length}</span> : null}</p>
-            <input
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setLimit(PAGE);
-              }}
-              placeholder="Search by name, vendor, or id…"
-              aria-label="Search models"
-              className="w-full max-w-xs rounded-lg border border-felt-edge bg-background px-3 py-1.5 text-sm"
-            />
-          </div>
-          {failed && <p className="text-xs text-danger">Could not load the catalog. You can still type an OpenRouter id (vendor/model) and seat it.</p>}
-          {!all && !failed && <p className="text-xs text-muted">Loading the catalog…</p>}
+          <input
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setLimit(PAGE);
+            }}
+            placeholder="Looking for someone in particular?"
+            aria-label="Search models"
+            autoFocus
+            className="w-full rounded-lg border border-felt-edge bg-background px-3 py-2 text-sm"
+          />
+          {failed && <p className="text-xs text-danger">Couldn&apos;t reach the guest book. Type an OpenRouter id (vendor/model) and we&apos;ll still set a place.</p>}
+          {!all && !failed && <p className="text-xs text-muted">Flipping through the guest book…</p>}
           {customLooksLikeId && (
             <button type="button" disabled={disabled} onClick={() => onAdd(custom)} className="flex items-center justify-between rounded-lg border border-dashed border-gold px-3 py-2 text-left text-sm hover:bg-gold/10 disabled:opacity-40">
-              <span>+ Seat <span className="font-mono">{custom}</span> <span className="text-muted">({describeModelId(custom).vendor})</span></span>
-              <span className="text-xs text-muted">custom id</span>
+              <span>Set a place for <span className="font-mono">{custom}</span></span>
+              <span className="text-xs text-muted">{describeModelId(custom).vendor}</span>
             </button>
           )}
           {all && (
@@ -102,13 +107,13 @@ export default function ModelPicker({ onAdd, disabled, compact }: Props) {
               {results.slice(0, limit).map((m) => (
                 <li key={m.id}>
                   <button type="button" disabled={disabled} onClick={() => onAdd(m.id)} className="flex w-full items-center gap-3 px-2 py-1.5 text-left hover:bg-gold/10 disabled:opacity-40">
-                    <span className="w-24 shrink-0 truncate text-xs uppercase tracking-wider text-muted">{m.vendor}</span>
+                    <span className="w-24 shrink-0 truncate text-[11px] uppercase tracking-wider text-muted">{m.vendor}</span>
                     <span className="flex-1 truncate">{m.name}<span className="ml-2 font-mono text-[11px] text-muted">{m.id}</span></span>
-                    <span className="shrink-0 font-mono text-[11px] text-muted">{price(m)}</span>
+                    <span className="shrink-0 font-mono text-[11px] text-muted">{formatPrice(m)}</span>
                   </button>
                 </li>
               ))}
-              {results.length === 0 && <li className="px-2 py-2 text-muted">No models match.</li>}
+              {results.length === 0 && !customLooksLikeId && <li className="px-2 py-2 text-muted">Nobody by that name.</li>}
               {results.length > limit && (
                 <li>
                   <button type="button" onClick={() => setLimit((l) => l + PAGE)} className="w-full px-2 py-2 text-center text-xs text-muted underline">show {Math.min(PAGE, results.length - limit)} more of {results.length}</button>
@@ -122,7 +127,7 @@ export default function ModelPicker({ onAdd, disabled, compact }: Props) {
   );
 }
 
-function price(m: CatalogModel): string {
-  if (m.promptPerM === 0 && m.completionPerM === 0) return "free";
-  return `$${m.promptPerM}/${m.completionPerM} per M`;
+function fallback(id: string): CatalogModel {
+  const { label, vendor } = describeModelId(id);
+  return { id, name: label, vendor, contextLength: 0, promptPerM: 0, completionPerM: 0 };
 }

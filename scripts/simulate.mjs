@@ -15,7 +15,7 @@ const humans = Number(flag("humans", 2));
 const ais = Number(flag("ais", 2));
 const hands = Number(flag("hands", 12));
 const slow = args.includes("--slow");
-const personas = ["claude", "chatgpt", "deepseek", "gemini", "grok"];
+const guests = ["anthropic/claude-sonnet-5", "openai/gpt-5.6-terra", "deepseek/deepseek-v3.2", "google/gemini-3.8-flash", "x-ai/grok-4.6"];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const call = async (path, method, body) => {
@@ -71,7 +71,7 @@ async function stream(url, onEvent, signal) {
 }
 
 // ---------- set up the table ----------
-const config = { maxSeats: Math.max(2, humans + ais), aiPlayers: Array.from({ length: ais }, (_, i) => personas[i % personas.length]), handsPerMatch: hands, turnTimerSec: 0, tellVisibility: "ai_and_rail", voice: false };
+const config = { maxSeats: Math.max(2, humans + ais), aiPlayers: Array.from({ length: ais }, (_, i) => guests[i % guests.length]), handsPerMatch: hands, turnTimerSec: 0, tellVisibility: "ai_and_rail", voice: false };
 const host = await call("/api/table", "POST", { config, name: "Sim Host" });
 const players = [{ ...host, name: "Sim Host" }];
 for (let i = 1; i < humans; i++) players.push({ ...(await call(`/api/table/${host.code}/join`, "POST", { name: `Sim ${i + 1}` })), name: `Sim ${i + 1}` });
