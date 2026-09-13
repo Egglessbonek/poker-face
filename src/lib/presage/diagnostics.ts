@@ -15,6 +15,8 @@ export interface SignalDiagnostics {
   pulse: MetricDiagnostics; breathing: MetricDiagnostics;
   pipeline: PipelineStats | null;
   receivedFrames: number; skippedFrames: number;
+  restarts?: number;
+  lastFailure?: { at: number; code: number | null; stage: string; retryable: boolean };
 }
 export function createDiagnostics(policy: QualityPolicy = DEFAULT_POLICY): SignalDiagnostics {
   const metric = (): MetricDiagnostics => ({ samples: 0, usable: 0, coverage: 0, rejected: {}, cutoffs: [50, 60, 70, 80, 90].map(threshold => ({ threshold, usable: 0, coverage: 0 })), confidence: null, reasons: [], lastSourceAt: null });

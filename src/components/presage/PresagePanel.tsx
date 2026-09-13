@@ -28,7 +28,7 @@ export default function PresagePanel({ presage, cameraOn }: { presage: Presage; 
   const pipelineFresh = pipeline && now - pipeline.at < 3500;
   const moment = view.moments?.[0];
   return <section aria-label="Pulse and breathing" className="rounded-2xl border border-felt-edge bg-background/70 p-3 text-xs">
-    <div className="flex items-center justify-between gap-2"><h2 className="flex items-center gap-2 text-base text-gold"><Activity size={15} /> Under pressure</h2><span className="font-sans text-muted">Presage · private</span></div>
+    <h2 className="flex items-center gap-2 text-base text-gold"><Activity size={15} /> Under pressure</h2>
     <div className="mt-3 grid grid-cols-2 gap-3">
       {(["pulse", "breathing"] as const).map(kind => <Rate key={kind} label={kind === "pulse" ? "Pulse" : "Breathing"} unit={kind === "pulse" ? "BPM" : "/ min"} reading={measuring ? latest?.[kind] : undefined} previous={view.lastGood?.[kind]} baseline={view.baseline[kind]} remaining={warmupRemaining(current, kind)} measuring={measuring} now={now} />)}
     </div>
