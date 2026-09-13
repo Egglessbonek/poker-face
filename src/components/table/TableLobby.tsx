@@ -6,7 +6,7 @@ import { Bot, CameraOff, CheckCircle2, CircleAlert, CircleDashed, Copy, Crown, L
 import ModelPicker from "@/components/table/ModelPicker";
 import TableSettingsEditor from "@/components/table/TableSettingsEditor";
 import { TIERS, describeModelId } from "@/lib/llm/models";
-import type { LobbyCameraStatus, TableConfig, TableState } from "@/lib/types";
+import type { LobbyCameraStatus, Player, TableConfig, TableState } from "@/lib/types";
 
 interface Props {
   state: TableState;
@@ -30,6 +30,7 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
   const openSeats = state.config.maxSeats - state.players.length;
   const aiPlayers = state.players.filter((player) => player.kind === "ai");
   const humanPlayers = state.players.filter((player) => player.kind === "human");
+  const playersBySeat = new Map(state.players.map((player) => [player.seat, player]));
   const unfinishedCamera = humanPlayers.filter((player) => !["ready", "skipped"].includes(cameraStatuses[player.id] ?? "not_started"));
   const unreadyPlayers = humanPlayers.filter((player) => !readyPlayers[player.id]);
   const ownReady = !!readyPlayers[playerId];
@@ -121,28 +122,23 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
           ) : <p className="mt-4 text-xs text-muted">Only the host can change the table capacity.</p>}
         </section>
 
-        <section className="rounded-3xl border border-felt-edge bg-felt/20 p-5 sm:p-7">
-          <div className="mb-5 flex items-center justify-between">
-            <div><h2 className="flex items-center gap-2 font-medium"><Users size={17} className="text-gold" /> Live guest list</h2><p className="mt-1 text-xs text-muted">Camera readiness and seats update while people follow your invite.</p></div>
-            <span className="font-mono text-xs text-muted">{state.players.length}/{state.config.maxSeats}</span>
+        <section className="rounded-3xl border border-felt-edge bg-felt/20 p-4 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div><h2 className="flex items-center gap-2 font-medium"><Users size={17} className="text-gold" /> Live guest list</h2><p className="mt-1 text-xs text-muted">Camera, connection, and ready status update live.</p></div>
+            <span className="shrink-0 rounded-full border border-felt-edge bg-background/40 px-3 py-1 font-mono text-xs text-muted">{state.players.length}/{state.config.maxSeats} seated</span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[...state.players].sort((a, b) => a.seat - b.seat).map((player) => {
-              const model = player.modelId ? describeModelId(player.modelId) : null;
-              const cameraStatus = cameraStatuses[player.id] ?? "not_started";
-              return (
-                <div key={player.id} className="flex min-h-24 items-center gap-3 rounded-2xl border border-felt-edge bg-background/50 p-3">
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${player.kind === "ai" ? "bg-chip-blue/60" : "bg-felt-edge"}`}>{player.kind === "ai" ? <Bot size={19} /> : player.name.slice(0, 1).toUpperCase()}</div>
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 truncate text-sm font-medium">{player.name}{player.id === playerId && <span className="text-xs text-muted">(you)</span>}{player.id === state.hostId && <Crown size={13} className="shrink-0 text-gold" />}</p>
-                    <p className="truncate text-xs text-muted">{model ? `${model.vendor} · ${player.modelId}` : player.connected ? "Human · connected" : "Human · reconnecting"}</p>
-                    {player.kind === "human" && <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1"><CameraBadge status={cameraStatus} /><ReadyBadge ready={!!readyPlayers[player.id]} /></div>}
-                  </div>
-                  {isHost && player.id !== state.hostId && <button type="button" disabled={rosterBusy} aria-label={`Remove ${player.name}`} onClick={() => void updateRoster(() => onRemove(player.id))} className="rounded-lg p-2 text-muted hover:bg-danger/10 hover:text-danger disabled:opacity-40"><Trash2 size={15} /></button>}
-                </div>
-              );
-            })}
-            {Array.from({ length: openSeats }, (_, index) => <div key={index} className="flex min-h-24 items-center justify-center rounded-2xl border border-dashed border-felt-edge text-xs text-muted">Open seat</div>)}
+          <div className="rounded-[2.25rem] bg-[#3a281d] p-2 shadow-[0_12px_28px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-2.5">
+            <div className="relative overflow-hidden rounded-[1.8rem] border border-gold/20 bg-felt px-3 py-4 shadow-[inset_0_0_34px_rgba(0,0,0,0.34)] sm:px-4">
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.07]"><span className="font-mono text-3xl tracking-[0.24em] text-card sm:text-5xl">{state.code}</span></div>
+              <div className="relative grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: state.config.maxSeats }, (_, seat) => {
+                  const player = playersBySeat.get(seat);
+                  return player
+                    ? <LobbySeat key={player.id} player={player} viewerId={playerId} hostId={state.hostId} isHost={isHost} busy={rosterBusy} cameraStatus={cameraStatuses[player.id] ?? "not_started"} ready={!!readyPlayers[player.id]} onRemove={() => void updateRoster(() => onRemove(player.id))} />
+                    : <OpenSeat key={seat} seat={seat} />;
+                })}
+              </div>
+            </div>
           </div>
 
           {isHost && openSeats > 0 && (
@@ -222,13 +218,35 @@ const cameraDetails: Record<LobbyCameraStatus, { label: string; className: strin
   ready: { label: "Camera ready", className: "text-ok", icon: <CheckCircle2 size={13} /> },
 };
 
+function LobbySeat({ player, viewerId, hostId, isHost, busy, cameraStatus, ready, onRemove }: { player: Player; viewerId: string; hostId: string; isHost: boolean; busy: boolean; cameraStatus: LobbyCameraStatus; ready: boolean; onRemove: () => void }) {
+  const model = player.modelId ? describeModelId(player.modelId) : null;
+  const description = model ? `${model.vendor} · ${player.modelId}` : player.connected ? "Human · connected" : "Human · reconnecting";
+  const seatAccent = player.kind === "ai" ? "border-chip-blue/35" : !player.connected ? "border-danger/35" : ready ? "border-ok/35" : "border-white/10";
+  return (
+    <div className={`flex min-h-[4.5rem] items-center gap-2 rounded-xl border bg-background/75 p-2.5 shadow-md shadow-black/20 backdrop-blur-sm sm:min-h-[5.5rem] ${seatAccent}`}>
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-xs font-semibold ${player.kind === "ai" ? "bg-chip-blue/70" : "bg-felt-edge"}`}>{player.kind === "ai" ? <Bot size={16} /> : player.name.slice(0, 1).toUpperCase()}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[9px] uppercase tracking-[0.16em] text-gold/75">Seat {player.seat + 1}</p>
+        <p className="flex items-center gap-1 truncate text-xs font-medium"><span className="truncate">{player.name}</span>{player.id === viewerId && <span className="shrink-0 text-[10px] text-muted">(you)</span>}{player.id === hostId && <Crown size={11} className="shrink-0 text-gold" />}</p>
+        <p title={description} className="truncate text-[10px] text-muted">{description}</p>
+        {player.kind === "human" && <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5"><CameraBadge status={cameraStatus} /><ReadyBadge ready={ready} /></div>}
+      </div>
+      {isHost && player.id !== hostId && <button type="button" disabled={busy} aria-label={`Remove ${player.name}`} onClick={onRemove} className="shrink-0 rounded-lg p-1.5 text-muted transition hover:bg-danger/10 hover:text-danger disabled:opacity-40"><Trash2 size={13} /></button>}
+    </div>
+  );
+}
+
+function OpenSeat({ seat }: { seat: number }) {
+  return <div className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-dashed border-card/20 bg-black/10 text-card/45 sm:min-h-[5.5rem]"><CircleDashed size={14} /><span className="text-[10px] uppercase tracking-[0.16em]">Seat {seat + 1} · open</span></div>;
+}
+
 function CameraBadge({ status }: { status: LobbyCameraStatus }) {
   const detail = cameraDetails[status];
-  return <span className={`inline-flex items-center gap-1.5 text-[11px] ${detail.className}`}>{detail.icon}{detail.label}</span>;
+  return <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] ${detail.className}`}>{detail.icon}{detail.label}</span>;
 }
 
 function ReadyBadge({ ready }: { ready: boolean }) {
-  return <span className={`inline-flex items-center gap-1.5 text-[11px] ${ready ? "text-ok" : "text-muted"}`}>{ready ? <CheckCircle2 size={13} /> : <CircleDashed size={13} />}{ready ? "Ready" : "Not ready"}</span>;
+  return <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] ${ready ? "text-ok" : "text-muted"}`}>{ready ? <CheckCircle2 size={13} /> : <CircleDashed size={13} />}{ready ? "Ready" : "Not ready"}</span>;
 }
 
 function SaveIndicator({ status }: { status: "idle" | "saving" | "saved" | "error" }) {
