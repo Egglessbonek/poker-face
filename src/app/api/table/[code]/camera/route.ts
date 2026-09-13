@@ -7,7 +7,7 @@ import type { LobbyCameraStatus, Viewer } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const STATUSES: LobbyCameraStatus[] = ["not_started", "setting_up", "skipped", "ready"];
+const STATUSES: LobbyCameraStatus[] = ["not_started", "setting_up", "ready"];
 
 function lobbyStatus(code: string, playerIds: string[]) {
   return { statuses: getLobbyCameraStatuses(code, playerIds), ready: getLobbyReady(code, playerIds) };

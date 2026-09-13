@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createTable, endTable, getState, joinTable, leaveTable, startTable } from "../table";
+import { setLobbyCameraStatus } from "../lobbyCamera";
 
 vi.mock("server-only", () => ({}));
 beforeEach(() => vi.useFakeTimers());
@@ -9,7 +10,10 @@ async function room(start = true) {
   const host = await createTable({ maxSeats: 3, aiPlayers: [], turnTimerSec: 120, handsPerMatch: 1 }, "Host");
   const guest = joinTable(host.code, "Guest");
   const other = joinTable(host.code, "Other");
-  if (start) startTable(host.code, host.token);
+  if (start) {
+    for (const player of getState(host.code, { kind: "rail" }).players) setLobbyCameraStatus(host.code, player.id, "ready");
+    startTable(host.code, host.token);
+  }
   const state = () => getState(host.code, { kind: "rail" });
   return { host, guest, other, state };
 }
