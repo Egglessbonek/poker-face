@@ -94,7 +94,7 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
         <WaitingRoom table={table} />
       ) : (
         <div className={`mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden ${finished ? "place-items-center" : "xl:grid-cols-[minmax(0,1fr)_360px]"}`}>
-          <div className={finished ? "min-w-0" : "flex h-[70dvh] min-h-[480px] min-w-0 flex-col xl:h-auto xl:min-h-0"}>
+          <div className={finished ? "min-w-0" : "flex h-[70dvh] min-h-[480px] min-w-0 flex-col xl:h-auto xl:min-h-0 xl:self-start xl:aspect-video"}>
             {finished && table.standings?.length ? <FinalStandings table={table} /> : <RailTable table={table} />}
           </div>
           {!finished && (
