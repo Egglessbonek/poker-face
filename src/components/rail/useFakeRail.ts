@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FAKE_HISTORY, tableForCode } from "./fixtures";
+import { FAKE_HISTORY, FAKE_PREDICTIONS, tableForCode } from "./fixtures";
 import type { RailHistoryEntry, RailTableSnapshot, RailViewModel } from "./model";
 
 const DEMO_STATE_BY_CODE = {
@@ -92,5 +92,5 @@ export function useFakeRail(code: string): RailViewModel {
   }, [code]);
 
   if (table.code !== code) return { connection: "connecting", table: null, history: [] };
-  return { connection, table, history };
+  return { connection, table, history, predictions: FAKE_PREDICTIONS };
 }

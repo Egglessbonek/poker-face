@@ -1,3 +1,5 @@
+import type { PredictionSnapshot } from "@/lib/types";
+
 export type RailConnectionState = "connecting" | "live" | "ended" | "not-found" | "disconnected";
 
 export type RailStreet = "preflop" | "flop" | "turn" | "river" | "showdown";
@@ -103,4 +105,5 @@ export interface RailViewModel {
   connection: RailConnectionState;
   table: RailTableSnapshot | null;
   history: RailHistoryEntry[];
+  predictions?: PredictionSnapshot;
 }
