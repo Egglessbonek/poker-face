@@ -103,6 +103,9 @@ export function useTable(code: string, token: string | null, playerId: string | 
         case "hand_end":
           setHistory((prev) => [...prev.slice(-50), { handNumber: ev.hand.handNumber, board: ev.hand.board, results: ev.hand.results, foldedOut: ev.hand.foldedOut, seats: ev.hand.seats }]);
           break;
+        case "prediction_state":
+          setState((prev) => prev ? { ...prev, predictions: ev.predictions } : prev);
+          break;
         case "rematch":
           setRematchCode(ev.code);
           break;

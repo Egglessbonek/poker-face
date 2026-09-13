@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Eye, Mic2, Radio, Users } from "lucide-react";
+import { Bot, Eye, Mic2, Radio, TrendingUp, Users } from "lucide-react";
 import { tellAudiences, tellVisibilityFor, type TellAudiences } from "@/lib/tells/visibility";
 import type { TableConfig } from "@/lib/types";
 
@@ -59,9 +59,10 @@ export default function TableSettingsEditor({ config, disabled = false, onUpdate
       <div className="mt-6 border-t border-felt-edge/70 pt-5">
         <p className="text-xs uppercase tracking-[0.2em] text-gold">Table behavior</p>
         <p className="mt-1 text-xs text-muted">Control the table experience separately from tell sharing.</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <Toggle disabled={disabled} checked={config.voice} onChange={(voice) => update({ voice })} icon={<Mic2 size={15} className="text-gold" />} title="AI voices" body="Play table talk with vendor voices." />
           <Toggle disabled={disabled} checked={config.allowLateJoin} onChange={(allowLateJoin) => update({ allowLateJoin })} icon={<Users size={15} className="text-gold" />} title="Late joining" body="New players receive a seat on the next hand." />
+          <Toggle disabled={disabled} checked={config.predictionMarket} onChange={(predictionMarket) => update({ predictionMarket })} icon={<TrendingUp size={15} className="text-gold" />} title="Rail predictions" body="Let spectators stake devnet SOL on live outcomes." />
         </div>
       </div>
     </section>

@@ -211,5 +211,5 @@ export function useLiveRail(code: string): RailViewModel {
   const snapshot = useMemo(() => (state ? toSnapshot(state, tells, reads, lastActions, talk, currentOdds, now) : null), [state, tells, reads, lastActions, talk, currentOdds, now]);
   const railHistory = useMemo(() => buildHistory(state, actions, talk, history), [state, actions, talk, history]);
 
-  return { connection, table: snapshot, history: railHistory };
+  return { connection, table: snapshot, history: railHistory, predictions: state?.predictions };
 }
