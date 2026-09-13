@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OpponentView, TellVector } from "@/lib/types";
-import { canonicalTells, leaksOwnCards } from "../guard";
+import { canonicalTells, leaksOwnCards, leaksPrivateMetrics } from "../guard";
 
 describe("leaksOwnCards", () => {
   it("catches rank words, pocket pairs, suits and combos for cards not on the board", () => {
@@ -24,6 +24,22 @@ describe("leaksOwnCards", () => {
   });
 });
 
+describe("leaksPrivateMetrics", () => {
+  it("blocks private calculations from spoken table talk", () => {
+    expect(leaksPrivateMetrics("I have 72% equity here.")).toBe(true);
+    expect(leaksPrivateMetrics("Seventy percent says this is a call.")).toBe(true);
+    expect(leaksPrivateMetrics("The pot odds are too good to fold.")).toBe(true);
+    expect(leaksPrivateMetrics("My chance to win is excellent.")).toBe(true);
+    expect(leaksPrivateMetrics("Your bluff likelihood just spiked.")).toBe(true);
+  });
+
+  it("allows ordinary poker banter and qualitative tell references", () => {
+    expect(leaksPrivateMetrics("That blink came right on the bet, Maya.")).toBe(false);
+    expect(leaksPrivateMetrics("I like my hand enough to call.")).toBe(false);
+    expect(leaksPrivateMetrics("Against the odds, you might be telling the truth.")).toBe(false);
+  });
+});
+
 const tells = (evidence: Array<[string, string]>, bluffLikelihood = 0.59): TellVector => ({
   arousal: 68, bluffLikelihood, confidence: 1, trend: "rising",
   evidence: evidence.map(([signal, text]) => ({ signal, text, direction: "bluff", strength: 0.5 })),
@@ -42,6 +58,10 @@ describe("canonicalTells", () => {
     expect(canonicalTells(["arousal 68/100 (rising), bluff likelihood 59%, confidence 100%"], [raghu])).toEqual(["Raghu: 59% bluff likelihood overall"]);
     expect(canonicalTells(["Raghu went unusually still"], [raghu])).toEqual([]);
     expect(canonicalTells(["Claude is tight"], [raghu, opp("Claude", null, "ai")])).toEqual([]);
+  });
+
+  it("does not turn a neutral low-confidence read into a cited tell", () => {
+    expect(canonicalTells(["Raghu looks bluffish"], [opp("Raghu", { ...tells([], 0.5), confidence: 0.2 })])).toEqual([]);
   });
 
   it("never attributes a tell to a folded seat or an AI, and does not repeat", () => {

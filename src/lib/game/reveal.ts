@@ -60,7 +60,8 @@ export interface RevealSituation {
 export interface TellRead {
   name: string;
   bluffLikelihood: number;
-  confidence: number;
+  /** Null when a legacy tell record did not retain confidence. */
+  confidence: number | null;
   evidence: Evidence[];
   actual: Pick<RevealDecision, "action" | "equity" | "isBluff" | "holeCards" | "board"> | null;
 }
@@ -104,10 +105,15 @@ export interface RevealData {
 }
 
 interface HandStartData { handNumber: number; button: number; seats: Array<{ seat: number; playerId: string; stack: number; holeCards: Card[] }> }
-interface ActionData { handNumber: number; playerId?: string; action: Action; tells: TellVector | null }
+interface ActionData { handNumber: number; playerId?: string; action: Action; tells: TellVector | null; loggedAt: number }
 interface HandEndData { handNumber: number; board: Card[]; pots?: Pot[]; results?: HandResult[]; foldedOut?: boolean; voided?: boolean }
-interface AIDecisionData { handNumber: number; street: string; playerId: string; equity: number; opponents: OpponentView[]; decision: VillainDecision; situation?: RevealSituation }
+interface AIDecisionData { handNumber: number; street: string; playerId: string; equity: number; opponents: OpponentView[]; decision: VillainDecision; situation?: RevealSituation; loggedAt: number }
 interface TableEndData { reason: string; standings: RevealData["standings"] }
+
+interface LoggedRevealDecision {
+  decision: RevealDecision;
+  loggedAt: number;
+}
 
 const BOARD_CARDS: Record<string, number> = { preflop: 0, flop: 3, turn: 4, river: 5, showdown: 5 };
 
@@ -125,8 +131,8 @@ export function buildReveal(log: TableLog): RevealData {
     if (handNumber !== undefined && voided.has(handNumber)) continue;
     if (e.kind === "hand_start") starts.set((e.data as HandStartData).handNumber, e.data as HandStartData);
     else if (e.kind === "hand_end") ends.set((e.data as HandEndData).handNumber, e.data as HandEndData);
-    else if (e.kind === "action") actions.push(e.data as ActionData);
-    else if (e.kind === "ai_decision") aiDecisions.push(e.data as AIDecisionData);
+    else if (e.kind === "action") actions.push({ ...(e.data as Omit<ActionData, "loggedAt">), loggedAt: e.t });
+    else if (e.kind === "ai_decision") aiDecisions.push({ ...(e.data as Omit<AIDecisionData, "loggedAt">), loggedAt: e.t });
     else if (e.kind === "table_end") standings = (e.data as TableEndData).standings;
   }
   if (!standings.length) standings = [...log.players].sort((a, b) => b.stack - a.stack).map((p) => ({ playerId: p.id, name: p.name, stack: p.stack, net: p.stack - log.config.startingStack }));
@@ -139,7 +145,7 @@ export function buildReveal(log: TableLog): RevealData {
   });
 
   // Replay each hand's actions to know how many opponents were live at each decision.
-  const decisionsByPlayer = new Map<string, RevealDecision[]>();
+  const decisionsByPlayer = new Map<string, LoggedRevealDecision[]>();
   const folded = new Map<number, Set<number>>();
   for (const a of actions) {
     const start = starts.get(a.handNumber);
@@ -159,20 +165,24 @@ export function buildReveal(log: TableLog): RevealData {
     const share = 1 / (Math.max(1, live) + 1);
     const isBluff = aggressive && equity < 0.8 * share;
     const list = decisionsByPlayer.get(a.playerId) ?? [];
-    list.push({ handNumber: a.handNumber, street: a.action.street, action: a.action, equity, liveOpponents: Math.max(1, live), aggressive, isBluff, tells: a.tells, holeCards: seat.holeCards, board });
+    list.push({
+      loggedAt: a.loggedAt,
+      decision: { handNumber: a.handNumber, street: a.action.street, action: a.action, equity, liveOpponents: Math.max(1, live), aggressive, isBluff, tells: a.tells, holeCards: seat.holeCards, board },
+    });
     decisionsByPlayer.set(a.playerId, list);
   }
 
   const handByNumber = new Map(hands.map((hand) => [hand.handNumber, hand]));
   const actualDecision = (d: AIDecisionData, opponent: OpponentView): TellRead["actual"] => {
-    const player = log.players.find((p) => p.seat === opponent.seat);
+    const player = log.players.find((p) => p.id === opponent.id) ?? log.players.find((p) => p.seat === opponent.seat);
     if (!player) return null;
     const candidates = decisionsByPlayer.get(player.id) ?? [];
-    const priorAction = d.situation?.actions.filter((action) => action.seat === opponent.seat && action.street === d.street).at(-1);
+    const priorAction = d.situation?.actions.filter((action) => action.seat === opponent.seat).at(-1);
     for (let i = candidates.length - 1; i >= 0; i--) {
-      const candidate = candidates[i];
-      if (candidate.handNumber !== d.handNumber || candidate.street !== d.street) continue;
+      const { decision: candidate, loggedAt } = candidates[i];
+      if (candidate.handNumber !== d.handNumber) continue;
       if (priorAction && candidate.action.at !== priorAction.at) continue;
+      if (!priorAction && loggedAt > d.loggedAt) continue;
       return {
         action: candidate.action,
         equity: candidate.equity,
@@ -189,13 +199,16 @@ export function buildReveal(log: TableLog): RevealData {
     .map((d) => {
       const ai = log.players.find((p) => p.id === d.playerId);
       const result = handByNumber.get(d.handNumber) ?? null;
-      const reads: TellRead[] = d.opponents.filter((o) => o.tells && !o.folded).map((o) => ({
-        name: o.name,
-        bluffLikelihood: o.tells!.bluffLikelihood,
-        confidence: o.tells!.confidence,
-        evidence: o.tells!.evidence,
-        actual: actualDecision(d, o),
-      }));
+      const reads: TellRead[] = d.opponents.filter((o) => o.tells && !o.folded).map((o) => {
+        const tell = o.tells!;
+        return {
+          name: o.name,
+          bluffLikelihood: Number.isFinite(tell.bluffLikelihood) ? Math.max(0, Math.min(1, tell.bluffLikelihood)) : 0.5,
+          confidence: Number.isFinite(tell.confidence) ? Math.max(0, Math.min(1, tell.confidence)) : null,
+          evidence: Array.isArray(tell.evidence) ? tell.evidence : [],
+          actual: actualDecision(d, o),
+        };
+      });
       const challengedBluff = d.situation ? (reads.find((read) => read.actual?.isBluff && read.bluffLikelihood >= 0.5) ?? null) : null;
       const continued = d.decision.action === "call" || d.decision.action === "raise" || d.decision.action === "allin";
       const aiWon = !!ai && !!result?.results?.some((entry) => entry.seat === ai.seat && entry.won > 0);
@@ -216,7 +229,7 @@ export function buildReveal(log: TableLog): RevealData {
   const humans: RevealPlayer[] = log.players
     .filter((p) => p.kind === "human")
     .map((player) => {
-      const decisions = decisionsByPlayer.get(player.id) ?? [];
+      const decisions = (decisionsByPlayer.get(player.id) ?? []).map((entry) => entry.decision);
       const graded = decisions.filter((d) => d.aggressive && d.tells && d.tells.confidence > 0);
       let right = 0;
       let leakSum = 0;

@@ -3,6 +3,7 @@
  *
  * - `leaksOwnCards`: a spoken line must never name a card the seat holds. The prompt forbids it; models still
  *   do it, so the line is dropped server-side. Ranks also on the board are public and stay allowed.
+ * - `leaksPrivateMetrics`: table talk must sound like poker talk, not expose the private numerical strategy feed.
  * - `canonicalTells`: `tellsUsed` may only contain tells that exist in the evidence the model was shown, phrased
  *   as "<player>: <evidence>". Models paraphrase ("that quick look at the chips") or paste the summary line
  *   ("arousal 68/100, bluff likelihood 59%"), so each string is mapped by keyword to a real evidence signal.
@@ -47,6 +48,15 @@ export function leaksOwnCards(text: string, hole: Card[], board: Card[]): boolea
   return false;
 }
 
+/** True when spoken table talk exposes private numerical strategy inputs or model-only metrics. */
+export function leaksPrivateMetrics(text: string): boolean {
+  if (!text.trim()) return false;
+  return /\b(?:equity|pot odds?|stack[- ]to[- ]pot ratio|spr|bluff likelihood|confidence score|percent|percentage)\b/i.test(text)
+    || /\b\d{1,3}(?:\.\d+)?\s*%/.test(text)
+    || /\bmy\s+(?:odds|chance to win|winning chance)\b/i.test(text)
+    || /\bthe\s+(?:chance to win|winning chance)\b/i.test(text);
+}
+
 /** Keyword -> candidate evidence signals, in priority order. Only signals that exist in `fuse.ts` can come out. */
 const SIGNAL_WORDS: Array<[RegExp, string[]]> = [
   [/blink/, ["blink_rate", "post_blink_rebound"]],
@@ -86,8 +96,9 @@ export function canonicalTells(raw: string[], opponents: OpponentView[]): string
       }
       if (matched) break;
     }
-    if (!matched && /bluff|arousal|confiden|read|likel/.test(lower) && pool.length === 1 && pool[0].tells) {
-      push(`${pool[0].name}: ${Math.round(pool[0].tells.bluffLikelihood * 100)}% bluff likelihood overall`);
+    const overall = pool.length === 1 ? pool[0].tells : null;
+    if (!matched && /bluff|arousal|confiden|read|likel/.test(lower) && overall && overall.confidence > 0.2 && Math.abs(overall.bluffLikelihood - 0.5) >= 0.05) {
+      push(`${pool[0].name}: ${Math.round(overall.bluffLikelihood * 100)}% bluff likelihood overall`);
     }
   }
   return out.slice(0, 4);

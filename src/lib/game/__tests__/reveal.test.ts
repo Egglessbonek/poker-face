@@ -181,4 +181,37 @@ describe("buildReveal", () => {
     expect(data.tellMoments[0].situation).toMatchObject({ pot: 20, toCall: 10, aiPosition: "BB" });
     expect(data.tellMoments[0].result?.results?.find((entry) => entry.won > 0)?.seat).toBe(1);
   });
+
+  it("normalizes legacy reads and matches the latest human action before the AI decision", () => {
+    const ai: Player = { id: "a1", seat: 1, name: "Claude", kind: "ai", stack: 1000, connected: true, sittingOut: false };
+    const legacyTell = { arousal: 40, bluffLikelihood: 0.65, trend: "stable", evidence: [] };
+    const flopAction = { seat: 0, type: "bet" as const, amount: 20, street: "flop" as const, at: 10 };
+    const laterAction = { seat: 0, type: "bet" as const, amount: 40, street: "river" as const, at: 30 };
+    const board = ["2h", "9s", "Jc", "4d", "3c"];
+    const log = {
+      code: "OLD1", createdAt: 0, endedAt: 40,
+      config: { startingStack: 1000 } as never,
+      players: [player, ai], baselines: {},
+      entries: [
+        { t: 1, kind: "hand_start" as const, data: { handNumber: 1, button: 0, seats: [
+          { seat: 0, playerId: "h1", stack: 1000, holeCards: ["As", "Kd"] },
+          { seat: 1, playerId: "a1", stack: 1000, holeCards: ["Qc", "Qd"] },
+        ] } },
+        { t: 10, kind: "action" as const, data: { handNumber: 1, playerId: "h1", action: flopAction, tells: legacyTell } },
+        { t: 20, kind: "ai_decision" as const, data: {
+          handNumber: 1, street: "turn", playerId: "a1", equity: 0.6,
+          opponents: [{ id: "h1", seat: 0, name: "Raghu", kind: "human", stack: 980, committed: 20, folded: false, allIn: false, position: "BTN", tells: legacyTell }],
+          decision: villain({ action: "call", mathAction: "fold", tellAction: "call", tellsUsed: ["Raghu: 65% bluff likelihood overall"] }),
+        } },
+        { t: 30, kind: "action" as const, data: { handNumber: 1, playerId: "h1", action: laterAction, tells: legacyTell } },
+        { t: 40, kind: "hand_end" as const, data: { handNumber: 1, board, foldedOut: true } },
+      ],
+    };
+
+    const data = buildReveal(log as never);
+    expect(data.tellMoments).toHaveLength(1);
+    expect(data.tellMoments[0].situation).toBeNull();
+    expect(data.tellMoments[0].reads[0].confidence).toBeNull();
+    expect(data.tellMoments[0].reads[0].actual?.action).toEqual(flopAction);
+  });
 });

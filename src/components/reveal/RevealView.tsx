@@ -209,7 +209,7 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
                 )}
               </>
             ) : (
-              <p className="rounded-2xl border border-white/8 bg-white/[0.025] p-4 text-sm text-muted">The exact pot snapshot is unavailable for this older match, but the tell read and completed hand are still on the record.</p>
+              <p className="rounded-2xl border border-white/8 bg-white/[0.025] p-4 text-sm text-muted">A pre-decision pot snapshot was not recorded for this hand. The tell read and completed result are still available below.</p>
             )}
           </section>
 
@@ -219,7 +219,7 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
               {read ? (
                 <>
                   <p className="mt-3 text-sm">Reading <strong>{read.name}</strong>: <span className="font-mono text-xl text-gold">{Math.round(read.bluffLikelihood * 100)}%</span> bluff</p>
-                  <p className="mt-1 text-xs text-muted">Signal confidence {Math.round(read.confidence * 100)}%</p>
+                  <p className="mt-1 text-xs text-muted">Signal confidence {read.confidence === null ? "not recorded" : `${Math.round(read.confidence * 100)}%`}</p>
                   <div className="mt-4">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted">Tells used in the decision</p>
                     {moment.decision.tellsUsed.length > 0 ? (
@@ -230,15 +230,17 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
                       <p className="mt-2 text-sm text-white/65">The tell-adjusted strategy used the combined bluff score; it did not cite an individual signal.</p>
                     )}
                   </div>
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted">Supporting metrics captured</p>
-                  <ul className="mt-3 space-y-2">
-                    {read.evidence.map((evidence) => (
-                      <li key={evidence.signal} className="rounded-xl border border-white/8 bg-background/40 p-3 text-sm">
-                        <p>{evidence.text}</p>
-                        <p className="mt-1 font-mono text-[11px] uppercase text-muted">{Math.round(evidence.strength * 100)}% signal strength · {signalName(evidence.signal)}</p>
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted">Supporting signals captured</p>
+                  {read.evidence.length ? (
+                    <ul className="mt-3 space-y-2">
+                      {read.evidence.map((evidence) => (
+                        <li key={evidence.signal} className="rounded-xl border border-white/8 bg-background/40 p-3 text-sm">
+                          <p>{evidence.text}</p>
+                          <p className="mt-1 font-mono text-[11px] uppercase text-muted">{Math.round(evidence.strength * 100)}% signal strength · {signalName(evidence.signal)}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className="mt-2 text-sm text-muted">No individual camera signal was retained for this read.</p>}
                 </>
               ) : <p className="mt-3 text-sm text-muted">No opponent read was retained for this decision.</p>}
             </div>
@@ -251,7 +253,7 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
                   <div className="mt-3"><CardGroup label={`${read.name}'s cards`} cards={read.actual.holeCards} /></div>
                   <p className="mt-3 text-sm text-muted">{actionText(read.actual.action)} with <span className="font-mono text-foreground">{Math.round(read.actual.equity * 100)}% equity</span> at the time.</p>
                 </>
-              ) : <p className="mt-3 text-sm text-muted">The matching human action could not be reconstructed for this older decision.</p>}
+              ) : <p className="mt-3 text-sm text-muted">No matching human action was recorded before this AI decision.</p>}
             </div>
           </section>
 
