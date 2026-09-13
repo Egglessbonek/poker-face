@@ -160,6 +160,8 @@ export type LobbyCameraStatus = "not_started" | "setting_up" | "skipped" | "read
 
 export interface TableState {
   code: string;
+  /** Whether this room appears in the public table browser. Direct code access works either way. */
+  isPublic: boolean;
   config: TableConfig;
   phase: TablePhase;
   hostId: string;
@@ -422,7 +424,7 @@ export interface TableLog {
 
 // ---------- Browse ----------
 
-/** A table anyone can watch from the rail, as listed on the landing page's diamonds card. */
+/** A public table anyone can discover and watch from the landing page's diamonds card. */
 export interface TableListing {
   code: string;
   phase: TablePhase;

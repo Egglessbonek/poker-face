@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Bot, CameraOff, CheckCircle2, CircleAlert, CircleDashed, Copy, Crown, LoaderCircle, LogOut, QrCode, Trash2, Users, X } from "lucide-react";
+import { Bot, CameraOff, CheckCircle2, CircleAlert, CircleDashed, Copy, Crown, Globe2, LoaderCircle, Lock, LogOut, QrCode, Trash2, Users, X } from "lucide-react";
 import ModelPicker from "@/components/table/ModelPicker";
 import TableSettingsEditor from "@/components/table/TableSettingsEditor";
 import { TIERS, describeModelId } from "@/lib/llm/models";
@@ -20,11 +20,12 @@ interface Props {
   onAddAI: (modelId: string) => void | Promise<unknown>;
   onRemove: (playerId: string) => void | Promise<unknown>;
   onUpdateConfig: (config: Partial<TableConfig>) => Promise<unknown>;
+  onUpdateVisibility: (isPublic: boolean) => Promise<unknown>;
   onStart: () => void;
   onLeave: () => void;
 }
 
-export default function TableLobby({ state, playerId, error, cameraStatuses, readyPlayers, ownCameraStatus, onReadyChange, onOpenCamera, onAddAI, onRemove, onUpdateConfig, onStart, onLeave }: Props) {
+export default function TableLobby({ state, playerId, error, cameraStatuses, readyPlayers, ownCameraStatus, onReadyChange, onOpenCamera, onAddAI, onRemove, onUpdateConfig, onUpdateVisibility, onStart, onLeave }: Props) {
   const isHost = state.hostId === playerId;
   const minimumSeats = Math.max(2, state.players.length);
   const openSeats = state.config.maxSeats - state.players.length;
@@ -71,12 +72,12 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
   const addPreset = (modelIds: string[]) => updateRoster(async () => {
     for (const modelId of modelIds) await onAddAI(modelId);
   });
-  const updateConfig = async (config: Partial<TableConfig>) => {
+  const persistChange = async (operation: () => Promise<unknown>) => {
     const revision = ++saveRevision.current;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     setSaveStatus("saving");
     try {
-      await onUpdateConfig(config);
+      await operation();
       if (revision !== saveRevision.current) return;
       setSaveStatus("saved");
       saveTimer.current = window.setTimeout(() => setSaveStatus("idle"), 2200);
@@ -84,6 +85,8 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
       if (revision === saveRevision.current) setSaveStatus("error");
     }
   };
+  const updateConfig = (config: Partial<TableConfig>) => persistChange(() => onUpdateConfig(config));
+  const updateVisibility = () => persistChange(() => onUpdateVisibility(!state.isPublic));
   const requestStart = () => {
     if (unfinishedCamera.length || unreadyPlayers.length) setShowStartWarning(true);
     else onStart();
@@ -96,10 +99,11 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
           <div>
             <p className="text-xs uppercase tracking-[0.32em] text-gold">The room is open</p>
             <h1 className="mt-2 text-4xl font-semibold">Table <span className="font-mono text-gold">{state.code}</span></h1>
-            <p className="mt-2 text-sm text-muted">Share the code now. Seats, guests, and rules stay live while everyone gets ready.</p>
+            <p className="mt-2 text-sm text-muted">{state.isPublic ? "This table is listed publicly." : "This table is private to people with the code."} Seats, guests, and rules stay live.</p>
           </div>
           <div className="flex flex-col items-stretch gap-2 sm:items-end">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" disabled={!isHost} aria-pressed={state.isPublic} aria-label={state.isPublic ? "Public table; make private" : "Private table; make public"} title={isHost ? (state.isPublic ? "Hide this table from Browse the tables" : "List this table in Browse the tables") : "Only the host can change table visibility"} onClick={() => void updateVisibility()} className={`flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm transition disabled:cursor-default ${state.isPublic ? "border-ok/50 text-ok" : "border-felt-edge text-muted"}`}>{state.isPublic ? <Globe2 size={15} /> : <Lock size={15} />} {state.isPublic ? "Public" : "Private"}</button>
               <button type="button" onClick={() => setShowQR(true)} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-felt-edge px-4 py-2.5 text-sm transition hover:border-gold"><QrCode size={15} /> QR code</button>
               <button type="button" onClick={copyInvite} className={`flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm transition ${copied ? "border-ok text-ok" : "border-felt-edge hover:border-gold"}`}><Copy size={15} /> {copied ? "Copied" : "Copy invite"}</button>
             </div>

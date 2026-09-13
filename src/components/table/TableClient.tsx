@@ -238,7 +238,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     );
   }
 
-  if (state.phase === "lobby") return <><TableLobby state={state} playerId={identity.playerId} error={table.error} cameraStatuses={lobbyStatus.cameraStatuses} readyPlayers={lobbyStatus.readyPlayers} ownCameraStatus={ownCameraStatus} onReadyChange={lobbyStatus.setReady} onOpenCamera={openCamera} onAddAI={table.addAI} onRemove={table.removePlayer} onUpdateConfig={table.updateConfig} onStart={table.start} onLeave={leave} />{cameraDialogOpen && <CameraDialog ready={ownCameraStatus === "ready"} onDismiss={ownCameraStatus === "ready" ? () => setCameraDialogOpen(false) : skipCamera}>{camera}</CameraDialog>}</>;
+  if (state.phase === "lobby") return <><TableLobby state={state} playerId={identity.playerId} error={table.error} cameraStatuses={lobbyStatus.cameraStatuses} readyPlayers={lobbyStatus.readyPlayers} ownCameraStatus={ownCameraStatus} onReadyChange={lobbyStatus.setReady} onOpenCamera={openCamera} onAddAI={table.addAI} onRemove={table.removePlayer} onUpdateConfig={table.updateConfig} onUpdateVisibility={table.updateVisibility} onStart={table.start} onLeave={leave} />{cameraDialogOpen && <CameraDialog ready={ownCameraStatus === "ready"} onDismiss={ownCameraStatus === "ready" ? () => setCameraDialogOpen(false) : skipCamera}>{camera}</CameraDialog>}</>;
   if (state.phase === "finished") return <FinishedTable state={state} playerId={identity.playerId} rematchCode={table.rematchCode} onRematch={rematch} error={table.error} />;
 
   const opponents = state.players.filter((player) => player.id !== identity.playerId);
