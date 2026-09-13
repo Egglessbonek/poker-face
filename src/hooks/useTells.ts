@@ -43,19 +43,27 @@ export function useTells() {
   const buffer = useRef<TellFrame[]>([]);
   const reveals = useRef<Array<{ event: RevealEvent; t: number }>>([]);
   const stopLoop = useRef<() => void>(() => {});
+  /** Invalidates an in-flight permission/model load when the player skips or closes setup. */
+  const startAttempt = useRef(0);
   const baselineRef = useRef<BaselineStats | null>(null);
 
   const start = useCallback(async () => {
     if (status === "running" || status === "starting") return;
+    const attempt = ++startAttempt.current;
     setStatus("starting");
     try {
       const video = videoRef.current;
       if (!video) throw new Error("video element not mounted");
       const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" }, audio: false });
+      if (attempt !== startAttempt.current) {
+        s.getTracks().forEach((track) => track.stop());
+        return;
+      }
       stream.current = s;
       video.srcObject = s;
       await video.play();
       const landmarker = await getFaceLandmarker();
+      if (attempt !== startAttempt.current) return;
       const fstate = createFeatureState();
       let lastSample = 0;
       stopLoop.current = startDetectionLoop(() => videoRef.current, landmarker, (result, ts) => {
@@ -71,12 +79,14 @@ export function useTells() {
       });
       setStatus("running");
     } catch (err) {
+      if (attempt !== startAttempt.current) return;
       console.error("camera start failed", err);
       setStatus((err as DOMException)?.name === "NotAllowedError" ? "denied" : "error");
     }
   }, [status]);
 
   const stop = useCallback(() => {
+    startAttempt.current++;
     stopLoop.current();
     stream.current?.getTracks().forEach((t) => t.stop());
     stream.current = null;

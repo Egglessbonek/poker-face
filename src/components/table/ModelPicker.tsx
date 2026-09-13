@@ -1,32 +1,32 @@
 "use client";
 
-/**
- * The guest list. Every AI at the table is a real model playing as itself; this is where the host
- * decides who gets a chair. Six regulars up front, everyone else OpenRouter knows in a dropdown.
- */
-
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Bot, ChevronDown, LoaderCircle, Plus, Search } from "lucide-react";
 import { FEATURED_MODEL_IDS, OPENROUTER_ID, describeModelId, formatPrice, tierOf, type CatalogModel } from "@/lib/llm/models";
 
 interface Props {
   onAdd: (id: string) => void;
   disabled?: boolean;
-  /** Lobby mode: chips instead of cards. */
-  compact?: boolean;
 }
 
-export default function ModelPicker({ onAdd, disabled, compact }: Props) {
+/** Quick picks first, with a searchable catalog when the host wants a specific model. */
+export default function ModelPicker({ onAdd, disabled }: Props) {
   const [all, setAll] = useState<CatalogModel[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [choice, setChoice] = useState("");
-  const [typed, setTyped] = useState("");
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/models")
-      .then((r) => r.json())
-      .then((d: { all: CatalogModel[] }) => {
-        if (!cancelled) setAll(d.all);
+      .then((response) => {
+        if (!response.ok) throw new Error(`Model catalog returned ${response.status}`);
+        return response.json();
+      })
+      .then((data: { all: CatalogModel[] }) => {
+        if (!Array.isArray(data.all)) throw new Error("Model catalog response was invalid");
+        if (!cancelled) setAll(data.all);
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -36,85 +36,75 @@ export default function ModelPicker({ onAdd, disabled, compact }: Props) {
     };
   }, []);
 
-  const byId = useMemo(() => new Map((all ?? []).map((m) => [m.id, m])), [all]);
+  useEffect(() => {
+    if (open) window.setTimeout(() => searchRef.current?.focus(), 0);
+  }, [open]);
+
+  const byId = useMemo(() => new Map((all ?? []).map((model) => [model.id, model])), [all]);
   const regulars = FEATURED_MODEL_IDS.map((id) => byId.get(id) ?? fallback(id));
+  const matches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const catalog = (all ?? []).filter((model) => !FEATURED_MODEL_IDS.includes(model.id));
+    if (!needle) return catalog.slice(0, 10);
+    return catalog.filter((model) => `${model.name} ${model.vendor} ${model.id}`.toLowerCase().includes(needle)).slice(0, 20);
+  }, [all, query]);
+  const typedId = query.trim();
+  const canAddTyped = OPENROUTER_ID.test(typedId) && !(all ?? []).some((model) => model.id === typedId);
 
-  /** Catalog grouped by vendor for <optgroup>, regulars excluded. */
-  const groups = useMemo(() => {
-    const g = new Map<string, CatalogModel[]>();
-    for (const m of all ?? []) {
-      if (FEATURED_MODEL_IDS.includes(m.id)) continue;
-      g.set(m.vendor, [...(g.get(m.vendor) ?? []), m]);
-    }
-    return [...g.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [all]);
-
-  const invite = () => {
-    if (!choice) return;
-    onAdd(choice);
-    setChoice("");
+  const add = (id: string) => {
+    if (disabled) return;
+    onAdd(id);
   };
-  const typedOk = OPENROUTER_ID.test(typed.trim());
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <div>
-        <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">The regulars</p>
-        <div className={compact ? "flex flex-wrap gap-2" : "grid gap-2 sm:grid-cols-3"}>
-          {regulars.map((m) => {
-            const tier = tierOf(m.id);
-            return (
-              <button
-                type="button"
-                key={m.id}
-                disabled={disabled}
-                onClick={() => onAdd(m.id)}
-                title={m.id}
-                className={
-                  compact
-                    ? "rounded-full border border-felt-edge px-3 py-1 text-sm hover:border-gold disabled:opacity-40"
-                    : "flex flex-col gap-0.5 rounded-xl border border-felt-edge px-3 py-2.5 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40"
-                }
-              >
-                <span className="font-medium">{compact ? "+ " : ""}{m.name}</span>
-                {compact
-                  ? tier && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted">{tier}</span>
-                  : (
-                    <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted">
-                      {m.vendor}
-                      {tier && <span className="rounded border border-felt-edge px-1">{tier}</span>}
-                    </span>
-                  )}
-              </button>
-            );
-          })}
+        <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">Popular opponents</p>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {regulars.map((model) => (
+            <button type="button" key={model.id} disabled={disabled} onClick={() => add(model.id)} title={model.id} className="group flex items-center gap-3 rounded-2xl border border-felt-edge bg-background/35 p-3 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-chip-blue/50 text-foreground"><Bot size={16} /></span>
+              <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{model.name}</span><span className="block truncate text-[10px] text-muted">{model.vendor}{tierOf(model.id) ? ` · ${tierOf(model.id)}` : ""}</span></span>
+              <Plus size={15} className="shrink-0 text-muted transition group-hover:text-gold" />
+            </button>
+          ))}
         </div>
       </div>
 
-      <div>
-        <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">Anyone else?</p>
-        {failed ? (
-          <div className="flex flex-wrap gap-2">
-            <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="vendor/model id from openrouter.ai/models" aria-label="OpenRouter model id" className="min-w-0 flex-1 rounded-lg border border-felt-edge bg-background px-3 py-2 font-mono text-sm" />
-            <button type="button" disabled={disabled || !typedOk} onClick={() => { onAdd(typed.trim()); setTyped(""); }} className="rounded-lg bg-gold px-4 py-2 text-sm font-medium text-background disabled:opacity-40">Set a place</button>
-            <p className="w-full text-xs text-muted">Couldn&apos;t reach the guest book, so type an id and we&apos;ll still set a place.</p>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            <select value={choice} onChange={(e) => setChoice(e.target.value)} disabled={disabled || !all} aria-label="More models" className="min-w-0 flex-1 rounded-lg border border-felt-edge bg-background px-3 py-2 text-sm disabled:opacity-60">
-              <option value="">{all ? `Everyone else we know · ${groups.reduce((n, [, ms]) => n + ms.length, 0)}` : "Flipping through the guest book…"}</option>
-              {groups.map(([vendor, ms]) => (
-                <optgroup key={vendor} label={vendor}>
-                  {ms.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name} · {formatPrice(m)}</option>
-                  ))}
-                </optgroup>
+      <button type="button" aria-expanded={open} onClick={() => setOpen((current) => !current)} className="flex w-full items-center justify-between rounded-xl border border-felt-edge px-4 py-3 text-sm transition hover:border-gold">
+        <span className="flex items-center gap-2"><Search size={15} className="text-gold" /> Browse the full model catalog</span>
+        <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="rounded-2xl border border-felt-edge bg-background/45 p-3 sm:p-4">
+          <label className="relative block">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by model, vendor, or OpenRouter id" aria-label="Search models" className="w-full rounded-xl border border-felt-edge bg-background py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-gold" />
+          </label>
+
+          {!all && !failed && <p className="flex items-center justify-center gap-2 py-7 text-xs text-muted"><LoaderCircle size={14} className="animate-spin" /> Loading the catalog…</p>}
+          {failed && <p className="py-4 text-xs text-muted">The live catalog is unavailable. You can still enter a valid OpenRouter model id below.</p>}
+          {all && matches.length > 0 && (
+            <ul className="mt-3 grid max-h-80 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+              {matches.map((model) => (
+                <li key={model.id}>
+                  <button type="button" disabled={disabled} onClick={() => add(model.id)} title={model.id} className="group flex h-full w-full items-center gap-3 rounded-xl border border-felt-edge p-3 text-left transition hover:border-gold disabled:opacity-40">
+                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{model.name}</span><span className="block truncate text-[10px] text-muted">{model.vendor} · {formatPrice(model)}</span></span>
+                    <Plus size={14} className="shrink-0 text-muted group-hover:text-gold" />
+                  </button>
+                </li>
               ))}
-            </select>
-            <button type="button" disabled={disabled || !choice} onClick={invite} className="rounded-lg bg-gold px-4 py-2 text-sm font-medium text-background disabled:opacity-40">Invite</button>
-          </div>
-        )}
-      </div>
+            </ul>
+          )}
+          {all && query && matches.length === 0 && !canAddTyped && <p className="py-6 text-center text-xs text-muted">No models match “{query}”.</p>}
+          {canAddTyped && (
+            <button type="button" disabled={disabled} onClick={() => add(typedId)} className="mt-3 flex w-full items-center justify-between rounded-xl border border-dashed border-gold/60 px-3 py-2.5 text-left text-sm disabled:opacity-40">
+              <span className="min-w-0"><span className="block">Use exact OpenRouter id</span><span className="block truncate font-mono text-[10px] text-muted">{typedId}</span></span><Plus size={15} className="text-gold" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

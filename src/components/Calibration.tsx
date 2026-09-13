@@ -37,8 +37,8 @@ export default function Calibration({ videoRef, status, progress, facePresent, o
       </div>
       {status === "idle" && <button onClick={onStartCamera} className="rounded-full bg-gold px-6 py-2 font-medium text-background">Turn on camera</button>}
       {status === "starting" && <p className="text-sm text-muted">Loading face model…</p>}
-      {status === "denied" && <p className="text-sm text-danger">Camera blocked. Allow access in the browser bar, then reload.</p>}
-      {status === "error" && <p className="text-sm text-danger">Camera failed to start. Check the console.</p>}
+      {status === "denied" && <div><p className="text-sm text-danger">Camera blocked. Allow access in the browser bar, then try again.</p><button onClick={onStartCamera} className="mt-3 rounded-full border border-felt-edge px-5 py-2 text-sm">Try again</button></div>}
+      {status === "error" && <div><p className="text-sm text-danger">Camera failed to start. Check the device and try again.</p><button onClick={onStartCamera} className="mt-3 rounded-full border border-felt-edge px-5 py-2 text-sm">Try again</button></div>}
       {status === "running" && progress === null && (
         <button onClick={onCalibrate} disabled={!facePresent} className="rounded-full bg-gold px-6 py-2 font-medium text-background disabled:opacity-40">
           Relax and start baseline
