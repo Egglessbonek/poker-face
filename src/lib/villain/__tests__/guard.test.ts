@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OpponentView, TellVector } from "@/lib/types";
-import { canonicalTells, leaksOwnCards } from "../guard";
+import { canonicalTells, leaksOwnCards, leaksPrivateMetrics } from "../guard";
 
 describe("leaksOwnCards", () => {
   it("catches rank words, pocket pairs, suits and combos for cards not on the board", () => {
@@ -21,6 +21,22 @@ describe("leaksOwnCards", () => {
     expect(leaksOwnCards("Let's see a flop.", ["Kd", "3c"], [])).toBe(false);
     expect(leaksOwnCards("You went awfully still there, Raghu.", ["9s", "9d"], [])).toBe(false);
     expect(leaksOwnCards("", ["9s", "9d"], [])).toBe(false);
+  });
+});
+
+describe("leaksPrivateMetrics", () => {
+  it("blocks private calculations from spoken table talk", () => {
+    expect(leaksPrivateMetrics("I have 72% equity here.")).toBe(true);
+    expect(leaksPrivateMetrics("Seventy percent says this is a call.")).toBe(true);
+    expect(leaksPrivateMetrics("The pot odds are too good to fold.")).toBe(true);
+    expect(leaksPrivateMetrics("My chance to win is excellent.")).toBe(true);
+    expect(leaksPrivateMetrics("Your bluff likelihood just spiked.")).toBe(true);
+  });
+
+  it("allows ordinary poker banter and qualitative tell references", () => {
+    expect(leaksPrivateMetrics("That blink came right on the bet, Maya.")).toBe(false);
+    expect(leaksPrivateMetrics("I like my hand enough to call.")).toBe(false);
+    expect(leaksPrivateMetrics("Against the odds, you might be telling the truth.")).toBe(false);
   });
 });
 

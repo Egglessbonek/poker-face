@@ -12,7 +12,7 @@ import { z } from "zod";
 import type { ActionType, VillainDecision, VillainDecisionInput } from "@/lib/types";
 import { completeJSON, llmAvailable, perSeatModels } from "@/lib/llm/provider";
 import { decisionRoll, recommend, type Recommendation } from "@/lib/poker/strategy";
-import { canonicalTells, leaksOwnCards } from "./guard";
+import { canonicalTells, leaksOwnCards, leaksPrivateMetrics } from "./guard";
 import { getProfile } from "./profile";
 import { villainSystemPrompt, villainUserPrompt } from "./prompt";
 
@@ -108,6 +108,9 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
     let tableTalk = out.tableTalk;
     if (leaksOwnCards(tableTalk, input.me.holeCards, input.hand.board)) {
       console.warn(`${profile.name} named its own cards in table talk; line dropped:`, tableTalk);
+      tableTalk = "";
+    } else if (leaksPrivateMetrics(tableTalk)) {
+      console.warn(`${profile.name} exposed a private strategy metric in table talk; line dropped:`, tableTalk);
       tableTalk = "";
     }
     return {
