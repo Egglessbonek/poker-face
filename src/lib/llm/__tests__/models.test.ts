@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FEATURED_MODEL_IDS, modelSpeed, OPENROUTER_ID, TIERS, tierOf } from "@/lib/llm/models";
+import { FEATURED_MODEL_IDS, groupCatalogByProvider, modelSpeed, OPENROUTER_ID, TIERS, tierOf, type CatalogModel } from "@/lib/llm/models";
 
 describe("tiers", () => {
   it("offers a casual and a pro table", () => {
@@ -40,5 +40,16 @@ describe("tiers", () => {
     expect(modelSpeed("google/gemini-3.8-flash")).toBe("Fast");
     expect(modelSpeed("anthropic/claude-sonnet-5")).toBe("Deliberate");
     expect(modelSpeed("mistralai/mistral-large")).toBe("Standard");
+  });
+
+  it("groups the catalog alphabetically by provider and model without mutating it", () => {
+    const model = (id: string, name: string, vendor: string): CatalogModel => ({ id, name, vendor, contextLength: 0, promptPerM: 0, completionPerM: 0 });
+    const catalog = [model("z/two", "Zulu", "Zeta"), model("a/two", "Beta", "Alpha"), model("a/one", "Able", "Alpha")];
+
+    expect(groupCatalogByProvider(catalog).map((group) => [group.provider, group.models.map((entry) => entry.name)])).toEqual([
+      ["Alpha", ["Able", "Beta"]],
+      ["Zeta", ["Zulu"]],
+    ]);
+    expect(catalog.map((entry) => entry.name)).toEqual(["Zulu", "Beta", "Able"]);
   });
 });

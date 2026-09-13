@@ -17,6 +17,24 @@ export interface CatalogModel {
   completionPerM: number;
 }
 
+export interface CatalogProviderGroup {
+  provider: string;
+  models: CatalogModel[];
+}
+
+/** Alphabetical provider sections for the lobby catalog. Does not mutate the API response. */
+export function groupCatalogByProvider(models: CatalogModel[]): CatalogProviderGroup[] {
+  const byProvider = new Map<string, CatalogModel[]>();
+  for (const model of models) {
+    const group = byProvider.get(model.vendor) ?? [];
+    group.push(model);
+    byProvider.set(model.vendor, group);
+  }
+  return [...byProvider.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([provider, providerModels]) => ({ provider, models: [...providerModels].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)) }));
+}
+
 /** Shortcuts pinned at the top of the picker. Just ids; everything about them comes from the catalog. */
 export const FEATURED_MODEL_IDS: string[] = [
   "anthropic/claude-sonnet-5",
