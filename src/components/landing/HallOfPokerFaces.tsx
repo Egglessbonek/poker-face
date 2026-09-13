@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { HallEntry } from "@/lib/types";
 
-/** Landing-page leaderboard of human poker faces. Fetches /api/hall once on mount. */
+/** Landing-page leaderboard of human poker faces (the "hall" in the code). Fetches /api/hall once on mount. */
 export default function HallOfPokerFaces() {
   const [entries, setEntries] = useState<HallEntry[] | null>(null);
 
@@ -21,9 +21,9 @@ export default function HallOfPokerFaces() {
   return (
     <section aria-labelledby="hall-title" className="rounded-2xl border border-white/10 bg-background/70 p-6 shadow-lg shadow-black/30 backdrop-blur-md sm:p-8">
       <h2 id="hall-title" className="text-3xl leading-tight">
-        Hall of Poker Faces
+        Leaderboard
       </h2>
-      <p className="mt-1 text-sm text-muted">Who gave the least away tonight.</p>
+      <p className="mt-1 text-sm text-muted">These guys have the best face cards.</p>
 
       {entries === null ? (
         <p className="mt-6 text-sm text-muted">Reading the room&hellip;</p>

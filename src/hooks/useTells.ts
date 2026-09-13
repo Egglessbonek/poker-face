@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getFaceLandmarker, startDetectionLoop } from "@/lib/tells/landmarker";
 import { createFeatureState, extractFrame } from "@/lib/tells/features";
 import { CALIBRATION_MS, MIN_FRAMES, computeBaseline, updateBaselineAfterDecision } from "@/lib/tells/baseline";
+import { REACTION_WINDOW_MS, reactionFor } from "@/lib/tells/reactions";
 import type { BaselineStats, Street, TellFrame, TellSnapshot } from "@/lib/types";
 
 export type CameraStatus = "idle" | "starting" | "running" | "denied" | "error";
@@ -20,7 +21,6 @@ type RevealEvent = TellSnapshot["cardRevealReactions"][number]["event"];
 
 const SAMPLE_MS = 250;
 const BUFFER_MS = 120_000;
-const REACTION_WINDOW_MS = 1500;
 
 export function useTells() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -133,17 +133,7 @@ export function useTells() {
   const snapshot = useCallback(
     (sinceMs: number, extras: { handNumber: number; street: Street; decisionLatencyMs: number }): TellSnapshot => {
       const frames = buffer.current.filter((f) => f.t >= sinceMs);
-      const cardRevealReactions = reveals.current
-        .filter((r) => r.t >= sinceMs - REACTION_WINDOW_MS)
-        .map((r) => {
-          const win = buffer.current.filter((f) => f.t >= r.t && f.t <= r.t + REACTION_WINDOW_MS);
-          return {
-            event: r.event,
-            smileLeak: win.some((f) => f.duchenne),
-            chipGlance: win.some((f) => f.gaze === "chips"),
-            peakTension: win.reduce((m, f) => Math.max(m, f.tension), 0),
-          };
-        });
+      const cardRevealReactions = reveals.current.filter((r) => r.t >= sinceMs - REACTION_WINDOW_MS).map((r) => reactionFor(r, buffer.current, baselineRef.current));
       return { handNumber: extras.handNumber, street: extras.street, decisionLatencyMs: extras.decisionLatencyMs, frames, cardRevealReactions };
     },
     [],

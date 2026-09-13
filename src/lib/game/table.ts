@@ -35,6 +35,7 @@ import {
   type TableEvent,
   type TableLog,
   type TableState,
+  type TableListing,
   type TellFrame,
   type TellVector,
   type Viewer,
@@ -75,6 +76,24 @@ interface Table {
 
 const g = globalThis as unknown as { __tables?: Map<string, Table> };
 const tables = (g.__tables ??= new Map<string, Table>());
+
+/** Tables anyone can watch right now: in play first, then lobbies filling up; newest first within each. */
+export function listOpenTables(limit = 24): TableListing[] {
+  const order: Record<string, number> = { playing: 0, lobby: 1 };
+  return [...tables.values()]
+    .filter((t) => t.phase === "playing" || t.phase === "lobby")
+    .sort((a, b) => order[a.phase] - order[b.phase] || b.createdAt - a.createdAt)
+    .slice(0, limit)
+    .map((t) => ({
+      code: t.code,
+      phase: t.phase,
+      handNumber: t.handNumber,
+      handsPerMatch: t.config.handsPerMatch,
+      humans: t.players.filter((p) => p.kind === "human").map((p) => p.name),
+      ais: t.players.filter((p) => p.kind === "ai").map((p) => p.name),
+      createdAt: t.createdAt,
+    }));
+}
 
 export class TableError extends Error {
   constructor(message: string, public status = 400) {
@@ -242,8 +261,9 @@ export function act(code: string, token: string, req: Omit<ActionRequest, "seat"
   const me = playerByToken(t, token);
   if (t.phase !== "playing" || !t.hand || t.hand.over) throw new TableError("No hand in progress");
   if (t.hand.toAct !== me.seat) throw new TableError("Not your turn");
-  // The fused read for this decision is the freshest tell data; the AIs use it on their next turn.
-  if (tells) t.tells[me.id] = { frame: t.tells[me.id]?.frame ?? null, vector: tells, at: Date.now() };
+  // The fused read for this decision is the freshest tell data; the AIs use it on their next turn. A new decision
+  // supersedes the post-bet read of the previous one; the client sends a fresh one a few seconds after a bet.
+  if (tells) t.tells[me.id] = { frame: t.tells[me.id]?.frame ?? null, vector: tells, after: null, live: t.tells[me.id]?.live ?? null, at: Date.now() };
   // Apply before clearing the timer: an illegal action (stale slider bounds) throws here and the turn timer must
   // stay armed, or the hand hangs on a player who never gets auto-folded.
   applyAndPublish(t, { ...req, seat: me.seat }, tells);
@@ -251,14 +271,21 @@ export function act(code: string, token: string, req: Omit<ActionRequest, "seat"
   void drive(t);
 }
 
-export function updateTells(code: string, token: string, input: { frame?: TellFrame | null; vector?: TellVector | null; baseline?: BaselineStats }): void {
+export function updateTells(code: string, token: string, input: { frame?: TellFrame | null; vector?: TellVector | null; after?: TellVector | null; live?: TellVector | null; baseline?: BaselineStats }): void {
   const t = must(code);
   const me = playerByToken(t, token);
   if (input.baseline) setBaseline(code, me.id, input.baseline);
-  if (input.frame === undefined && input.vector === undefined) return;
+  if (input.frame === undefined && input.vector === undefined && input.after === undefined && input.live === undefined) return;
   const prev = t.tells[me.id];
-  // An explicit `vector: null` clears the read (the client sends it once a new hand starts); undefined keeps it.
-  const tells: PlayerTells = { frame: input.frame ?? prev?.frame ?? null, vector: input.vector !== undefined ? input.vector : (prev?.vector ?? null), at: Date.now() };
+  // For each read, an explicit null clears it (the client sends one once a new hand starts); undefined keeps it.
+  const keep = <T,>(next: T | null | undefined, old: T | null | undefined): T | null => (next !== undefined ? next : (old ?? null));
+  const tells: PlayerTells = {
+    frame: input.frame ?? prev?.frame ?? null,
+    vector: keep(input.vector, prev?.vector),
+    after: keep(input.after, prev?.after),
+    live: keep(input.live, prev?.live),
+    at: Date.now(),
+  };
   t.tells[me.id] = tells;
   publish(code, (viewer) => (tellsVisibleTo(t, viewer, me.id) ? { type: "tells", playerId: me.id, tells } : null));
 }
@@ -457,8 +484,8 @@ function dealNext(t: Table): boolean {
   // A fused read belongs to the decision it was taken on. Without this the AIs' first decision of the new hand
   // would cite last hand's snap-fold as if it were happening now.
   for (const [pid, tells] of Object.entries(t.tells)) {
-    if (!tells.vector) continue;
-    const cleared: PlayerTells = { ...tells, vector: null, at: Date.now() };
+    if (!tells.vector && !tells.after && !tells.live) continue;
+    const cleared: PlayerTells = { ...tells, vector: null, after: null, live: null, at: Date.now() };
     t.tells[pid] = cleared;
     publish(t.code, (viewer) => (tellsVisibleTo(t, viewer, pid) ? { type: "tells", playerId: pid, tells: cleared } : null));
   }
@@ -574,6 +601,7 @@ async function aiAct(t: Table, seat: number) {
         allIn: s.allIn,
         position: positionLabel(hand, i),
         tells: tellsOn && p?.kind === "human" ? (t.tells[p.id]?.vector ?? null) : null,
+        after: tellsOn && p?.kind === "human" ? (t.tells[p.id]?.after ?? null) : null,
         stats: p ? t.stats[p.id] : undefined,
         preflop: preflopOf(i),
       };

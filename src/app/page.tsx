@@ -1,11 +1,8 @@
-import Link from "next/link";
-import CodeEntry from "@/components/CodeEntry";
 import BlurText from "@/components/landing/BlurText";
 import HallOfPokerFaces from "@/components/landing/HallOfPokerFaces";
+import LandingActions from "@/components/landing/LandingActions";
 import LandingPokerTable from "@/components/landing/LandingPokerTable";
 import LandingBackdrop from "@/components/LandingBackdrop";
-import PlayingCardMarks from "@/components/PlayingCardMarks";
-import cardStyles from "@/components/PlayingCard.module.css";
 import styles from "./landing.module.css";
 
 export default function Landing() {
@@ -25,16 +22,7 @@ export default function Landing() {
         </div>
       </div>
       <LandingPokerTable>
-        <div className={styles.actions}>
-          <Link href="/table/new" className={cardStyles.card}>
-            <PlayingCardMarks rank="A" suit="♠" />
-            <span className={cardStyles.category}>Host</span>
-            <span className={cardStyles.title}>Create a table</span>
-            <span className={cardStyles.hint}>Set the blinds, write the guest list, and decide who gets to see the tells.</span>
-          </Link>
-          <CodeEntry title="Join a table" hint="Take a seat with the 4-letter code." mode="join" label="Sit down" rank="K" suit="♥" />
-          <CodeEntry title="Watch from the rail" hint="See every card and every tell." mode="watch" label="Watch" rank="Q" suit="♣" />
-        </div>
+        <LandingActions />
         <div className="mx-auto w-full max-w-3xl">
           <HallOfPokerFaces />
         </div>

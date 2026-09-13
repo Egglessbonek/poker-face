@@ -30,12 +30,19 @@ export function computeBaseline(frames: TellFrame[]): BaselineStats {
   const pool = settled.length >= MIN_FRAMES ? settled : withFace;
   // The rolling blink rate ramps up over the window; the last frame has seen the whole calibration.
   const lastBlink = pool.length ? pool[pool.length - 1].blinkRate : 0;
+  const defined = (xs: Array<number | undefined>) => xs.filter((x): x is number => typeof x === "number" && Number.isFinite(x));
+  const gazeV = defined(pool.map((f) => f.gazeV));
+  const gazeH = defined(pool.map((f) => f.gazeH));
+  const distance = defined(pool.map((f) => f.distance));
   return {
     blinkRate: Math.max(lastBlink, MIN_BLINK_RATE),
     headMotion: Math.max(median(pool.map((f) => f.headMotion)), 1e-6),
     tension: median(pool.map((f) => f.tension)),
     smile: median(pool.map((f) => f.smile)),
     decisionLatencyMs: 4000,
+    // Where "looking at the screen" and "sitting normally" are for this player; gaze zones and leaning are deltas from these.
+    ...(gazeV.length >= MIN_FRAMES && gazeH.length >= MIN_FRAMES ? { gazeV: median(gazeV), gazeH: median(gazeH) } : {}),
+    ...(distance.length >= MIN_FRAMES ? { distance: median(distance) } : {}),
     calibratedAt: Date.now(),
   };
 }

@@ -103,8 +103,8 @@ export default function RevealView({ data, ranks = {} }: { data: RevealData; ran
 
 function hallLine(r: { rank: number; of: number }): string {
   if (r.of === 1) return "The first face read on this server tonight. Bring a friend.";
-  if (r.rank === 1) return `#1 poker face of the ${r.of} read on this server tonight.`;
-  return `#${r.rank} of ${r.of} poker faces read on this server tonight.`;
+  if (r.rank === 1) return `#1 on the leaderboard tonight, of ${r.of} faces read.`;
+  return `#${r.rank} of ${r.of} on the leaderboard tonight.`;
 }
 
 function HumanSection({ h, rank }: { h: RevealPlayer; rank?: { rank: number; of: number } }) {

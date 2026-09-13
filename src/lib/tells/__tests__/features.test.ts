@@ -37,12 +37,27 @@ describe("extractFrame", () => {
     expect(s.blinkTimestamps).toHaveLength(1);
   });
 
-  it("maps eye-look blendshapes to gaze targets", () => {
+  it("maps eye direction to screen zones relative to the default reference", () => {
     const s = createFeatureState();
     expect(extractFrame(result({ eyeLookDownLeft: 0.8, eyeLookDownRight: 0.8 }), 1, s).gaze).toBe("cards");
-    expect(extractFrame(result({ eyeLookUpLeft: 0.7, eyeLookUpRight: 0.7 }), 2, s).gaze).toBe("opponent");
+    expect(extractFrame(result({ eyeLookUpLeft: 0.7, eyeLookUpRight: 0.7 }), 2, s).gaze).toBe("camera");
     expect(extractFrame(result({ eyeLookOutLeft: 0.9, eyeLookInRight: 0.9 }), 3, s).gaze).toBe("away");
-    expect(extractFrame(result({}), 4, s).gaze).toBe("chips");
+    // Looking slightly down, as at the middle of a laptop screen from a camera above it, is the board.
+    expect(extractFrame(result({ eyeLookDownLeft: 0.25, eyeLookDownRight: 0.25 }), 4, s).gaze).toBe("board");
+    expect(extractFrame(result({}, { face: false }), 5, s).gaze).toBe("unknown");
+  });
+
+  it("reports distance from the face transform and a posture shift as a big move", () => {
+    const s = createFeatureState();
+    let t = 1_000_000;
+    let f = extractFrame(result({}, { pose: [0, 0, -30] }), t, s);
+    for (let i = 0; i < 15; i++) f = extractFrame(result({}, { pose: [0, 0, -30] }), (t += 33), s);
+    expect(f.distance).toBeCloseTo(30, 6);
+    expect(f.bigMove).toBeCloseTo(0, 6);
+    // Leaning in: the face gets 6 units closer over half a second.
+    for (let i = 1; i <= 15; i++) f = extractFrame(result({}, { pose: [0, 0, -30 + i * 0.4] }), (t += 33), s);
+    expect(f.distance).toBeCloseTo(24, 6);
+    expect(f.bigMove).toBeGreaterThan(5);
   });
 
   it("head motion rises when the pose moves and stays near zero when still", () => {

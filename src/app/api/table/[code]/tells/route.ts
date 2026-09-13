@@ -5,9 +5,9 @@ import type { BaselineStats, TellFrame, TellVector } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-/** POST { token, frame?, vector?, baseline? } — a human's browser streams its tells (~2Hz). */
+/** POST { token, frame?, vector?, after?, live?, baseline? } — a human's browser streams its tells (~2Hz). */
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/table/[code]/tells">) {
   const { code } = await ctx.params;
-  const b = await body<{ token: string; frame?: TellFrame | null; vector?: TellVector | null; baseline?: BaselineStats }>(req);
-  return handle(() => updateTells(code, b.token, { frame: b.frame, vector: b.vector, baseline: b.baseline }));
+  const b = await body<{ token: string; frame?: TellFrame | null; vector?: TellVector | null; after?: TellVector | null; live?: TellVector | null; baseline?: BaselineStats }>(req);
+  return handle(() => updateTells(code, b.token, { frame: b.frame, vector: b.vector, after: b.after, live: b.live, baseline: b.baseline }));
 }

@@ -5,7 +5,8 @@
   align-items: stretch;
   gap: 8px;
   min-width: 0;
-  min-height: 390px;
+  /* Every card is the same height, whatever it holds; the browse card scrolls its list inside this. */
+  height: 420px;
   padding: 142px 28px 60px;
   border: 1px solid #d6cbb3;
   border-radius: 16px;
@@ -92,9 +93,9 @@
 }
 
 .hint {
-  color: #5a6157;
-  font-size: 14px;
-  line-height: 1.55;
+  color: #3f4740;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 .entry {
@@ -149,4 +150,77 @@
 @media (prefers-reduced-motion: reduce) {
   .card { transition: none; }
   .card:hover, .card:focus-within { transform: none; }
+}
+
+/* The browse card: a short list of live tables, each a link to the rail. */
+.list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  margin-top: 12px;
+  overflow-y: auto;
+  text-align: left;
+  scrollbar-width: thin;
+  scrollbar-color: #b3ac99 transparent;
+}
+
+.list ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  align-items: center;
+  grid-template-areas: "code action" "meta action";
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  border: 1px solid #d8d0bc;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 45%);
+  padding: 7px 8px 7px 10px;
+}
+
+.rowCode {
+  grid-area: code;
+  color: var(--background);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 0.14em;
+}
+
+.rowMeta {
+  grid-area: meta;
+  color: #5a6157;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.rowAction {
+  grid-area: action;
+  border-radius: 6px;
+  background: var(--felt);
+  padding: 6px 10px;
+  color: var(--card);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.rowAction:hover {
+  background: #1d5c47;
+}
+
+.empty {
+  margin: 0;
+  color: #5a6157;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
 }

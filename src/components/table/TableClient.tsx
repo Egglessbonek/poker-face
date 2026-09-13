@@ -17,7 +17,7 @@ import { useTalk } from "@/hooks/useTalk";
 import { useTells } from "@/hooks/useTells";
 import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/client/identity";
 import { dominantEmotion } from "@/lib/tells/emotion";
-import { fuseTells } from "@/lib/tells/fuse";
+import { AFTER_ACTION_MS, fuseAfterAction, fuseTells } from "@/lib/tells/fuse";
 import { getFaceLandmarker } from "@/lib/tells/landmarker";
 import TellHUD from "@/components/TellHUD";
 import VoiceControls from "@/components/table/VoiceControls";
@@ -70,13 +70,16 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const [lastVector, setLastVector] = useState<{ vector: TellVector; handNumber: number } | null>(null);
   /** Once the camera has run, a later "idle" means it was lost and should be restarted; a skipped camera never was. */
   const cameraEverOn = useRef(false);
+  /** The hand on screen, readable from a timer callback. */
+  const handNumberRef = useRef(0);
+  const afterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cameraDone, setCameraDone] = useState(false);
   /** The callout banner that has finished animating; it unmounts so no blank strip is left above the felt. */
   const [calloutDone, setCalloutDone] = useState<string | null>(null);
   /** The prompt (hand + action count) an action was already sent for; a double-click must not send a second one. */
   const [sentFor, setSentFor] = useState<string | null>(null);
   const vectorHistory = useRef<TellVector[]>([]);
-  /** Rolling UI reads after the first decision; kept separate so live updates never change action-time AI evidence. */
+  /** Rolling live reads after the first decision; action-time history remains a separate trend baseline. */
   const liveVectorHistory = useRef<TellVector[]>([]);
   const promptedAt = useRef(0);
   const wasMyTurn = useRef(false);
@@ -101,6 +104,11 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   useEffect(() => {
     if (tells.status === "running") cameraEverOn.current = true;
   }, [tells.status]);
+
+  useEffect(() => {
+    handNumberRef.current = hand?.handNumber ?? 0;
+  }, [hand?.handNumber]);
+  useEffect(() => () => { if (afterTimer.current) clearTimeout(afterTimer.current); }, []);
 
   useEffect(() => {
     if (!hand || !me) return;
@@ -159,12 +167,24 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
       tells.noteDecision(snapshot, latency);
       setLastVector({ vector, handNumber: hand.handNumber });
       liveVectorHistory.current = [vector, vector];
+      // The second evidence line: what the face does in the seconds after a bet or raise (Elwood's post-bet tells).
+      if (type === "bet" || type === "raise" || type === "allin") {
+        const actedAt = Date.now();
+        const { handNumber, street } = hand;
+        if (afterTimer.current) clearTimeout(afterTimer.current);
+        afterTimer.current = setTimeout(() => {
+          const b = tells.baselineRef.current;
+          if (!b || handNumberRef.current !== handNumber) return;
+          const after = fuseAfterAction(tells.snapshot(actedAt, { handNumber, street, decisionLatencyMs: b.decisionLatencyMs }), b);
+          void sendTells({ after });
+        }, AFTER_ACTION_MS);
+      }
     }
     // A rejected action (stale bet bounds) must hand the bar back, or the player is stuck until the timer folds them.
     void act(type, amount, latency, vector).then((ok) => {
       if (!ok) setSentFor(null);
     });
-  }, [act, hand, tells]);
+  }, [act, hand, sendTells, tells]);
 
   const finishCamera = useCallback(() => setCameraDone(true), []);
   // Safety net: if the camera somehow stopped between the lobby and the first hand, bring it back so tells keep flowing.
