@@ -110,7 +110,7 @@ function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells
         equity: playerOdds?.equity,
         bestHand: playerOdds?.bestHand,
         talk: latestTalk.get(p.id),
-        tell: p.kind === "human" && tells[p.id] ? toRailTell(tells[p.id].frame, tells[p.id].vector) : undefined,
+        tell: p.kind === "human" && tells[p.id] ? toRailTell(tells[p.id].frame, tells[p.id].live ?? tells[p.id].vector) : undefined,
         aiRead: read && read.handNumber === hand?.handNumber
           ? { equity: playerOdds?.equity, mathAction: read.decision.mathAction, finalAction: read.decision.action, target: humans.join(", ") || "the table", reasoning: read.decision.reasoning, tellsUsed: read.decision.tellsUsed, at: read.at }
           : undefined,
