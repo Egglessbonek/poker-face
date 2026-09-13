@@ -3,6 +3,7 @@ import { SmartSpectraSDK, SmartSpectraLogLevel, PixelFormat, decodeMetrics } fro
 import sharp from 'sharp';
 import { createMetricSampler } from './presage-metrics.mjs';
 import { describePresageError, redactPresageDetail } from './presage-errors.mjs';
+import { preparePresageRuntime } from './presage-runtime.mjs';
 const emit = value => process.stdout.write(JSON.stringify(value) + '\n');
 let sdk, closing = false, pending = Buffer.alloc(0), pumping = false, lastTs = -1;
 let validation = { code: null, hint: 'Waiting for camera measurements' };
@@ -32,6 +33,7 @@ function fail(error, stage) {
 }
 function setup() {
   if (!process.env.SMARTSPECTRA_API_KEY) throw new Error('Missing key');
+  preparePresageRuntime();
   const current = new SmartSpectraSDK({ apiKey: process.env.SMARTSPECTRA_API_KEY, requestedMetrics: [2, 15], enableTelemetry: false, logLevel: SmartSpectraLogLevel.kNone });
   sdk = current;
   const sampleMetrics = createMetricSampler();

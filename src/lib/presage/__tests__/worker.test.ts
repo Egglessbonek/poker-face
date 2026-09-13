@@ -31,7 +31,10 @@ beforeAll(() => {
     }
   `);
   const sdkUrl = pathToFileURL(path.join(fixture, "sdk.mjs")).href;
+  writeFileSync(path.join(fixture, "runtime.mjs"), "export function preparePresageRuntime() {}\n");
+  const runtimeUrl = pathToFileURL(path.join(fixture, "runtime.mjs")).href;
   writeFileSync(path.join(fixture, "loader.mjs"), `export async function resolve(name, context, next) {
+    if (name === './presage-runtime.mjs') return { url: ${JSON.stringify(runtimeUrl)}, shortCircuit: true };
     return name === '@smartspectra/node-sdk' ? { url: ${JSON.stringify(sdkUrl)}, shortCircuit: true } : next(name, context);
   }`);
 });
