@@ -16,7 +16,7 @@ export default function TellHUD({ frame, baseline, vector, cameraStatus }: { fra
     <aside className="flex flex-col gap-4 rounded-2xl border border-felt-edge p-4 text-xs">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-gold">What the table sees</p>
-        <span className="font-mono text-[10px] uppercase text-muted">{cameraStatus}{frame && !frame.facePresent ? " · no face" : ""}</span>
+        <span className="font-mono text-[10px] text-muted">{cameraStatus}{frame && !frame.facePresent ? " · no face" : ""}</span>
       </div>
 
       {frame ? (

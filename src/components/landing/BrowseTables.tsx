@@ -38,21 +38,20 @@ export default function BrowseTables() {
   return (
     <section aria-label="Browse the tables" className={`${styles.card} ${styles.red}`}>
       <PlayingCardMarks rank="J" suit="♦" />
-      <span className={styles.hint}>Spectate public tables.</span>
-      <div className={styles.list}>
+      <div className={styles.list} role="region" aria-label="Public tables" tabIndex={0}>
         {tables === null ? (
-          <p className={styles.empty}>Looking around the room…</p>
+          <p className={styles.empty}>Loading tables…</p>
         ) : tables.length === 0 ? (
           <p className={styles.empty}>No public tables.</p>
         ) : (
           <ul>
             {tables.map((t) => (
-              <li key={t.code} className={styles.row}>
-                <span className={styles.rowCode}>{t.code}</span>
-                <span className={styles.rowMeta}>
-                  {seats(t)} · {t.phase === "playing" ? `Hand ${t.handNumber}${t.handsPerMatch > 0 ? ` of ${t.handsPerMatch}` : ""}` : "Waiting to start"}
-                </span>
-                <Link href={`/rail/${t.code}`} className={styles.rowAction}>Watch</Link>
+              <li key={t.code}>
+                <Link href={`/rail/${t.code}`} className={styles.row} aria-label={`Watch ${t.creatorName ?? "Host"}’s table ${t.code}`}>
+                  <span className={styles.rowHost} title={t.creatorName}>{t.creatorName ?? "Host"}</span>
+                  <span className={styles.rowCode}>{t.code}</span>
+                  <span className={styles.rowAction}>watch <span aria-hidden="true">→</span></span>
+                </Link>
               </li>
             ))}
           </ul>
@@ -60,11 +59,4 @@ export default function BrowseTables() {
       </div>
     </section>
   );
-}
-
-function seats(t: TableListing): string {
-  const parts: string[] = [];
-  if (t.humans.length) parts.push(t.humans.length === 1 ? t.humans[0] : `${t.humans.length} humans`);
-  if (t.ais.length) parts.push(`${t.ais.length} AI${t.ais.length === 1 ? "" : "s"}`);
-  return parts.join(" · ") || "Empty";
 }

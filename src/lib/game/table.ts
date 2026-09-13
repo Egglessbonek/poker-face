@@ -7,10 +7,12 @@
  */
 
 import "server-only";
+import { stopVitals, stopTableVitals } from "@/lib/presage/server";
 import type { ActionRequest } from "@/lib/poker/engine";
 import { applyAction, bounds, dealtSeats, legalActions, liveSeats, newHand, nextSeat, positionLabel, publicHand } from "@/lib/poker/engine";
 import { monteCarloEquity, potOdds } from "@/lib/poker/equity";
 import { decide } from "@/lib/villain/brain";
+import { safeTableTalk } from "@/lib/villain/speechGuard";
 import { getProfile, resolveProfile } from "@/lib/villain/profile";
 import { pickVoice } from "@/lib/villain/voices";
 import { isSeatableModelId } from "@/lib/llm/models";
@@ -59,6 +61,7 @@ import {
 const HAND_END_PAUSE_MS = 3500;
 const AI_THINK_MS: [number, number] = [600, 1400];
 const DISCONNECTED_TURN_MS = 12_000;
+const AI_TURN_MS = 15_000;
 const FINISHED_CHANNEL_MS = 10 * 60_000;
 
 interface Table {
@@ -68,6 +71,8 @@ interface Table {
   config: TableConfig;
   phase: TableState["phase"];
   hostId: string;
+  /** Original creator, retained even when hosting transfers to another player. */
+  creatorName: string;
   players: Player[];
   tokens: Map<string, string>; // token -> playerId
   hand: HandState | null;
@@ -83,7 +88,9 @@ interface Table {
   pfrThisHand: Set<string>;
   /** Per AI player: table-talk lines already spoken, for the no-repeat prompt. */
   saidLines: Record<string, string[]>;
+  aiModes?: TableState["aiModes"];
   turnDeadline?: number;
+  turnStartedAt?: number;
   turnTimer?: ReturnType<typeof setTimeout>;
   driving: boolean;
   createdAt: number;
@@ -104,6 +111,7 @@ export function listOpenTables(limit = 24): TableListing[] {
     .slice(0, limit)
     .map((t) => ({
       code: t.code,
+      creatorName: t.creatorName ?? t.players.find(p => p.id === t.hostId)?.name ?? "Host",
       phase: t.phase,
       handNumber: t.handNumber,
       handsPerMatch: t.config.handsPerMatch,
@@ -132,6 +140,7 @@ export async function createTable(configPatch: Partial<TableConfig>, hostName: s
     config,
     phase: "lobby",
     hostId,
+    creatorName: cleanName(hostName, "Host"),
     players: [{ id: hostId, seat: 0, name: cleanName(hostName, "Host"), kind: "human", stack: config.startingStack, connected: false, sittingOut: false }],
     tokens: new Map([[token, hostId]]),
     hand: null,
@@ -229,6 +238,9 @@ export function startTable(code: string, token: string): void {
 export function leaveTable(code: string, token: string): void {
   const t = must(code);
   const me = playerByToken(t, token);
+  stopVitals(code, me.id);
+  const nextHost = t.players.find((p) => p.id !== me.id && p.kind === "human" && !p.sittingOut);
+  if (me.id === t.hostId && nextHost) t.hostId = nextHost.id;
   if (t.phase === "lobby") {
     if (me.id === t.hostId) {
       finishTable(t, "host left");
@@ -242,7 +254,7 @@ export function leaveTable(code: string, token: string): void {
   }
   me.sittingOut = true;
   if (t.hand && !t.hand.over && t.hand.toAct === me.seat) {
-    autoAct(t, me.seat);
+    autoAct(t, me.seat, true);
     void drive(t);
   } else broadcastState(t);
 }
@@ -381,8 +393,10 @@ function toState(t: Table, viewer: Viewer): TableState {
     hand: t.hand ? publicHand(t.hand, seat) : null,
     handNumber: t.handNumber,
     turnDeadline: t.turnDeadline,
+    turnStartedAt: t.turnStartedAt,
     createdAt: t.createdAt,
     standings: t.standings,
+    aiModes: t.aiModes ?? {},
     predictions: predictionSnapshot(t.code),
   };
 }
@@ -482,10 +496,13 @@ async function drive(t: Table): Promise<void> {
       if (seat === null) break; // engine settles hands with no action left; should not happen
       const player = playerAtSeat(t, seat);
       if (!player || player.sittingOut) {
-        autoAct(t, seat);
+        autoAct(t, seat, true);
         continue;
       }
       if (player.kind === "ai") {
+        t.turnStartedAt = Date.now();
+        t.turnDeadline = t.turnStartedAt + AI_TURN_MS;
+        broadcastState(t);
         await sleep(AI_THINK_MS[0] + Math.random() * (AI_THINK_MS[1] - AI_THINK_MS[0]));
         if (t.phase !== "playing" || !t.hand || t.hand.over || t.hand.toAct !== seat) continue;
         await aiAct(t, seat);
@@ -684,7 +701,7 @@ async function aiAct(t: Table, seat: number) {
     recentTalk: (t.saidLines[player.id] ?? []).slice(-4),
     notes: t.notes,
     meId: player.id,
-  });
+  }, t.turnDeadline);
 
   // The table may have moved on while the LLM was thinking (e.g. host ended it).
   if (t.phase !== "playing" || t.hand !== hand) return;
@@ -701,6 +718,8 @@ async function aiAct(t: Table, seat: number) {
     decision.amount = undefined;
   }
 
+  decision.tableTalk = safeTableTalk(decision.tableTalk);
+  (t.aiModes ??= {})[player.id] = decision.llmUsed ? "model" : "strategy";
   appendLog(t.code, "ai_decision", {
     handNumber: hand.handNumber,
     street: hand.street,
@@ -721,7 +740,7 @@ async function aiAct(t: Table, seat: number) {
       actions: hand.actions.map((action) => ({ ...action })),
     },
   });
-  publish(t.code, { type: "ai_decision", playerId: player.id, decision, handNumber: hand.handNumber, street: hand.street });
+  publish(t.code, (viewer) => ({ type: "ai_decision", playerId: player.id, decision: viewer.kind === "rail" ? decision : { ...decision, reasoning: "" }, handNumber: hand.handNumber, street: hand.street }));
   applyAndPublish(t, req, null);
   if (decision.tableTalk) {
     const said = (t.saidLines[player.id] ??= []);
@@ -736,24 +755,25 @@ async function aiAct(t: Table, seat: number) {
   }
 }
 
-/** Check if possible, otherwise fold. Used by the turn timer, sitting-out players, and orphaned seats. */
-function autoAct(t: Table, seat: number) {
+/** Timeouts check for free; departed players fold at their next opportunity. */
+function autoAct(t: Table, seat: number, departing = false) {
   if (!t.hand || t.hand.over || t.hand.toAct !== seat) return;
   const legal = legalActions(t.hand, seat, t.config);
-  const type: ActionType = legal.includes("check") ? "check" : "fold";
+  const type: ActionType = !departing && legal.includes("check") ? "check" : "fold";
   clearTurnTimer(t);
   applyAndPublish(t, { seat, type }, null);
 }
 
 function armTurnTimer(t: Table, player: Player) {
   clearTurnTimer(t);
+  t.turnStartedAt = Date.now();
   const ms = t.config.turnTimerSec > 0 ? t.config.turnTimerSec * 1000 : player.connected ? 0 : DISCONNECTED_TURN_MS;
   if (!ms) {
     t.turnDeadline = undefined;
     broadcastState(t);
     return;
   }
-  t.turnDeadline = Date.now() + ms;
+  t.turnDeadline = t.turnStartedAt + ms;
   const seat = player.seat;
   t.turnTimer = setTimeout(() => {
     t.turnTimer = undefined;
@@ -771,6 +791,7 @@ function clearTurnTimer(t: Table) {
 }
 
 function finishTable(t: Table, reason: string): false {
+  stopTableVitals(t.code);
   clearTurnTimer(t);
   t.phase = "finished";
   t.hand = t.hand && t.hand.over ? t.hand : null;

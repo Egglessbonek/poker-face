@@ -146,7 +146,7 @@ export function useTable(code: string, token: string | null, playerId: string | 
   const removePlayer = useCallback((id: string) => call("/ai", "DELETE", { playerId: id }).catch(() => {}), [call]);
   const updateConfig = useCallback((config: Partial<TableConfig>) => call("/config", "PATCH", { config }), [call]);
   const updateVisibility = useCallback((isPublic: boolean) => call("/visibility", "PATCH", { isPublic }), [call]);
-  const leave = useCallback(() => call("/leave", "POST").catch(() => {}), [call]);
+  const leave = useCallback(() => call("/leave", "POST").then(() => true, () => false), [call]);
   const end = useCallback(() => call("/end", "POST").catch(() => {}), [call]);
   /** Host only, once finished: open a new table with the same config and AI seats. Null when the request failed (see `error`). */
   const rematch = useCallback(() => call<RematchResult>("/rematch", "POST").catch((): null => null), [call]);

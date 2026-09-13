@@ -26,7 +26,7 @@ function ConnectionScreen({ state, code }: { state: Exclude<RailConnectionState,
         <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-gold/25 bg-gold/8">
           <Icon className={state === "connecting" ? "animate-spin text-gold" : "text-gold"} size={24} />
         </div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-gold">Poker Face Rail</p>
+        <p className="mb-2 text-xs font-semibold text-gold">Poker Face Rail</p>
         <h1 className="text-2xl font-semibold text-white">{content.title}</h1>
         <p className="mt-3 leading-relaxed text-white/50">{content.body}</p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -52,7 +52,6 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
   const table = view.table;
   const humans = table.players.filter((player) => player.kind === "human");
   const ais = table.players.filter((player) => player.kind === "ai");
-  const currentPlayer = table.players.find((player) => player.id === table.currentPlayerId);
   const waiting = table.phase === "lobby" || table.phase === "calibrating";
   const finished = table.phase === "finished";
   const handLabel = table.handsPerMatch > 0 ? `${table.handNumber}/${table.handsPerMatch}` : `${table.handNumber}`;
@@ -63,15 +62,15 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
         <div className="flex items-center gap-4">
           <div className="hidden h-9 w-9 items-center justify-center rounded-full bg-gold text-black sm:flex"><Spade size={17} fill="currentColor" /></div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">Poker Face · Rail</p>
+            <p className="text-[11px] font-semibold text-gold">Poker Face · Rail</p>
             <h1 className="mt-0.5 text-xl font-semibold text-white">Table <span className="font-mono text-gold">{code}</span></h1>
           </div>
           {finished ? (
-            <span className="flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-gold">
+            <span className="flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 text-xs font-semibold text-gold">
               <Trophy size={12} /> Complete
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 rounded-full border border-ok/25 bg-ok/8 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-ok">
+            <span className="flex items-center gap-1.5 rounded-full border border-ok/25 bg-ok/8 px-2.5 py-1 text-xs font-semibold text-ok">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok" /> Live
             </span>
           )}
@@ -85,7 +84,7 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
           ) : (
             <>
               <span className="rounded-full border border-white/8 bg-white/[0.035] px-3 py-1.5 text-white/55">Hand <strong className="font-mono text-white">{handLabel}</strong></span>
-              <span className="rounded-full border border-white/8 bg-white/[0.035] px-3 py-1.5 uppercase text-white/55">{finished ? "final" : table.street}</span>
+              <span className="rounded-full border border-white/8 bg-white/[0.035] px-3 py-1.5 text-white/55">{finished ? "final" : table.street}</span>
             </>
           )}
         </div>
@@ -94,18 +93,9 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
       {waiting ? (
         <WaitingRoom table={table} />
       ) : (
-        <div className={`mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:items-start xl:overflow-hidden ${finished ? "place-items-center" : "xl:grid-cols-[minmax(0,1fr)_360px]"}`}>
-          <div className="min-w-0">
-            {!finished && (
-              <div className="mb-2 flex shrink-0 items-center justify-between rounded-xl border border-gold/15 bg-gold/[0.055] px-3.5 py-2">
-                <div className="flex items-center gap-2 text-sm text-white/55">
-                  <span className="h-2 w-2 rounded-full bg-gold shadow-[0_0_10px_rgba(212,175,55,0.8)]" />
-                  {currentPlayer ? <><strong className="text-white">{currentPlayer.name}</strong> to act</> : <span>Between hands</span>}
-                </div>
-                <div className="font-mono text-sm text-gold">{table.turnSecondsRemaining !== null ? `${table.turnSecondsRemaining}s` : ""}</div>
-              </div>
-            )}
-            <div className="min-h-0">{finished && table.standings?.length ? <FinalStandings table={table} /> : <RailTable table={table} />}</div>
+        <div className={`mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:overflow-hidden ${finished ? "place-items-center" : "xl:grid-cols-[minmax(0,1fr)_360px]"}`}>
+          <div className={finished ? "min-w-0" : "flex h-[70dvh] min-h-[480px] min-w-0 flex-col xl:h-auto xl:min-h-0"}>
+            {finished && table.standings?.length ? <FinalStandings table={table} /> : <RailTable table={table} />}
           </div>
           {!finished && (
             <aside className="flex min-h-0 flex-col gap-3 xl:h-full">
@@ -130,7 +120,7 @@ function FinalStandings({ table }: { table: RailTableSnapshot }) {
   return (
     <section aria-label="Final standings" className="rounded-[2rem] border border-white/10 bg-[#0c1210] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.42)] sm:p-6">
       <div className="mb-5 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-gold">Final standings · {table.handNumber} hands</p>
+        <p className="text-xs font-semibold text-gold">Final standings · {table.handNumber} hands</p>
         <h2 className="mt-2 text-2xl font-semibold text-white">{winner ? `${winner.name} takes the table` : "Match complete"}</h2>
         <p className="mt-1 text-sm text-white/45">The Reveal is ready with the tells behind every decision.</p>
       </div>

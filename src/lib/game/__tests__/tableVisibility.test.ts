@@ -14,6 +14,14 @@ describe("table visibility", () => {
     table = await import("@/lib/game/table");
   });
 
+  it("keeps the creator in public listings when hosting transfers", async () => {
+    const created = await table.createTable({ aiPlayers: [] }, "Original Host");
+    const guest = table.joinTable(created.code, "Next Host");
+    table.leaveTable(created.code, created.token);
+    expect(table.getState(created.code, { kind: "rail" }).hostId).toBe(guest.playerId);
+    expect(table.listOpenTables().find(entry => entry.code === created.code)?.creatorName).toBe("Original Host");
+  });
+
   it("creates public tables by default and lists them", async () => {
     const created = await table.createTable({ aiPlayers: [] }, "Public Host");
 

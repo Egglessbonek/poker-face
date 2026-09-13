@@ -7,3 +7,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## UI typography and copy
+
+- Use Newsreader serif for titles and Pliant sans serif for supporting text.
+- Use sentence case and normal letter spacing. Do not add uppercase, widely spaced eyebrow labels, badges, or section captions.
+- Remove redundant titles instead of stacking a small label, a heading, and a description that repeat the same point.
+- Preserve the literal case of room codes, card ranks, and acronyms; these are identifiers, not decorative typography.

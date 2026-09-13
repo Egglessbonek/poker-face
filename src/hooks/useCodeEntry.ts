@@ -32,7 +32,7 @@ export function useCodeEntry(mode: CodeEntryMode) {
       setError(null);
       setRevealHref(null);
       if (!valid) {
-        setError("Codes are four letters, like KXTR.");
+        setError("Codes are four letters, like HKRC.");
         return;
       }
       setChecking(true);

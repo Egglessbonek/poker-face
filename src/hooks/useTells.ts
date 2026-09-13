@@ -23,6 +23,9 @@ const SAMPLE_MS = 250;
 const BUFFER_MS = 120_000;
 
 export function useTells() {
+  const captureContextRef = useRef<import("@/lib/presage/types").CaptureContext | null>(null);
+  const [decisionFeedback, setDecisionFeedback] = useState<{ latencyMs: number; referenceMs?: number; street: Street } | null>(null);
+  const decisionTimes = useRef<Array<{ street: Street; ms: number }>>([]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const stream = useRef<MediaStream | null>(null);
   /** Callback ref: re-attaches the live stream whenever the <video> element (re)mounts. */
@@ -54,7 +57,7 @@ export function useTells() {
     try {
       const video = videoRef.current;
       if (!video) throw new Error("video element not mounted");
-      const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" }, audio: false });
+      const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, frameRate: { ideal: 30 }, facingMode: "user" }, audio: false });
       if (attempt !== startAttempt.current) {
         s.getTracks().forEach((track) => track.stop());
         return;
@@ -69,6 +72,7 @@ export function useTells() {
       stopLoop.current = startDetectionLoop(() => videoRef.current, landmarker, (result, ts) => {
         const now = Date.now();
         const f = extractFrame(result, now, fstate);
+        captureContextRef.current = { at: now, mouthMoving: f.mouthMoving === true };
         if (ts - lastSample >= SAMPLE_MS) {
           lastSample = ts;
           buffer.current.push(f);
@@ -90,10 +94,18 @@ export function useTells() {
     stopLoop.current();
     stream.current?.getTracks().forEach((t) => t.stop());
     stream.current = null;
+    captureContextRef.current = null;
+    setFrame(null);
+    buffer.current = [];
     setStatus("idle");
   }, []);
 
   useEffect(() => () => stop(), [stop]);
+  useEffect(() => {
+    if (status !== "running") return;
+    const timer = setInterval(() => setFrame(f => f && Date.now() - f.t > 1500 ? null : f), 500);
+    return () => clearInterval(timer);
+  }, [status]);
 
   /**
    * Collect CALIBRATION_MS of frames, then compute and store the baseline. Resolves with it, or with null when the
@@ -135,6 +147,9 @@ export function useTells() {
 
   /** After each decision (and after fusing it): drift the latency and head-motion baselines toward how this player plays. */
   const noteDecision = useCallback((snap: TellSnapshot, latencyMs: number) => {
+    if (!Number.isFinite(latencyMs) || latencyMs <= 0 || latencyMs >= 120_000) return;
+    setDecisionFeedback({ latencyMs, referenceMs: snap.decisionReferenceMs, street: snap.street });
+    decisionTimes.current = [...decisionTimes.current, { street: snap.street, ms: latencyMs }].slice(-40);
     if (!baselineRef.current) return;
     baselineRef.current = updateBaselineAfterDecision(baselineRef.current, snap, latencyMs);
     setBaseline(baselineRef.current);
@@ -144,10 +159,12 @@ export function useTells() {
     (sinceMs: number, extras: { handNumber: number; street: Street; decisionLatencyMs: number }): TellSnapshot => {
       const frames = buffer.current.filter((f) => f.t >= sinceMs);
       const cardRevealReactions = reveals.current.filter((r) => r.t >= sinceMs - REACTION_WINDOW_MS).map((r) => reactionFor(r, buffer.current, baselineRef.current));
-      return { handNumber: extras.handNumber, street: extras.street, decisionLatencyMs: extras.decisionLatencyMs, frames, cardRevealReactions };
+      const previous = decisionTimes.current.filter(d => d.street === extras.street).map(d => d.ms).sort((a, b) => a - b);
+      const decisionReferenceMs = previous.length >= 3 ? previous[Math.floor(previous.length / 2)] : undefined;
+      return { handNumber: extras.handNumber, street: extras.street, decisionLatencyMs: extras.decisionLatencyMs, decisionReferenceMs, frames, cardRevealReactions };
     },
     [],
   );
 
-  return { videoRef: attachVideo, status, frame, baseline, baselineRef, calibrating, calibrationReport, start, stop, calibrate, markReveal, noteDecision, snapshot };
+  return { decisionFeedback, captureContextRef, streamRef: stream, videoElementRef: videoRef, videoRef: attachVideo, status, frame, baseline, baselineRef, calibrating, calibrationReport, start, stop, calibrate, markReveal, noteDecision, snapshot };
 }

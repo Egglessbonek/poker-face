@@ -1,0 +1,80 @@
+.game {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  gap: 12px;
+  padding: 12px;
+}
+
+.game > header { flex-shrink: 0; }
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(290px, 26vw, 340px);
+  flex: 1;
+  min-height: 0;
+  gap: 16px;
+}
+
+.play {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: 8px;
+}
+
+.controls { flex-shrink: 0; }
+
+.sidebar {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.sidebar > section { flex-shrink: 0; }
+.infoToggle, .closeInfo { display: none; }
+
+.callout {
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  z-index: 40;
+  pointer-events: none;
+}
+
+@media (max-width: 999px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+  .infoToggle, .closeInfo { display: block; }
+  .sidebar {
+    display: none;
+    position: absolute;
+    z-index: 50;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: min(340px, calc(100% - 24px));
+    padding: 12px;
+    border: 1px solid var(--felt-edge);
+    border-radius: 20px;
+    background: var(--background);
+    box-shadow: 0 12px 60px #000a;
+  }
+  .sidebar[data-open="true"] { display: flex; }
+}
+
+@media (max-width: 599px) {
+  .game { padding: 6px; gap: 6px; }
+  .game > header { gap: 6px; padding: 8px; }
+  .controls button[data-action] { padding: 8px 10px; font-size: 12px; }
+}

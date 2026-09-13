@@ -42,7 +42,7 @@ describe("heads-up", () => {
     h = act(h, 0, "call");
     expect(h.street).toBe("preflop");
     expect(h.toAct).toBe(1);
-    expect(legalActions(h, 1, cfg)).toEqual(["check", "raise", "allin"]);
+    expect(legalActions(h, 1, cfg)).toEqual(["fold", "check", "raise", "allin"]);
     expect(bounds(h, 1, cfg)).toEqual({ toCall: 0, minTotal: 4, maxTotal: 200 });
     h = act(h, 1, "check");
     expect(h.street).toBe("flop");
@@ -82,6 +82,29 @@ describe("heads-up", () => {
     expect(h.foldedOut).toBe(true);
     expect(h.results).toEqual([{ seat: 0, won: 4 }]);
     expect(stacks(h)).toEqual([202, 198]);
+  });
+
+  it("allows an in-turn fold for free on the big blind option and preserves chips", () => {
+    let h = act(deal([200, 200]), 0, "call");
+    expect(legalActions(h, 1, cfg)).toContain("check");
+    h = act(h, 1, "fold");
+    expect(h.over).toBe(true);
+    expect(h.foldedOut).toBe(true);
+    expect(stacks(h)).toEqual([202, 198]);
+    expect(totalChips(h)).toBe(400);
+    expect(legalActions(h, 1, cfg)).toEqual([]);
+  });
+
+  it("allows a free fold postflop while rejecting out-of-turn folds", () => {
+    let h = act(act(deal([200, 200, 200]), 0, "call"), 1, "call");
+    h = act(h, 2, "check");
+    expect(legalActions(h, 1, cfg)).toContain("fold");
+    expect(() => act(h, 0, "fold")).toThrow();
+    h = act(h, 1, "fold");
+    expect(h.over).toBe(false);
+    expect(h.toAct).toBe(2);
+    expect(totalChips(h)).toBe(600);
+    expect(legalActions(h, 1, cfg)).toEqual([]);
   });
 
   it("all-in call runs out the board and awards the pot", () => {
@@ -250,6 +273,16 @@ describe("six-max side pots", () => {
 });
 
 describe("seat rotation and views", () => {
+  it("keeps blind labels on the dealt seats after folds and rotates them across empty seats", () => {
+    let h = deal([200, null, 200, null, null, 200], 0);
+    h = act(h, 0, "call");
+    h = act(h, 2, "fold");
+    expect(positionLabel(h, 2)).toBe("SB");
+    expect(positionLabel(h, 5)).toBe("BB");
+    const next = deal([200, null, 200, null, null, 200], 2);
+    expect(positionLabel(next, 5)).toBe("SB");
+    expect(positionLabel(next, 0)).toBe("BB");
+  });
   it("nextSeat skips empty seats and wraps", () => {
     const h = deal([200, null, 200, null, null, 200], 0);
     expect(nextSeat(h, 0)).toBe(2);

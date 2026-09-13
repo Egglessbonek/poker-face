@@ -4,7 +4,8 @@
  * Two reads per decision, each a separate evidence line for the AIs:
  *
  * ON THE DECISION (`fuseTells`), from the window between being prompted and clicking:
- *   bluff ↑: fast action (Elwood: timing tells are the strongest class), freeze relative to the player's own
+ *   timing: neutral deviations from this player’s previous same-street decisions.
+ *   bluff ↑: freeze relative to the player's own
  *            decisions (Caro; Slepian et al. 2013), tension ↑, stared at the flop (Caro: missed it), looked back
  *            at their cards after a community card (Elwood: a draw)
  *   strength ↑: glance at the bet controls right after a card (Caro's chip glance, on a screen), leaned in when
@@ -42,11 +43,18 @@ function combine(evidence: Evidence[], arousal: number, confidence: number, hist
 export function fuseTells(snapshot: TellSnapshot, baseline: BaselineStats | null, history: TellVector[] = []): TellVector {
   const evidence: Evidence[] = [];
   const frames = snapshot.frames.filter((f) => f.facePresent);
-  const confidence = Math.min(1, frames.length / 8);
-
-  if (!baseline || frames.length === 0) {
-    return { arousal: 50, bluffLikelihood: 0.5, confidence: 0, trend: "stable", evidence };
+  const faceConfidence = Math.min(1, frames.length / 8);
+  const reference = snapshot.decisionReferenceMs;
+  const latency = snapshot.decisionLatencyMs;
+  const timingAvailable = Number.isFinite(reference) && reference! > 0 && Number.isFinite(latency) && latency > 0 && latency < 120_000;
+  if (timingAvailable) {
+    const ratio = latency / reference!;
+    // Timing is observable; speed alone does not establish a bluff or hand strength.
+    if (ratio < 0.5) evidence.push({ signal: "fast_action", direction: "neutral", strength: 0.3, text: "acted unusually fast" });
+    if (ratio > 2) evidence.push({ signal: "slow_action", direction: "neutral", strength: 0.3, text: "took a long time to act" });
   }
+  const confidence = Math.max(faceConfidence, evidence.length ? 0.6 : 0);
+  if (!baseline || frames.length === 0) return combine(evidence, 50, evidence.length ? 0.6 : 0, history);
 
   const avg = (sel: (f: (typeof frames)[number]) => number) => frames.reduce((a, f) => a + sel(f), 0) / frames.length;
 
@@ -78,12 +86,6 @@ export function fuseTells(snapshot: TellSnapshot, baseline: BaselineStats | null
     // Caro: sudden interest, the lean toward the table, means strength.
     if (r.leanIn) evidence.push({ signal: "lean_in", direction: "strength", strength: 0.4, text: `leaned in when the ${r.event} came` });
   }
-
-  // Decision latency.
-  const latencyRatio = snapshot.decisionLatencyMs / baseline.decisionLatencyMs;
-  // Timing tells are the strongest class in the literature (Elwood): weigh them above facial cues.
-  if (latencyRatio < 0.5) evidence.push({ signal: "fast_action", direction: "bluff", strength: 0.6, text: "acted unusually fast" });
-  if (latencyRatio > 2) evidence.push({ signal: "slow_action", direction: "neutral", strength: 0.3, text: "took a long time to act" });
 
   const arousal = 50 + clamp(20 * (blinkRatio - 1), -15, 25) + clamp(60 * tensionDelta, -20, 30) + (motionRatio < 0.4 ? 10 : 0);
   return combine(evidence, arousal, confidence, history);

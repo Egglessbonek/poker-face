@@ -9,7 +9,7 @@ export function tickerMessage(entry: Pick<RailHistoryEntry, "message" | "playerN
 export default function RailTicker({ entries }: { entries: RailHistoryEntry[] }) {
   return (
     <footer className="flex min-h-11 items-center gap-3 overflow-hidden border-t border-white/8 bg-[#0c1310] px-3 text-xs" aria-label="Recent table action" aria-live="polite">
-      <span className="shrink-0 font-semibold uppercase tracking-[0.15em] text-gold">Live action</span>
+      <span className="shrink-0 font-semibold text-gold">Live action</span>
       <div className="flex min-w-0 items-center overflow-hidden">
         {entries.slice(-4).reverse().map((entry) => {
           const message = tickerMessage(entry);

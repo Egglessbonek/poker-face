@@ -41,3 +41,18 @@ describe("freeze is a deviation from the player's own decisions", () => {
     expect(signals(fuseTells(window(0.0003), b))).toContain("freeze");
   });
 });
+
+describe("timing survives unavailable camera signals", () => {
+  it("retains timing without face frames or facial calibration, without claiming a bluff", () => {
+    const snap = { ...window(0), frames: [], decisionReferenceMs: 4000, decisionLatencyMs: 10_000 };
+    const vector = fuseTells(snap, null);
+    expect(signals(vector)).toEqual(["slow_action"]);
+    expect(vector.confidence).toBeGreaterThan(0);
+    expect(vector.bluffLikelihood).toBe(0.5);
+    expect(fuseTells({ ...snap, decisionLatencyMs: 1000 }, null).evidence[0].direction).toBe("neutral");
+  });
+  it("does not infer timing when there is no reference or the turn was interrupted", () => {
+    expect(fuseTells({ ...window(0), frames: [] }, null).evidence).toEqual([]);
+    expect(fuseTells({ ...window(0), frames: [], decisionReferenceMs: 4000, decisionLatencyMs: 0 }, null).evidence).toEqual([]);
+  });
+});

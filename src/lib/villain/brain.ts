@@ -12,7 +12,8 @@ import { z } from "zod";
 import type { ActionType, VillainDecision, VillainDecisionInput } from "@/lib/types";
 import { completeJSON, llmAvailable, perSeatModels } from "@/lib/llm/provider";
 import { decisionRoll, recommend, type Recommendation } from "@/lib/poker/strategy";
-import { canonicalTells, leaksOwnCards, leaksPrivateMetrics } from "./guard";
+import { canonicalTells } from "./guard";
+import { publicTableTalk } from "./speech";
 import { getProfile } from "./profile";
 import { villainSystemPrompt, villainUserPrompt } from "./prompt";
 
@@ -20,7 +21,6 @@ const DecisionSchema = z.object({
   action: z.enum(["fold", "check", "call", "bet", "raise", "allin"]),
   amount: z.number().nullable().optional(),
   reasoning: z.string(),
-  tableTalk: z.string().default(""),
   tellsUsed: z.array(z.string()).default([]),
 });
 
@@ -75,7 +75,7 @@ export function mathAction(input: VillainDecisionInput): ActionType {
   return mathRecommendation(input, false).action;
 }
 
-export async function decide(input: VillainDecisionInput): Promise<VillainDecision> {
+export async function decide(input: VillainDecisionInput, deadline?: number): Promise<VillainDecision> {
   const profile = getProfile(input.modelId);
   const rec = mathRecommendation(input, true); // what we play (and show the model) when tells are available
   const pure = mathRecommendation(input, false).action; // attribution baseline: the same strategy with no tells
@@ -94,8 +94,10 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
 
   if (!llmAvailable()) return mathOnly("No LLM key configured; math-only decision.");
 
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    const out = await completeJSON({
+    if (deadline !== undefined && deadline <= Date.now()) return mathOnly("Turn time expired; strategy decision.");
+    const request = completeJSON({
       system: villainSystemPrompt(profile),
       user: villainUserPrompt(input, rec),
       schema: DecisionSchema,
@@ -104,15 +106,18 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
       // Bigger pots can get more thought (AI_BIG_POT_EFFORT=medium|high); default low keeps every turn under a few seconds.
       reasoningEffort: input.hand.pot + input.bounds.toCall >= 0.3 * (input.me.stack + input.me.committed) ? bigPotEffort() : "low",
     });
+    // This request is independent of the private decision and can run alongside it.
+    const speech = publicTableTalk(input, deadline);
+    // One deadline covers every provider and any retry. Late responses cannot act on the table.
+    const out = deadline === undefined ? await request : await Promise.race([
+      request,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("Turn time expired")), Math.max(0, deadline - Date.now()));
+      }),
+    ]);
     const action = input.legalActions.includes(out.action) ? out.action : baseline;
-    let tableTalk = out.tableTalk;
-    if (leaksOwnCards(tableTalk, input.me.holeCards, input.hand.board)) {
-      console.warn(`${profile.name} named its own cards in table talk; line dropped:`, tableTalk);
-      tableTalk = "";
-    } else if (leaksPrivateMetrics(tableTalk)) {
-      console.warn(`${profile.name} exposed a private strategy metric in table talk; line dropped:`, tableTalk);
-      tableTalk = "";
-    }
+    // Never publish speech from a completion that had access to private poker information.
+    const tableTalk = await speech;
     return {
       action,
       amount: clampAmount(action, out.amount ?? (action === baseline ? rec.amount : undefined), input),
@@ -128,6 +133,8 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
     // Keep it out of Next's red dev overlay while retaining a useful server-side warning.
     console.warn(`${profile.name} (${profile.id}) unavailable, using math action:`, (err as Error).message);
     return mathOnly("Model unavailable; math-only decision.");
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }
 

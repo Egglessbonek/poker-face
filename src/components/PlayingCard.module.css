@@ -7,7 +7,7 @@
   min-width: 0;
   /* Every card is the same height, whatever it holds; the browse card scrolls its list inside this. */
   height: 420px;
-  padding: 142px 28px 60px;
+  padding: 70px 28px 60px;
   border: 1px solid #d6cbb3;
   border-radius: 16px;
   background: radial-gradient(ellipse at top left, #fffdf7, var(--card) 75%);
@@ -70,103 +70,97 @@
   transform: rotate(180deg);
 }
 
-.pip {
-  position: absolute;
-  top: 58px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 76px;
-  line-height: 1;
-}
-
-.category {
-  color: #64675d;
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-.title {
-  font-family: var(--font-newsreader), Georgia, serif;
-  font-size: 32px;
-  line-height: 1.12;
-}
-
-.hint {
-  color: #3f4740;
-  font-size: 16px;
-  line-height: 1.5;
+.cardLink {
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
 }
 
 .entry {
   display: flex;
-  gap: 8px;
-  margin-top: auto;
-  padding-top: 12px;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
 }
 
 .entry input {
-  width: 6.5rem;
+  /* The submit button's stretched hit area stays behind the editable field. */
+  position: relative;
+  z-index: 1;
+  width: min(100%, 180px);
   min-width: 0;
-  border: 1px solid #b3ac99;
-  border-radius: 6px;
-  background: rgb(255 255 255 / 45%);
+  border: 0;
+  border-bottom: 1px solid #b3ac99;
+  border-radius: 0;
+  background: transparent;
   padding: 9px 6px;
   color: var(--background);
   font-family: var(--font-mono);
-  font-size: 18px;
-  letter-spacing: 0.18em;
+  font-size: 24px;
+  letter-spacing: normal;
   text-align: center;
-  text-transform: uppercase;
 }
 
 .entry input::placeholder {
+  font-family: var(--font-pliant), sans-serif;
+  font-size: 16px;
   color: #7a7c70;
 }
 
+.actionLabel,
 .entry button {
-  flex: 1;
-  min-width: 0;
-  border-radius: 6px;
-  background: var(--felt);
-  color: var(--card);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.entry button:disabled {
-  background: #ded8c9;
-  color: #69665b;
-  cursor: default;
-}
-
-.cardAction {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: auto;
-  padding: 10px;
-  border-radius: 6px;
-  background: var(--felt);
-  color: var(--card);
-  font-size: 14px;
-  font-weight: 500;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--felt);
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: 32px;
+  line-height: 1.2;
 }
 
-.cardAction:hover {
-  background: #1d5c47;
+.entry button {
+  cursor: pointer;
 }
 
-.cardAction:focus-visible {
-  outline: 2px solid var(--felt);
-  outline-offset: 3px;
+/* A native submit button covers the card without nesting the input inside it. */
+.entry button::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: 16px;
+  content: "";
 }
 
-.entry input:focus-visible,
+.entry button:disabled {
+  color: #7a7c70;
+  cursor: default;
+}
+
 .entry button:focus-visible {
+  outline: none;
+}
+
+.entry button:focus-visible::before {
+  outline: 2px solid var(--gold);
+  outline-offset: 5px;
+}
+
+.entry input:focus-visible {
   outline: 2px solid var(--felt);
   outline-offset: 3px;
+}
+
+.entryError {
+  position: relative;
+  z-index: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -180,8 +174,9 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  margin-top: 12px;
+  margin-top: 0;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   text-align: left;
   scrollbar-width: thin;
   scrollbar-color: #b3ac99 transparent;
@@ -199,44 +194,51 @@
 .row {
   display: grid;
   align-items: center;
-  grid-template-areas: "code action" "meta action";
+  grid-template-areas: "host action" "code action";
   grid-template-columns: minmax(0, 1fr) auto;
   column-gap: 10px;
   row-gap: 2px;
   border: 1px solid #d8d0bc;
   border-radius: 8px;
   background: rgb(255 255 255 / 45%);
-  padding: 7px 8px 7px 10px;
+  padding: 10px;
+  text-decoration: none;
+  transition: border-color 150ms ease, background 150ms ease;
 }
 
 .rowCode {
   grid-area: code;
-  color: var(--background);
+  color: #5a6157;
   font-family: var(--font-mono);
-  font-size: 15px;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: normal;
 }
 
-.rowMeta {
-  grid-area: meta;
-  color: #5a6157;
-  font-size: 11px;
-  line-height: 1.35;
+.rowHost {
+  grid-area: host;
+  overflow: hidden;
+  color: var(--background);
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: 19px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rowAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   grid-area: action;
-  border-radius: 6px;
-  background: var(--felt);
-  padding: 6px 10px;
-  color: var(--card);
+  color: var(--felt);
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
 }
 
-.rowAction:hover {
-  background: #1d5c47;
+.row:hover {
+  border-color: var(--felt);
+  background: rgb(255 255 255 / 70%);
 }
 
 .empty {
@@ -245,4 +247,10 @@
   font-size: 13px;
   line-height: 1.5;
   text-align: center;
+}
+
+.list:focus-visible,
+.row:focus-visible {
+  outline: 2px solid var(--felt);
+  outline-offset: 2px;
 }
