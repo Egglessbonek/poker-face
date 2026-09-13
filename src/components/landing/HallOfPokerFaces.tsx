@@ -23,12 +23,12 @@ export default function HallOfPokerFaces() {
       <h2 id="hall-title" className="text-3xl leading-tight">
         Leaderboard
       </h2>
-      <p className="mt-1 text-sm text-muted">These guys have the best face cards.</p>
+      <p className="mt-1 text-sm text-muted">These guys are lowkey goated.</p>
 
       {entries === null ? (
         <p className="mt-6 text-sm text-muted">Reading the room&hellip;</p>
       ) : entries.length === 0 ? (
-        <p className="mt-6 text-sm text-muted">No faces read yet tonight. Sit down and be the first.</p>
+        <p className="mt-6 text-sm text-muted">No people yet.</p>
       ) : (
         <div className="mt-6 overflow-x-auto">
           <table className="w-full text-left text-sm">

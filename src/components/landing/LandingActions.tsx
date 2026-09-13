@@ -66,13 +66,14 @@ export default function LandingActions() {
       </div>
       <div key={selected} className={styles.cardSlot}>
         {selected === 0 && (
-          <Link href="/table/new" className={cardStyles.card}>
+          <section aria-label="Create a table" className={cardStyles.card}>
             <PlayingCardMarks rank="A" suit="♠" />
-            <span className={cardStyles.hint}>Set the blinds, write the guest list, and decide who gets to see the tells.</span>
-          </Link>
+            <span className={cardStyles.hint}>Start a table.</span>
+            <Link href="/table/new" className={cardStyles.cardAction}>Create a table</Link>
+          </section>
         )}
-        {selected === 1 && <CodeEntry title="Join a table" hint="Take a seat at the table with the 4-letter code." mode="join" label="Sit down" rank="K" suit="♥" />}
-        {selected === 2 && <CodeEntry title="Watch from the rail" hint="See every card and every tell while on the sidelines." mode="watch" label="Watch" rank="Q" suit="♣" />}
+        {selected === 1 && <CodeEntry title="Join a table" hint="Join a table." mode="join" label="Sit down" rank="K" suit="♥" />}
+        {selected === 2 && <CodeEntry title="Watch from the rail" hint="Spectate a table." mode="watch" label="Watch" rank="Q" suit="♣" />}
         {selected === 3 && <BrowseTables />}
       </div>
     </div>

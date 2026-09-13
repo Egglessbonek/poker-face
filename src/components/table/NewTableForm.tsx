@@ -44,8 +44,7 @@ export default function NewTableForm() {
       <Link href="/" className="mb-10 flex w-fit items-center gap-2 text-sm text-muted hover:text-foreground"><ArrowLeft size={15} /> Back</Link>
       <div className="grid flex-1 items-center gap-10 lg:grid-cols-[1fr_0.8fr]">
         <header className="flex flex-col gap-4">
-          <p className="text-xs uppercase tracking-[0.32em] text-gold">Open a table</p>
-          <h1 className="max-w-2xl text-5xl tracking-tight sm:text-6xl">Get the room open. Set the game together.</h1>
+          <h1 className="max-w-2xl text-5xl tracking-tight sm:text-6xl">Set the game.</h1>
           <p className="max-w-xl text-lg leading-relaxed text-muted">Your table code appears first, so friends can take their seats while you choose the stakes, models, timer, and tell rules.</p>
           <ul className="mt-3 grid max-w-xl gap-3 text-sm sm:grid-cols-3">
             <Benefit icon={<Copy size={17} />} title="Share immediately" body="Invite players before setup is finished." />

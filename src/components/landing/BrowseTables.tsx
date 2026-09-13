@@ -38,12 +38,12 @@ export default function BrowseTables() {
   return (
     <section aria-label="Browse the tables" className={`${styles.card} ${styles.red}`}>
       <PlayingCardMarks rank="J" suit="♦" />
-      <span className={styles.hint}>Discover public tables filling up or in play. Pick one and watch from the rail.</span>
+      <span className={styles.hint}>Spectate public tables.</span>
       <div className={styles.list}>
         {tables === null ? (
           <p className={styles.empty}>Looking around the room…</p>
         ) : tables.length === 0 ? (
-          <p className={styles.empty}>No public tables are open right now. Host one and it shows up here.</p>
+          <p className={styles.empty}>No public tables.</p>
         ) : (
           <ul>
             {tables.map((t) => (
