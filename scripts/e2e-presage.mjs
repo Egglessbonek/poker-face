@@ -10,7 +10,7 @@ try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['camera'] });
   const page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  room = await call('/api/table', { name: 'Presage integration check', isPublic: false, config: { aiPlayers: [], turnTimerSec: 0 } });
+  room = await call('/api/table', { name: 'Presage integration check', isPublic: false, config: { aiPlayers: [], handsPerMatch: 1, turnTimerSec: 0 } });
   await context.addInitScript(({ code, playerId, token }) => localStorage.setItem(`pf:${code}`, JSON.stringify({ playerId, token, name: 'Presage integration check' })), room);
   let uploads = 0; page.on('response', r => { if (r.url().endsWith('/vitals') && r.request().method() === 'PUT' && r.status() === 200) uploads++; });
   await page.goto(`${base}/table/${room.code}`);
@@ -52,7 +52,41 @@ try {
   assert.ok(recovered.diagnostics.pipeline?.submitted > 0, 'new worker must receive real frames');
   assert.ok(recovered.history.length >= view.history.length, 'recovery must retain completed measurements');
   console.log(JSON.stringify({ recovery: 'passed', retainedSamples: recovered.history.length, restarts: recovered.diagnostics.restarts }));
+  const panel = page.getByRole('region', { name: 'Pulse and breathing' });
+  assert.equal(await panel.getByText('Presage · private', { exact: true }).count(), 0);
   await page.screenshot({ path: '/tmp/presage-camera-setup.png' });
+  if (process.env.CAM) {
+    // The browser calibrated the host. A second seat is an API fixture; this
+    // checks game/context integration, not a second person's camera quality.
+    const guest = await call(`/api/table/${room.code}/join`, { name: 'Presage test opponent' });
+    await call(`/api/table/${room.code}/camera`, { token: guest.token, status: 'ready', ready: true });
+    assert.equal((await fetch(url, { headers: { Authorization: `Bearer ${guest.token}` } }).then(r => r.json())).history.length, 0);
+    await call(`/api/table/${room.code}/start`, { token: room.token });
+    await page.getByRole('button', { name: 'End game', exact: true }).waitFor({ timeout: 15000 });
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const playing = await fetch(`${url}?history=1`, { headers }).then(r => r.json());
+    assert.equal(playing.status, 'measuring');
+    assert.equal(playing.sessionId, recovered.sessionId, 'lobby-to-game handoff must retain the measurement session');
+    assert.ok(playing.events.some(e => e.kind === 'start' && e.handNumber === 1));
+    let state = (await fetch(`${base}/api/table/${room.code}?token=${room.token}`).then(r => r.json())).state;
+    const hostSeat = state.players.find(p => p.id === room.playerId).seat;
+    if (state.hand.toAct !== hostSeat) {
+      const seat = state.hand.seats[state.hand.toAct];
+      await call(`/api/table/${room.code}/act`, { token: guest.token, type: state.hand.currentBet > seat.committed ? 'call' : 'check' });
+      state = (await fetch(`${base}/api/table/${room.code}?token=${room.token}`).then(r => r.json())).state;
+    }
+    assert.equal(state.hand.toAct, hostSeat);
+    await call(`/api/table/${room.code}/act`, { token: room.token, type: 'fold', latencyMs: 1500 });
+    const finishDeadline = Date.now() + 20000;
+    let finished;
+    do { await new Promise(resolve => setTimeout(resolve, 250)); finished = await fetch(`${url}?history=1`, { headers }).then(r => r.json()); } while (Date.now() < finishDeadline && finished.status !== 'stopped');
+    assert.equal(finished.status, 'stopped', 'finishing a match must stop native capture');
+    assert.equal(finished.latest, null);
+    assert.ok(finished.history.length >= recovered.history.length);
+    assert.ok(finished.events.some(e => e.kind === 'end' && e.handNumber === 1));
+    assert.ok(finished.moments.some(m => m.handNumber === 1), 'completed-hand feedback must remain readable');
+    console.log('Gameplay handoff, player isolation, hand context, retained history and match shutdown passed.');
+  }
   // Abrupt browser closure relies on the idle timeout when unload cleanup cannot run.
   await page.close();
   let stopped;

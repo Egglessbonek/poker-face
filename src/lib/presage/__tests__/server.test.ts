@@ -2,12 +2,43 @@ import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { spawn } from "node:child_process";
-import { pushVitals, readVitals, startVitals, stopVitals, VitalsError } from "../server";
+import { pushVitals, readVitals, startVitals, stopVitals, stopTableVitals, updateVitalsContext, VitalsError } from "../server";
 vi.mock("server-only", () => ({}));
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 afterEach(() => { stopVitals("TEST", "a", undefined, true); stopVitals("TEST", "b", undefined, true); vi.unstubAllEnvs(); });
 function worker() { const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), kill: vi.fn() }); vi.mocked(spawn).mockReturnValue(child as unknown as ReturnType<typeof spawn>); return child; }
 describe("private native sessions", () => {
+  it("carries qualified SDK measurements through references, completed-hand feedback and match shutdown", () => {
+    vi.stubEnv("SMARTSPECTRA_API_KEY", "fake");
+    let clock = 1_000_000;
+    const date = vi.spyOn(Date, "now").mockImplementation(() => clock);
+    const child = worker();
+    const emit = (data: unknown) => child.stdout.write(JSON.stringify(data) + "\n");
+    try {
+      startVitals("TEST", "a");
+      emit({ type: "ready" }); emit({ type: "validation", code: 0, hint: "" });
+      const sample = (at: number, pulse: number) => {
+        clock = at;
+        emit({ type: "sample", pulse: { at, value: pulse, stable: true, confidence: 95 }, breathing: { at, value: 16, stable: true, confidence: 95 }, validation: { code: 0, hint: "" } });
+      };
+      for (let i = 0; i < 15; i++) sample(1_040_000 + i * 1000, 75);
+      for (let i = 0; i < 3; i++) sample(1_070_000 + i * 1000, 85);
+      clock = 1_074_000;
+      updateVitalsContext("TEST", "a", [
+        { at: 1_055_000, handNumber: 1, kind: "start", label: "Dealt" },
+        { at: 1_070_000, handNumber: 1, kind: "action", playerId: "a", latencyMs: 1500, label: "Call" },
+        { at: clock, handNumber: 1, kind: "end", label: "Ended" },
+      ]);
+      stopTableVitals("TEST"); child.emit("exit", 0);
+      const view = readVitals("TEST", "a", true);
+      expect(view.status).toBe("stopped"); expect(view.latest).toBeNull();
+      expect(view.history).toHaveLength(18);
+      expect(view.baseline).toEqual({ pulse: 75, breathing: 16 });
+      expect(view.moments?.[0].text).toBe("Your median pulse was 85 BPM (+10 from your starting reference).");
+      expect(view.moments?.[0].context).toContain("3 valid");
+      expect(readVitals("TEST", "b", true).history).toEqual([]);
+    } finally { stopVitals("TEST", "a", undefined, true); date.mockRestore(); }
+  });
   it("preserves history across processing recovery, warms up again, and keeps SDK details server-side", () => {
     vi.stubEnv("SMARTSPECTRA_API_KEY", "fake");
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
