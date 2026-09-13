@@ -198,6 +198,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   }, []);
   const skipCamera = useCallback(() => {
     tells.stop();
+    // A deliberate skip is not a lost camera: the first-hand safety net must not bring it back.
+    cameraEverOn.current = false;
     setCameraDone(true);
     setCameraDialogOpen(false);
   }, [tells]);
