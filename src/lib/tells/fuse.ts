@@ -142,4 +142,3 @@ export function describeTells(v: TellVector): string {
   const ev = v.evidence.map((e) => e.text).join("; ") || "no notable tells";
   return `arousal ${v.arousal}/100 (${v.trend}), bluff likelihood ${(v.bluffLikelihood * 100).toFixed(0)}%, confidence ${(v.confidence * 100).toFixed(0)}%. Evidence: ${ev}.`;
 }
-

@@ -14,6 +14,12 @@ import type { RailCard, RailHistoryEntry, RailPlayerView, RailTableSnapshot, Rai
 /** How long an AI line stays in its speech bubble. */
 const TALK_TTL_MS = 9000;
 
+interface RailOdds {
+  handNumber: number;
+  players: Record<string, { equity: number; bestHand: string }>;
+  requestKey?: string;
+}
+
 const SUITS: Record<Suit, RailCard["suit"]> = { s: "spades", h: "hearts", d: "diamonds", c: "clubs" };
 
 function toRailCard(card: Card): RailCard {
@@ -65,7 +71,7 @@ const VISIBILITY: Record<TableState["config"]["tellVisibility"], RailTableSnapsh
   off: "ai-only",
 };
 
-function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells"], reads: Record<string, AIRead>, lastActions: Record<string, Action>, talk: TalkEvent[], now: number): RailTableSnapshot {
+function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells"], reads: Record<string, AIRead>, lastActions: Record<string, Action>, talk: TalkEvent[], odds: RailOdds | null, now: number): RailTableSnapshot {
   const hand = state.hand;
   const latestTalk = new Map<string, string>();
   for (const t of talk) if (now - t.at < TALK_TTL_MS) latestTalk.set(t.playerId, t.text);
@@ -77,6 +83,7 @@ function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells
       const seat = hand?.seats[p.seat] ?? null;
       const inHand = !!seat;
       const read = p.kind === "ai" ? reads[p.id] : undefined;
+      const playerOdds = odds && odds.handNumber === hand?.handNumber ? odds.players[p.id] : undefined;
       const last = lastActions[p.id];
       const dealt = hand ? hand.seats.map((s, i) => (s ? i : -1)).filter((i) => i >= 0) : [];
       const isHeadsUp = dealt.length === 2;
@@ -91,6 +98,7 @@ function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells
         stack: seat ? seat.stack : p.stack,
         committed: seat?.committed ?? 0,
         cards: seat ? seat.holeCards.map(toRailCard) : [],
+        inHand,
         cardsVisible: !!seat && seat.holeCards.length > 0,
         folded: !inHand || !!seat?.folded,
         allIn: !!seat?.allIn,
@@ -99,10 +107,12 @@ function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells
         isSmallBlind: inHand && sbSeat === p.seat,
         isBigBlind: inHand && bbSeat === p.seat,
         lastAction: last && !hand?.over ? actionText(last) : undefined,
+        equity: playerOdds?.equity,
+        bestHand: playerOdds?.bestHand,
         talk: latestTalk.get(p.id),
         tell: p.kind === "human" && tells[p.id] ? toRailTell(tells[p.id].frame, tells[p.id].vector) : undefined,
         aiRead: read && read.handNumber === hand?.handNumber
-          ? { mathAction: read.decision.mathAction, finalAction: read.decision.action, target: humans.join(", ") || "the table", reasoning: read.decision.reasoning, tellsUsed: read.decision.tellsUsed, at: read.at }
+          ? { equity: playerOdds?.equity, mathAction: read.decision.mathAction, finalAction: read.decision.action, target: humans.join(", ") || "the table", reasoning: read.decision.reasoning, tellsUsed: read.decision.tellsUsed, at: read.at }
           : undefined,
       };
     });
@@ -158,6 +168,26 @@ export function useLiveRail(code: string): RailViewModel {
   const table = useTable(code, null, null);
   const { state, status, tells, reads, lastActions, talk, actions, history } = table;
   const [now, setNow] = useState(() => Date.now());
+  const [odds, setOdds] = useState<RailOdds | null>(null);
+
+  const oddsKey = state?.hand
+    ? [state.hand.handNumber, state.hand.street, state.hand.board.join(","), ...state.hand.seats.map((seat) => seat ? `${seat.playerId}:${seat.holeCards.join(",")}:${seat.folded}` : "-")].join("|")
+    : "";
+
+  useEffect(() => {
+    if (!oddsKey) return;
+    const controller = new AbortController();
+    fetch(`/api/table/${encodeURIComponent(code)}/odds`, { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Odds request failed (${response.status})`);
+        return response.json() as Promise<RailOdds>;
+      })
+      .then((next) => setOdds({ ...next, requestKey: oddsKey }))
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) console.warn("Rail odds unavailable", error);
+      });
+    return () => controller.abort();
+  }, [code, oddsKey]);
 
   // Tick once a second while a turn clock is running (so the countdown moves) or a speech bubble is still fresh
   // (so it can expire); the bubble tick stops itself once the line is old.
@@ -174,7 +204,8 @@ export function useLiveRail(code: string): RailViewModel {
 
   const connection: RailViewModel["connection"] = status === "live" ? "live" : status === "ended" ? "ended" : status === "error" ? (state ? "disconnected" : "not-found") : "connecting";
 
-  const snapshot = useMemo(() => (state ? toSnapshot(state, tells, reads, lastActions, talk, now) : null), [state, tells, reads, lastActions, talk, now]);
+  const currentOdds = odds?.requestKey === oddsKey ? odds : null;
+  const snapshot = useMemo(() => (state ? toSnapshot(state, tells, reads, lastActions, talk, currentOdds, now) : null), [state, tells, reads, lastActions, talk, currentOdds, now]);
   const railHistory = useMemo(() => buildHistory(state, actions, talk, history), [state, actions, talk, history]);
 
   return { connection, table: snapshot, history: railHistory };

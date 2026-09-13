@@ -10,14 +10,17 @@ function Meter({ value, color }: { value: number; color: string }) {
 }
 
 function TrendIcon({ trend }: { trend: "rising" | "falling" | "stable" }) {
-  if (trend === "rising") return <TrendingUp size={13} className="text-danger" />;
-  if (trend === "falling") return <TrendingDown size={13} className="text-ok" />;
+  if (trend === "rising") return <TrendingUp size={13} className="text-ok" />;
+  if (trend === "falling") return <TrendingDown size={13} className="text-danger" />;
   return <Minus size={13} className="text-white/45" />;
 }
 
 export function HumanTellCard({ player, compact = false }: { player: RailPlayerView; compact?: boolean }) {
   if (!player.tell) return null;
   const tell = player.tell;
+  const composure = tell.arousal === undefined ? undefined : Math.max(0, Math.min(100, 100 - tell.arousal));
+  const composureTrend = tell.trend === "rising" ? "falling" : tell.trend === "falling" ? "rising" : tell.trend;
+  const composureColor = composure === undefined ? "bg-white/20" : composure >= 67 ? "bg-ok" : composure >= 34 ? "bg-gold" : "bg-danger";
   return (
     <article className={`rounded-xl border border-white/10 bg-white/[0.035] ${compact ? "p-2.5" : "p-3.5"}`}>
       <div className={`${compact ? "mb-2" : "mb-3"} flex flex-wrap items-center justify-between gap-x-3 gap-y-1`}>
@@ -25,9 +28,9 @@ export function HumanTellCard({ player, compact = false }: { player: RailPlayerV
           <p className={`${compact ? "text-sm" : ""} font-semibold text-white`}>{player.name}</p>
           <div className="mt-0.5 flex items-center gap-1 text-xs text-white/45"><Eye size={12} /> {tell.emotion}</div>
         </div>
-        {tell.read && tell.trend ? (
+        {tell.read && composureTrend ? (
           <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/5 px-2 py-1 text-xs text-white/55">
-            <TrendIcon trend={tell.trend} /> {tell.trend}
+            <TrendIcon trend={composureTrend} /> {composureTrend}
           </div>
         ) : (
           <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${tell.faceLocked ? "bg-ok/15 text-ok" : "bg-danger/15 text-danger"}`}>
@@ -38,8 +41,8 @@ export function HumanTellCard({ player, compact = false }: { player: RailPlayerV
       {tell.read ? (
         <div className={compact ? "space-y-2" : "space-y-2.5"}>
           <div>
-            <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Arousal</span><span className="font-mono text-white">{tell.arousal ?? "—"}</span></div>
-            <Meter value={tell.arousal ?? 0} color="bg-gradient-to-r from-ok via-gold to-danger" />
+            <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Composure</span><span className="font-mono text-white">{composure ?? "—"}</span></div>
+            <Meter value={composure ?? 0} color={composureColor} />
           </div>
           <div>
             <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Bluff signal</span><span className="font-mono text-gold">{tell.bluffLikelihood ?? "—"}%</span></div>
@@ -48,6 +51,10 @@ export function HumanTellCard({ player, compact = false }: { player: RailPlayerV
         </div>
       ) : (
         <div className={compact ? "space-y-2" : "space-y-2.5"}>
+          <div>
+            <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Composure</span><span className="font-mono text-white/35">—</span></div>
+            <Meter value={0} color="bg-white/20" />
+          </div>
           <div className="flex justify-between text-xs"><span className="text-white/50">Blinks / min</span><span className="font-mono text-white">{tell.blinkRate ?? "—"}</span></div>
           <div>
             <div className="mb-1 flex justify-between text-xs"><span className="text-white/50">Tension</span><span className="font-mono text-white">{tell.tension ?? "—"}</span></div>
@@ -65,7 +72,7 @@ export function HumanTellCard({ player, compact = false }: { player: RailPlayerV
           <p className="mt-2 text-[11px] text-white/30">Signal confidence {tell.confidence ?? 0}%</p>
         </>
       ) : (
-        <p className="mt-2 text-[11px] text-white/30">Reading… the first read lands on their next bet.</p>
+        <p className="mt-2 text-[11px] text-white/30">Composure waiting for their first decision.</p>
       )}
     </article>
   );

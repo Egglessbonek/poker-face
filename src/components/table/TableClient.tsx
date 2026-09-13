@@ -79,6 +79,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   /** The prompt (hand + action count) an action was already sent for; a double-click must not send a second one. */
   const [sentFor, setSentFor] = useState<string | null>(null);
   const vectorHistory = useRef<TellVector[]>([]);
+  /** Rolling live reads after the first decision; action-time history remains a separate trend baseline. */
+  const liveVectorHistory = useRef<TellVector[]>([]);
   const promptedAt = useRef(0);
   const wasMyTurn = useRef(false);
   const previousReveal = useRef("");
@@ -88,6 +90,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const baseline = tells.baseline;
   const frame = tells.frame;
   const markReveal = tells.markReveal;
+  const snapshotTells = tells.snapshot;
 
   useEffect(() => {
     if (baseline) sendTells({ baseline });
@@ -132,8 +135,24 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     const now = Date.now();
     if (now - lastTellsSent.current < 2000) return;
     lastTellsSent.current = now;
-    sendTells({ frame, vector: lastVector && lastVector.handNumber === hand?.handNumber ? lastVector.vector : null });
-  }, [frame, hand?.handNumber, lastVector, sendTells, state?.phase]);
+    if (!baseline || !hand || !lastVector || lastVector.handNumber !== hand.handNumber) {
+      liveVectorHistory.current = [];
+      sendTells({ frame, vector: null });
+      return;
+    }
+
+    const liveSnapshot = snapshotTells(now - 4000, {
+      handNumber: hand.handNumber,
+      street: hand.street,
+      // This rolling feed keeps the rail current and gives AIs the latest webcam read on their next turn.
+      // Keep decision latency neutral here because no new player decision occurred.
+      decisionLatencyMs: baseline.decisionLatencyMs,
+    });
+    const history = liveVectorHistory.current.length >= 2 ? liveVectorHistory.current : [lastVector.vector, lastVector.vector];
+    const liveVector = fuseTells(liveSnapshot, baseline, history);
+    liveVectorHistory.current = [...liveVectorHistory.current.slice(-19), liveVector];
+    sendTells({ frame, vector: liveVector });
+  }, [baseline, frame, hand, lastVector, sendTells, snapshotTells, state?.phase]);
 
   const onAct = useCallback((type: ActionType, amount?: number) => {
     if (!hand) return;
@@ -147,6 +166,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
       vectorHistory.current = [...vectorHistory.current.slice(-20), vector];
       tells.noteDecision(snapshot, latency);
       setLastVector({ vector, handNumber: hand.handNumber });
+      liveVectorHistory.current = [vector, vector];
       // The second evidence line: what the face does in the seconds after a bet or raise (Elwood's post-bet tells).
       if (type === "bet" || type === "raise" || type === "allin") {
         const actedAt = Date.now();
@@ -268,7 +288,7 @@ function OpponentTells({ player, tells }: { player: Player; tells: PlayerTells }
   return (
     <section className="rounded-2xl border border-felt-edge p-3 text-xs">
       <div className="mb-1 flex items-center justify-between"><span className="font-semibold">{player.name}</span><span className="font-mono text-muted">{frame ? frame.facePresent ? dominantEmotion(frame.emotion) : "no face" : "—"}</span></div>
-      {vector ? <><BluffMeter value={vector.bluffLikelihood} /><p className="text-muted">Arousal {vector.arousal} · {vector.trend}</p>{vector.evidence.slice(0, 2).map((evidence, index) => <p key={index} className={evidence.direction === "bluff" ? "text-danger" : evidence.direction === "strength" ? "text-ok" : "text-muted"}>• {evidence.text}</p>)}</> : <p className="text-muted">{frame ? `Blink ${frame.blinkRate.toFixed(0)}/min · tension ${Math.round(frame.tension * 100)}%` : "No read yet"}</p>}
+      {vector ? <><BluffMeter value={vector.bluffLikelihood} /><p className="text-muted">Composure {100 - vector.arousal} · {vector.trend === "rising" ? "falling" : vector.trend === "falling" ? "rising" : vector.trend}</p>{vector.evidence.slice(0, 2).map((evidence, index) => <p key={index} className={evidence.direction === "bluff" ? "text-danger" : evidence.direction === "strength" ? "text-ok" : "text-muted"}>• {evidence.text}</p>)}</> : <p className="text-muted">{frame ? `Blink ${frame.blinkRate.toFixed(0)}/min · tension ${Math.round(frame.tension * 100)}%` : "No read yet"}</p>}
     </section>
   );
 }
