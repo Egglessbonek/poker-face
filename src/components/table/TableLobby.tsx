@@ -32,9 +32,10 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
   const aiPlayers = state.players.filter((player) => player.kind === "ai");
   const humanPlayers = state.players.filter((player) => player.kind === "human");
   const playersBySeat = new Map(state.players.map((player) => [player.seat, player]));
-  const unfinishedCamera = humanPlayers.filter((player) => !["ready", "skipped"].includes(cameraStatuses[player.id] ?? "not_started"));
+  const unfinishedCamera = humanPlayers.filter((player) => cameraStatuses[player.id] !== "ready");
   const unreadyPlayers = humanPlayers.filter((player) => !readyPlayers[player.id]);
   const ownReady = !!readyPlayers[playerId];
+  const ownCameraReady = cameraStatuses[playerId] === "ready";
   const [rosterBusy, setRosterBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -160,6 +161,19 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
           </section>
 
           <TableSettingsEditor config={state.config} disabled={!isHost} onUpdate={updateConfig} />
+<<<<<<< HEAD
+=======
+
+          <footer className="flex flex-col gap-4 rounded-3xl border border-felt-edge bg-background/90 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
+              <button type="button" aria-pressed={ownReady} disabled={!ownCameraReady} title={ownCameraReady ? undefined : "Complete camera setup first"} onClick={() => void onReadyChange(!ownReady)} className={`flex items-center justify-center gap-2 rounded-full border px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${ownReady ? "border-ok bg-ok/10 text-ok" : "border-felt-edge hover:border-gold"}`}><CheckCircle2 size={15} /> {ownReady ? "Ready" : "I’m ready"}</button>
+            </div>
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+              <button type="button" onClick={onLeave} className="flex items-center justify-center gap-2 px-4 py-2 text-xs text-muted hover:text-foreground"><LogOut size={13} /> Leave table</button>
+              {isHost ? <div className="text-center"><p className="mb-1 text-[10px] text-muted">{humanPlayers.length - unreadyPlayers.length}/{humanPlayers.length} humans ready</p><button type="button" onClick={requestStart} disabled={state.players.length < 2 || rosterBusy} className="rounded-full bg-gold px-8 py-3 font-semibold text-background disabled:opacity-40">Deal the first hand</button></div> : <p className="rounded-2xl border border-felt-edge px-5 py-3 text-center text-xs text-muted">The host will deal when everyone is ready.</p>}
+            </div>
+          </footer>
+>>>>>>> refs/remotes/origin/main
           </div>
         <aside aria-label="Camera and measurements" className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto">{cameraPanel}</aside>
         </div>
@@ -169,14 +183,13 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-labelledby="ready-warning-title">
           <div className="w-full max-w-md rounded-3xl border border-felt-edge bg-background p-6 shadow-2xl">
             <CameraOff size={24} className="text-gold" />
-            <h2 id="ready-warning-title" className="mt-4 text-2xl">Some players are still getting ready</h2>
+            <h2 id="ready-warning-title" className="mt-4 text-2xl">Everyone must be ready</h2>
             <div className="mt-3 space-y-3 text-sm leading-relaxed text-muted">
               {unreadyPlayers.length > 0 && <p><span className="font-medium text-foreground">Not marked ready:</span> {unreadyPlayers.map((player) => player.name).join(", ")}.</p>}
-              {unfinishedCamera.length > 0 && <p><span className="font-medium text-foreground">Camera setup unfinished:</span> {unfinishedCamera.map((player) => player.name).join(", ")}. They can still play, but their tells may be unavailable.</p>}
+              {unfinishedCamera.length > 0 && <p><span className="font-medium text-foreground">Camera setup required:</span> {unfinishedCamera.map((player) => player.name).join(", ")} must finish calibration before the first hand.</p>}
             </div>
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <div className="mt-6 flex justify-end">
               <button type="button" autoFocus onClick={() => setShowStartWarning(false)} className="rounded-full border border-felt-edge px-5 py-2.5 text-sm">Go back</button>
-              <button type="button" onClick={() => { setShowStartWarning(false); onStart(); }} className="rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-background">Start anyway</button>
             </div>
           </div>
         </div>
@@ -201,7 +214,6 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
 const cameraDetails: Record<LobbyCameraStatus, { label: string; className: string; icon: React.ReactNode }> = {
   not_started: { label: "Camera not set up", className: "text-muted", icon: <CircleDashed size={13} /> },
   setting_up: { label: "Setting up camera", className: "text-gold", icon: <LoaderCircle size={13} className="animate-spin" /> },
-  skipped: { label: "Camera skipped", className: "text-muted", icon: <CameraOff size={13} /> },
   ready: { label: "Camera ready", className: "text-ok", icon: <CheckCircle2 size={13} /> },
 };
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Copy, Eye, X } from "lucide-react";
+import { Copy, Eye } from "lucide-react";
 import { usePresage } from "@/hooks/usePresage";
 import ActionBar from "@/components/ActionBar";
 import BluffMeter from "@/components/BluffMeter";
@@ -76,13 +76,9 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const voice = useTalk(table.talk, table.state?.config.voice ?? true);
   /** The fused read from this player's latest decision, tagged with its hand so it is never re-sent into the next one. */
   const [lastVector, setLastVector] = useState<{ vector: TellVector; handNumber: number } | null>(null);
-  /** Once the camera has run, a later "idle" means it was lost and should be restarted; a skipped camera never was. */
-  const cameraEverOn = useRef(false);
-  const cameraSuppressed = useRef(false);
   /** The hand on screen, readable from a timer callback. */
   const handNumberRef = useRef(0);
   const afterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [cameraDone, setCameraDone] = useState(false);
   const [cameraDialogOpen, setCameraDialogOpen] = useState(true);
   /** The callout banner that has finished animating; it unmounts so no blank strip is left above the felt. */
   const [calloutDone, setCalloutDone] = useState<string | null>(null);
@@ -107,7 +103,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const frame = tells.frame;
   const markReveal = tells.markReveal;
   const snapshotTells = tells.snapshot;
-  const ownCameraStatus: LobbyCameraStatus = tells.baseline && tells.status === "running" ? "ready" : cameraDialogOpen || tells.status === "starting" || tells.status === "running" ? "setting_up" : cameraDone ? "skipped" : "not_started";
+  const ownCameraStatus: LobbyCameraStatus = tells.baseline && tells.status === "running" ? "ready" : cameraDialogOpen || tells.status === "starting" || tells.status === "running" ? "setting_up" : "not_started";
   const lobbyStatus = useLobbyCameraStatus(code, identity.token, identity.playerId, ownCameraStatus, state?.phase === "lobby");
 
   useEffect(() => {
@@ -118,10 +114,6 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   useEffect(() => {
     void getFaceLandmarker().catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (tells.status === "running") cameraEverOn.current = true;
-  }, [tells.status]);
 
   useEffect(() => {
     handNumberRef.current = hand?.handNumber ?? 0;
@@ -174,7 +166,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   }, [baseline, frame, hand, lastVector, sendTells, snapshotTells, state?.phase]);
 
   const onAct = useCallback((type: ActionType, amount?: number) => {
-    if (!hand) return;
+    if (!hand || tells.status !== "running" || !tells.baselineRef.current) return;
     const promptKey = `${hand.handNumber}:${hand.actions.length}`;
     setSentFor(promptKey);
     const latency = Date.now() - promptedAt.current;
@@ -207,28 +199,14 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   }, [act, hand, sendTells, tells]);
 
   const finishCamera = useCallback(() => {
-    setCameraDone(true);
     setCameraDialogOpen(false);
   }, []);
-  const skipCamera = useCallback(() => {
-    tells.stop();
-    // A deliberate skip is not a lost camera: the first-hand safety net must not bring it back.
-    cameraEverOn.current = false;
-    cameraSuppressed.current = true;
-    setCameraDone(true);
-    setCameraDialogOpen(false);
-  }, [tells]);
   const openCamera = useCallback(() => {
-    cameraSuppressed.current = false;
-    if (!tells.baseline) setCameraDone(false);
     setCameraDialogOpen(true);
-  }, [tells.baseline]);
-  // Safety net: if the camera somehow stopped between the lobby and the first hand, bring it back so tells keep flowing.
-  const startCamera = tells.start;
+  }, []);
   const hasBaseline = !!tells.baseline;
-  useEffect(() => {
-    if (!cameraSuppressed.current && state?.phase === "playing" && tells.status === "idle" && (hasBaseline || cameraEverOn.current)) void startCamera();
-  }, [state?.phase, hasBaseline, tells.status, startCamera]);
+  // Losing a required camera brings setup back in front of the table until capture resumes.
+  const cameraRequired = hasBaseline && tells.status !== "running";
   const leave = useCallback(() => {
     if (leaving) return;
     setLeaving(true);
@@ -247,10 +225,15 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     router.push(`/table/${next.code}`);
   }, [identity.name, requestRematch, router]);
 
+<<<<<<< HEAD
   const camera = <CameraSetup tells={tells} onReady={finishCamera} onSkip={skipCamera} onClose={() => setCameraDialogOpen(false)} />;
+=======
+  const camera = <CameraSetup compact={state?.phase === "playing"} tells={tells} onReady={finishCamera} onClose={() => setCameraDialogOpen(false)} />;
+>>>>>>> refs/remotes/origin/main
 
-  const cameraPanel = <PlayerCameraPanel tells={tells} presage={presage} setupOpen={cameraDialogOpen} onSetup={openCamera} onStop={skipCamera} />;
-  const cameraDialog = cameraDialogOpen && <CameraDialog ready={ownCameraStatus === "ready"} onDismiss={ownCameraStatus === "ready" ? () => setCameraDialogOpen(false) : skipCamera}>{camera}</CameraDialog>;
+  const cameraSetupOpen = cameraDialogOpen || cameraRequired;
+  const cameraPanel = <PlayerCameraPanel tells={tells} presage={presage} setupOpen={cameraSetupOpen} onSetup={openCamera} />;
+  const cameraDialog = cameraSetupOpen && <CameraDialog>{camera}</CameraDialog>;
 
   if (!state) {
     return (
@@ -293,7 +276,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
               {me && hand?.seats[me.seat] ? <BestHand hole={hand.seats[me.seat]!.holeCards} board={hand.board} folded={hand.seats[me.seat]!.folded} /> : <span />}
               <button type="button" aria-controls="table-info" aria-expanded={infoOpen} onClick={() => setInfoOpen((open) => !open)} className={`${layout.infoToggle} shrink-0 rounded-full border border-felt-edge px-3 py-1 text-xs text-muted`}>Table info</button>
             </div>
-          <ActionBar legal={table.legal} bounds={table.bounds} pot={hand?.pot ?? 0} disabled={!myTurn || !!me?.sittingOut || !hand || hand.over || sentFor === `${hand.handNumber}:${hand.actions.length}`} onAct={onAct} />
+          <ActionBar legal={table.legal} bounds={table.bounds} pot={hand?.pot ?? 0} disabled={tells.status !== "running" || !tells.baseline || !myTurn || !!me?.sittingOut || !hand || hand.over || sentFor === `${hand.handNumber}:${hand.actions.length}`} onAct={onAct} />
           </div>
         </section>
 
@@ -325,18 +308,25 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   );
 }
 
+<<<<<<< HEAD
 function CameraSetup({ tells, onReady, onSkip, onClose }: { tells: ReturnType<typeof useTells>; onReady: () => void; onSkip: () => void; onClose: () => void }) {
   if (tells.baseline && tells.status === "running") {
     return <div className="p-6 text-center"><h2 className="mt-2 text-2xl font-semibold">Your baseline is captured</h2><WebcamFeed videoRef={tells.videoRef} className="mx-auto mt-5 aspect-[4/3] w-full max-w-sm" /><p className="mx-auto mt-3 max-w-md text-xs text-muted">{tells.calibrationReport ?? "Your camera is ready for the first hand."}</p><button type="button" onClick={onClose} className="mt-5 rounded-full bg-gold px-7 py-2.5 text-sm font-medium text-background">Done</button></div>;
   }
   return <Calibration videoRef={tells.videoRef} status={tells.status} progress={tells.calibrating?.progress ?? null} facePresent={!!tells.frame?.facePresent} onStartCamera={tells.start} onCalibrate={() => tells.calibrate().then((baseline) => baseline && onReady())} onSkip={onSkip} message={tells.calibrationReport} />;
+=======
+function CameraSetup({ tells, onReady, onClose, compact = false }: { compact?: boolean; tells: ReturnType<typeof useTells>; onReady: () => void; onClose: () => void }) {
+  if (tells.baseline && tells.status === "running") {
+    return <div className="p-6 text-center"><h2 className="mt-2 text-2xl font-semibold">Your baseline is captured</h2><WebcamFeed videoRef={tells.videoRef} className="mx-auto mt-5 aspect-[4/3] w-full max-w-sm" /><p className="mx-auto mt-3 max-w-md text-xs text-muted">{tells.calibrationReport ?? "Your camera is ready for the first hand."}</p><button type="button" onClick={onClose} className="mt-5 rounded-full bg-gold px-7 py-2.5 text-sm font-medium text-background">Done</button></div>;
+  }
+  return <Calibration compact={compact} videoRef={tells.videoRef} status={tells.status} progress={tells.calibrating?.progress ?? null} facePresent={!!tells.frame?.facePresent} onStartCamera={tells.start} onCalibrate={() => tells.calibrate().then((baseline) => baseline && onReady())} message={tells.calibrationReport} />;
+>>>>>>> refs/remotes/origin/main
 }
 
-function CameraDialog({ children, ready, onDismiss }: { children: React.ReactNode; ready: boolean; onDismiss: () => void }) {
+function CameraDialog({ children }: { children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4" role="dialog" aria-modal="true" aria-label="Camera setup">
-      <div className="relative w-full max-w-xl rounded-3xl bg-background shadow-2xl">
-        <button type="button" onClick={onDismiss} aria-label={ready ? "Close camera setup" : "Skip camera setup"} className="absolute right-4 top-4 z-10 rounded-full border border-felt-edge bg-background/80 p-2 text-muted hover:text-foreground"><X size={16} /></button>
+      <div className="w-full max-w-xl rounded-3xl bg-background shadow-2xl">
         {children}
       </div>
     </div>
@@ -362,7 +352,7 @@ function TableHeader({ code, playerName, status, voiceOn, voice, isHost, onEnd, 
         {isHost && <EndGameButton onEnd={onEnd} />}
         <button type="button" onClick={onLeave} disabled={leaving} className="rounded-full border border-felt-edge px-4 py-2 text-xs text-muted hover:border-danger hover:text-danger disabled:opacity-40">{leaving ? "Leaving…" : "Leave table"}</button>
         <button type="button" aria-label="Copy table code" onClick={() => navigator.clipboard?.writeText(code)} className="rounded-full border border-felt-edge p-2.5 text-muted hover:border-gold hover:text-foreground"><Copy size={15} /></button>
-        {voiceOn && <VoiceControls voice={voice} />}
+        <VoiceControls voice={voice} tableVoiceEnabled={voiceOn} />
       </div>
     </header>
   );

@@ -36,7 +36,7 @@ function stop(session: Session, message = "Camera measurement stopped") {
 if (!globalSessions.__presageCleanup) {
   globalSessions.__presageCleanup = setInterval(() => {
     for (const [key, session] of sessions) {
-      if (session.worker && Date.now() - session.lastSeen > IDLE_MS) stop(session, "Camera stream ended. Restart the camera to measure again.");
+      if (session.worker && Date.now() - session.lastSeen > IDLE_MS) stop(session, "Camera stream ended. Check the connection and try again.");
       if (!session.worker && Date.now() - session.lastSeen > RETAIN_MS) sessions.delete(key);
     }
   }, 5000);
@@ -95,7 +95,7 @@ export function startVitals(code: string, playerId: string): string {
     }
   });
   worker.stderr.on("data", () => {});
-  worker.stdin.on("error", () => { session.status = "error"; stop(session, "Camera processing disconnected. Restart the camera to try again."); });
+  worker.stdin.on("error", () => { session.status = "error"; stop(session, "Camera processing disconnected. Check the connection and try again."); });
   worker.on("error", () => { workers.delete(worker); session.status = "error"; session.retryable = false; stop(session, "Presage runtime could not launch on this server."); });
   worker.on("exit", () => {
     workers.delete(worker);

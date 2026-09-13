@@ -12,15 +12,22 @@ interface Props {
   facePresent: boolean;
   onStartCamera: () => void;
   onCalibrate: () => void;
-  onSkip: () => void;
   /** Why the last attempt did not produce a baseline. */
   message?: string | null;
 }
 
+<<<<<<< HEAD
 export default function Calibration({ videoRef, status, progress, facePresent, onStartCamera, onCalibrate, onSkip, message }: Props) {
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-3xl border border-felt-edge bg-background p-6 text-center">
       <h2 className="text-2xl">Camera setup</h2>
+=======
+export default function Calibration({ videoRef, status, progress, facePresent, onStartCamera, onCalibrate, message, compact = false }: Props) {
+  return (
+    <div className={compact ? "flex w-full flex-col items-center gap-3 text-center" : "mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-3xl border border-felt-edge bg-background p-6 text-center"}>
+      {!compact && <h2 className="text-2xl">Camera setup</h2>}
+      <p className="text-xs text-muted">A calibrated camera is required to play. Facial tells run in your browser. Presage processes camera frames on our server without saving them; your pulse and breathing stay private.</p>
+>>>>>>> refs/remotes/origin/main
       <div className="relative aspect-[4/3] w-full max-w-80 overflow-hidden rounded-xl bg-felt/30">
         <WebcamFeed videoRef={videoRef} className="h-full w-full rounded-none" />
         {status !== "running" && (
@@ -51,7 +58,6 @@ export default function Calibration({ videoRef, status, progress, facePresent, o
       )}
       {progress !== null && <p className="text-sm text-muted">Hold still, breathe normally… {Math.round(progress * 10)}s</p>}
       {message && progress === null && <p className="text-sm text-danger">{message}</p>}
-      <button onClick={onSkip} className="text-xs text-muted underline">Skip (no tells)</button>
     </div>
   );
 }

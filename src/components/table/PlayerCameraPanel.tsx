@@ -11,11 +11,10 @@ interface Props {
   presage: ReturnType<typeof usePresage>;
   setupOpen: boolean;
   onSetup: () => void;
-  onStop: () => void;
 }
 
 /** One persistent preview and measurement panel, shared by lobby and gameplay. */
-export default function PlayerCameraPanel({ tells, presage, setupOpen, onSetup, onStop }: Props) {
+export default function PlayerCameraPanel({ tells, presage, setupOpen, onSetup }: Props) {
   const running = tells.status === "running";
   return <>
     <section aria-label="Your camera" className="rounded-2xl border border-felt-edge bg-background/70 p-3">
@@ -30,7 +29,6 @@ export default function PlayerCameraPanel({ tells, presage, setupOpen, onSetup, 
         {running && !setupOpen && <span className={`absolute bottom-2 left-2 rounded-full bg-background/85 px-2.5 py-1 text-xs ${tells.frame?.facePresent ? "text-ok" : "text-gold"}`}>{tells.frame?.facePresent ? "Face in view" : "Looking for your face"}</span>}
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">Keep your face and upper chest in view, with light in front of you.</p>
-      {running && <button type="button" onClick={onStop} className="mt-3 text-xs text-muted underline underline-offset-4">Turn off camera and measurements</button>}
     </section>
     <PresagePanel presage={presage} cameraOn={running} />
     <section aria-label="Your available signals" className="rounded-2xl border border-felt-edge bg-background/70 p-3">

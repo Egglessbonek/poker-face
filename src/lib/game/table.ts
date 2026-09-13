@@ -24,6 +24,7 @@ import { actionKey, showdownNotes, type ActionTells } from "./notes";
 import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
 import { generateCode } from "@/lib/rail/code";
 import { aiGuestList } from "@/lib/game/rematch";
+import { getLobbyCameraStatuses } from "@/lib/game/lobbyCamera";
 import {
   configurePredictionTable,
   finishPredictionMatch,
@@ -228,6 +229,10 @@ export function startTable(code: string, token: string): void {
   requireHost(t, token);
   if (t.phase !== "lobby") throw new TableError("Table already started");
   if (t.players.length < 2) throw new TableError("Need at least two players");
+  const humans = t.players.filter((player) => player.kind === "human");
+  const cameraStatuses = getLobbyCameraStatuses(code, humans.map((player) => player.id));
+  const missingCamera = humans.filter((player) => cameraStatuses[player.id] !== "ready");
+  if (missingCamera.length) throw new TableError(`Camera setup is required for ${missingCamera.map((player) => player.name).join(", ")}`, 409);
   t.phase = "playing";
   startPredictionMatch(code, t.players);
   appendLog(code, "table_start", { config: t.config, players: t.players });

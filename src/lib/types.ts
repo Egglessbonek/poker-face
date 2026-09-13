@@ -219,7 +219,7 @@ export interface Player {
 export type TablePhase = "lobby" | "playing" | "finished";
 
 /** Shared pregame readiness state; contains no camera frames or measurements. */
-export type LobbyCameraStatus = "not_started" | "setting_up" | "skipped" | "ready";
+export type LobbyCameraStatus = "not_started" | "setting_up" | "ready";
 
 export interface TableState {
   code: string;

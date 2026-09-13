@@ -42,7 +42,8 @@ try {
   while (Date.now() - t0 < 45000 && !(await calib.isEnabled())) await page.waitForTimeout(500);
   log("face locked after", Math.round((Date.now() - t0) / 1000), "s; enabled:", await calib.isEnabled());
   await shot(page, "02-lobby-camera");
-  if (await calib.isEnabled()) { await calib.click(); await page.waitForTimeout(11500); log("calibrated"); } else { log("face never locked; skipping baseline"); await page.getByRole("button", { name: /skip/i }).click().catch(() => {}); }
+  if (!(await calib.isEnabled())) throw new Error("Face never locked; camera calibration is required");
+  await calib.click(); await page.waitForTimeout(11500); log("calibrated");
   await shot(page, "03-lobby-calibrated");
   // Rules and model seating now live beside the waiting room.
   await page.getByLabel(/number of hands/i).fill("3");

@@ -20,7 +20,7 @@ A No-Limit Hold'em table for friends and AI players. Create a table, share the 4
 ## How a table works
 
 1. **Host** opens `/table/new`: chairs (2-9), blinds, stacks, hands, turn timer, **the guest list** (any OpenRouter models, duplicates allowed), and **who sees the tells** (AIs and rail by default; humans never see their own during play).
-2. **Players** open `/table/<code>`, type a name, and optionally calibrate a 10s face baseline in the lobby.
+2. **Players** open `/table/<code>`, type a name, and calibrate a required 10s face baseline in the lobby.
 3. The host deals. AI turns run on the server; humans get a turn timer that auto-checks/folds.
 4. **Spectators** open `/rail/<code>`: every card, every human's live tell HUD, the AIs' stated reads and table talk. If the host enabled predictions, the rail can watch markets wallet-free or stake devnet SOL on the next action, hand winner, finish method, and match winner.
 5. When the match ends, `/reveal/<code>` grades each human: poker-face score, bluffs caught, biggest leaks, and the moments where a tell changed an AI's action.
@@ -106,7 +106,7 @@ Run `npm run check:llm` to verify the key using Next's development environment p
 
 ### Presage camera measurements
 
-Set `SMARTSPECTRA_API_KEY` and restart the server. Turning on the existing camera starts MediaPipe facial analysis and a Presage worker automatically, using the same MediaStream. Camera setup explains that JPEG frames are transmitted to the game server for native processing. Frames are transient and are not saved. Skipping/turning off the camera, leaving, ending the match or losing the upload stream stops the worker. A missing Presage key or runtime failure does not block poker.
+Set `SMARTSPECTRA_API_KEY` and restart the server. Turning on the required camera starts MediaPipe facial analysis and a Presage worker automatically, using the same MediaStream. Camera setup explains that JPEG frames are transmitted to the game server for native processing. Frames are transient and are not saved. Leaving, ending the match or losing the upload stream stops the worker. A missing Presage key or runtime failure does not block poker.
 
 The **Under pressure** panel shows private pulse/breathing estimates directly beneath the camera. It has no timeline or manual retry action. Measurements are available only through the authenticated seat's `/api/table/[code]/vitals` route; they are not added to the public log, rail, AI prompts or bluff-score formula. This deliberately leaves the teammate-owned reveal implementation alone.
 
