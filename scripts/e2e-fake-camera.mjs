@@ -45,8 +45,8 @@ try {
   if (await calib.isEnabled()) { await calib.click(); await page.waitForTimeout(11500); log("calibrated"); } else { log("face never locked; skipping baseline"); await page.getByRole("button", { name: /skip/i }).click().catch(() => {}); }
   await shot(page, "03-lobby-calibrated");
   // Rules and model seating now live beside the waiting room.
-  await page.getByLabel(/^hands/i).fill("3");
-  await page.getByLabel(/^hands/i).blur();
+  await page.getByLabel(/number of hands/i).fill("3");
+  await page.getByLabel(/number of hands/i).blur();
   await page.getByLabel(/turn timer/i).fill("0");
   await page.getByLabel(/turn timer/i).blur();
   await page.getByRole("button", { name: /claude sonnet/i }).click();
