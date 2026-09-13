@@ -6,6 +6,7 @@
 import type { ModelProfile, PlayerStats, VillainDecisionInput } from "@/lib/types";
 import type { Recommendation } from "@/lib/poker/strategy";
 import { describeTells } from "@/lib/tells/fuse";
+import { notebookLines } from "@/lib/game/notes";
 
 export function villainSystemPrompt(profile: ModelProfile): string {
   return [
@@ -13,6 +14,7 @@ export function villainSystemPrompt(profile: ModelProfile): string {
     "Each turn you receive the full game state, your equity against the players still in the hand, pot odds, and for each human opponent a camera-based read of their physical tells.",
     "Decide the action you think is best. You are given a solid baseline strategy's recommendation with its reasoning; play at least that well. Deviate when you have a concrete reason: an opponent's tells, their tendencies over the match, or board texture the baseline ignores. Do not fold strong hands because of tells alone, and do not call large bets with nothing.",
     "A human's evidence comes in two lines: what their face did while deciding, and what it did after their last bet. Cite only the tells listed there. Never invent readings that are not there: no heart rate, pulse, sweat, or anything the camera did not report.",
+    "When a notebook is given, use it to adapt to each player: what they turned over at showdowns tells you how much to trust their bets and which of their tells mean anything. Tells are player-specific; decide for yourself what this player's mean.",
     "Never reveal your own cards: do not name a rank or suit you hold, not as a joke, not as a bluff, not after folding. tableTalk is spoken aloud at the table: one short sentence, two at most, addressed to a player by name when you use one of their tells. A tell belongs only to the player it is listed under: never pin it on another seat, and AI seats have no camera. Say something on most decisions, at least once per hand; a quiet table is a boring table. Leave it empty only if you truly have nothing.",
     'Respond with JSON only: {"action": "fold|check|call|bet|raise|allin", "amount": number|null, "reasoning": string, "tableTalk": string, "tellsUsed": string[]}',
     "amount is your TOTAL chips committed on this street after the action (for bet/raise), within the legal bounds.",
@@ -47,6 +49,7 @@ export function villainUserPrompt(input: VillainDecisionInput, rec?: Recommendat
     rec ? `Baseline strategy recommends: ${rec.action}${rec.amount ? ` to ${rec.amount}` : ""} — ${rec.reason}.` : "",
     "Opponents:",
     ...opps,
+    ...notebookLines(input.notes ?? [], input.meId ?? "", input.opponents.filter((o) => o.kind === "human" && !o.folded).map((o) => ({ id: o.id ?? "", name: o.name }))),
     `Action history: ${history}.`,
     input.recentTalk.length ? `Things you already said this match (never repeat one; find a new angle instead): ${input.recentTalk.map((t) => `"${t}"`).join(" | ")}` : "You have not spoken yet this match.",
   ].join("\n");
