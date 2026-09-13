@@ -57,7 +57,7 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
   const handLabel = table.handsPerMatch > 0 ? `${table.handNumber}/${table.handsPerMatch}` : `${table.handNumber}`;
 
   return (
-    <main className="min-h-screen flex-1 bg-[radial-gradient(circle_at_top,#14241d_0%,#0b0f0d_38%)] px-3 py-3 sm:px-5 xl:flex xl:h-dvh xl:flex-col xl:overflow-hidden">
+    <main className="min-h-screen flex-1 bg-[radial-gradient(circle_at_top,#14241d_0%,#0b0f0d_38%)] px-3 py-3 sm:px-5 lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden">
       <header className="mx-auto mb-3 flex w-full max-w-[1600px] shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/8 pb-3">
         <div className="flex items-center gap-4">
           <div className="hidden h-9 w-9 items-center justify-center rounded-full bg-gold text-black sm:flex"><Spade size={17} fill="currentColor" /></div>
@@ -93,7 +93,7 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
       {waiting ? (
         <WaitingRoom table={table} />
       ) : (
-        <div className={`mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:items-start xl:overflow-hidden ${finished ? "place-items-center" : "xl:grid-cols-[minmax(0,1fr)_320px]"}`}>
+        <div className={`mx-auto grid w-full max-w-[1600px] gap-3 lg:min-h-0 lg:flex-1 lg:items-start lg:overflow-hidden ${finished ? "place-items-center" : "lg:grid-cols-[minmax(0,1fr)_320px]"}`}>
           <div className="min-w-0">
             {!finished && (
               <div className="mb-2 flex shrink-0 items-center justify-between rounded-xl border border-gold/15 bg-gold/[0.055] px-3.5 py-2">
