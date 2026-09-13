@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { body, handle } from "@/lib/game/http";
-import { getLobbyCameraStatuses, setLobbyCameraStatus } from "@/lib/game/lobbyCamera";
+import { getLobbyCameraStatuses, getLobbyReady, setLobbyCameraStatus, setLobbyReady } from "@/lib/game/lobbyCamera";
 import { getState, resolveViewer, TableError } from "@/lib/game/table";
 import type { LobbyCameraStatus, Viewer } from "@/lib/types";
 
@@ -8,6 +8,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const STATUSES: LobbyCameraStatus[] = ["not_started", "setting_up", "skipped", "ready"];
+
+function lobbyStatus(code: string, playerIds: string[]) {
+  return { statuses: getLobbyCameraStatuses(code, playerIds), ready: getLobbyReady(code, playerIds) };
+}
 
 function playerViewer(code: string, token: string | null): Extract<Viewer, { kind: "player" }> {
   const viewer = resolveViewer(code, token);
@@ -21,19 +25,26 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/table/[code]
   return handle(() => {
     const viewer = playerViewer(code, req.nextUrl.searchParams.get("token"));
     const state = getState(code, viewer);
-    return { statuses: getLobbyCameraStatuses(code, state.players.map((player) => player.id)) };
+    return lobbyStatus(code, state.players.map((player) => player.id));
   });
 }
 
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/table/[code]/camera">) {
   const { code } = await ctx.params;
-  const input = await body<{ token?: string; status?: LobbyCameraStatus }>(req);
+  const input = await body<{ token?: string; status?: LobbyCameraStatus; ready?: boolean }>(req);
   return handle(() => {
     const viewer = playerViewer(code, input.token ?? null);
     const state = getState(code, viewer);
-    if (state.phase !== "lobby") throw new TableError("Camera readiness only changes in the lobby", 409);
-    if (!input.status || !STATUSES.includes(input.status)) throw new TableError("Invalid camera readiness status");
-    setLobbyCameraStatus(code, viewer.playerId, input.status);
-    return { statuses: getLobbyCameraStatuses(code, state.players.map((player) => player.id)) };
+    if (state.phase !== "lobby") throw new TableError("Lobby status only changes before the game starts", 409);
+    if (input.status !== undefined) {
+      if (!STATUSES.includes(input.status)) throw new TableError("Invalid camera readiness status");
+      setLobbyCameraStatus(code, viewer.playerId, input.status);
+    }
+    if (input.ready !== undefined) {
+      if (typeof input.ready !== "boolean") throw new TableError("Invalid ready status");
+      setLobbyReady(code, viewer.playerId, input.ready);
+    }
+    if (input.status === undefined && input.ready === undefined) throw new TableError("No lobby status supplied");
+    return lobbyStatus(code, state.players.map((player) => player.id));
   });
 }

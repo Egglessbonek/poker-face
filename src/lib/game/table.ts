@@ -63,6 +63,8 @@ const FINISHED_CHANNEL_MS = 10 * 60_000;
 
 interface Table {
   code: string;
+  /** Discovery setting only; private rooms remain reachable directly by code. */
+  isPublic: boolean;
   config: TableConfig;
   phase: TableState["phase"];
   hostId: string;
@@ -93,11 +95,11 @@ interface Table {
 const g = globalThis as unknown as { __tables?: Map<string, Table> };
 const tables = (g.__tables ??= new Map<string, Table>());
 
-/** Tables anyone can watch right now: in play first, then lobbies filling up; newest first within each. */
+/** Public tables anyone can discover: in play first, then lobbies filling up; newest first within each. */
 export function listOpenTables(limit = 24): TableListing[] {
   const order: Record<string, number> = { playing: 0, lobby: 1 };
   return [...tables.values()]
-    .filter((t) => t.phase === "playing" || t.phase === "lobby")
+    .filter((t) => t.isPublic !== false && (t.phase === "playing" || t.phase === "lobby"))
     .sort((a, b) => order[a.phase] - order[b.phase] || b.createdAt - a.createdAt)
     .slice(0, limit)
     .map((t) => ({
@@ -119,13 +121,14 @@ export class TableError extends Error {
 
 // ---------- lobby ----------
 
-export async function createTable(configPatch: Partial<TableConfig>, hostName: string): Promise<{ code: string; playerId: string; token: string }> {
+export async function createTable(configPatch: Partial<TableConfig>, hostName: string, isPublic = true): Promise<{ code: string; playerId: string; token: string }> {
   const config = sanitizeConfig({ ...DEFAULT_TABLE, ...configPatch });
   const code = generateCode((c) => tables.has(c));
   const hostId = crypto.randomUUID();
   const token = crypto.randomUUID();
   const t: Table = {
     code,
+    isPublic: isPublic !== false,
     config,
     phase: "lobby",
     hostId,
@@ -202,6 +205,15 @@ export function updateConfig(code: string, token: string, patch: Partial<TableCo
   broadcastState(t);
 }
 
+export function updateVisibility(code: string, token: string, isPublic: boolean): void {
+  const t = must(code);
+  requireHost(t, token);
+  if (t.phase !== "lobby") throw new TableError("Visibility can only change before the game starts");
+  if (typeof isPublic !== "boolean") throw new TableError("Visibility must be public or private");
+  t.isPublic = isPublic;
+  broadcastState(t);
+}
+
 export function startTable(code: string, token: string): void {
   const t = must(code);
   requireHost(t, token);
@@ -268,7 +280,7 @@ export async function rematchTable(code: string, token: string): Promise<{ code:
     return prev;
   }
   const host = playerByToken(t, token);
-  t.rematch = createTable({ ...t.config, aiPlayers: aiGuestList(t.players) }, host.name);
+  t.rematch = createTable({ ...t.config, aiPlayers: aiGuestList(t.players) }, host.name, t.isPublic !== false);
   const next = await t.rematch;
   publish(t.code, { type: "rematch", code: next.code });
   return next;
@@ -361,6 +373,7 @@ function toState(t: Table, viewer: Viewer): TableState {
   const seat = viewer.kind === "player" ? (t.players.find((p) => p.id === viewer.playerId)?.seat ?? -1) : "all";
   return {
     code: t.code,
+    isPublic: t.isPublic !== false,
     config: t.config,
     phase: t.phase,
     hostId: t.hostId,

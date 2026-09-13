@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FEATURED_MODEL_IDS, OPENROUTER_ID, TIERS, tierOf } from "@/lib/llm/models";
+import { FEATURED_MODEL_IDS, modelSpeed, OPENROUTER_ID, TIERS, tierOf } from "@/lib/llm/models";
 
 describe("tiers", () => {
   it("offers a casual and a pro table", () => {
@@ -34,5 +34,11 @@ describe("tiers", () => {
     expect(tierOf("moonshotai/kimi-k2.6")).toBe("pro");
     expect(tierOf("mistralai/mistral-large")).toBeUndefined();
     expect(tierOf("")).toBeUndefined();
+  });
+
+  it("describes configured model tiers as product-speed labels", () => {
+    expect(modelSpeed("google/gemini-3.8-flash")).toBe("Fast");
+    expect(modelSpeed("anthropic/claude-sonnet-5")).toBe("Deliberate");
+    expect(modelSpeed("mistralai/mistral-large")).toBe("Standard");
   });
 });

@@ -8,7 +8,7 @@ import type { TableListing } from "@/lib/types";
 
 const POLL_MS = 5000;
 
-/** The diamonds card: every table in play right now, each one a click from the rail. Polls while the tab is visible. */
+/** The diamonds card: public tables in play or filling up, each one a click from the rail. */
 export default function BrowseTables() {
   const [tables, setTables] = useState<TableListing[] | null>(null);
 
@@ -38,12 +38,12 @@ export default function BrowseTables() {
   return (
     <section aria-label="Browse the tables" className={`${styles.card} ${styles.red}`}>
       <PlayingCardMarks rank="J" suit="♦" />
-      <span className={styles.hint}>Spectate a table in play right now. Pick one and watch from the rail.</span>
+      <span className={styles.hint}>Discover public tables filling up or in play. Pick one and watch from the rail.</span>
       <div className={styles.list}>
         {tables === null ? (
           <p className={styles.empty}>Looking around the room…</p>
         ) : tables.length === 0 ? (
-          <p className={styles.empty}>No tables in play right now. Host one and it shows up here.</p>
+          <p className={styles.empty}>No public tables are open right now. Host one and it shows up here.</p>
         ) : (
           <ul>
             {tables.map((t) => (

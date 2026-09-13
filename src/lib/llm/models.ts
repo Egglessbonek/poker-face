@@ -60,6 +60,14 @@ export function tierOf(modelId: string): TierId | undefined {
   return TIERS.find((tier) => tier.modelIds.includes(modelId))?.id;
 }
 
+/** Expected response pace for lobby comparison. This is a product tier, not measured live latency. */
+export function modelSpeed(modelId: string): "Fast" | "Standard" | "Deliberate" {
+  const tier = tierOf(modelId);
+  if (tier === "casual") return "Fast";
+  if (tier === "pro") return "Deliberate";
+  return "Standard";
+}
+
 const VENDOR_NAMES: Record<string, string> = {
   anthropic: "Anthropic", openai: "OpenAI", google: "Google", deepseek: "DeepSeek", "x-ai": "xAI", "meta-llama": "Meta", mistralai: "Mistral AI", qwen: "Alibaba", moonshotai: "Moonshot", cohere: "Cohere", perplexity: "Perplexity", nvidia: "NVIDIA", microsoft: "Microsoft", amazon: "Amazon", "z-ai": "Z.ai", minimax: "MiniMax", baidu: "Baidu", tencent: "Tencent", bytedance: "ByteDance",
 };
