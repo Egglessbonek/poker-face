@@ -11,13 +11,11 @@ try {
   const page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
   room = await call('/api/table', { name: 'Presage integration check', config: { aiPlayers: [], turnTimerSec: 0 } });
-  await call(`/api/table/${room.code}/join`, { name: 'Other seat' });
   await context.addInitScript(({ code, playerId, token }) => localStorage.setItem(`pf:${code}`, JSON.stringify({ playerId, token, name: 'Presage integration check' })), room);
   let uploads = 0; page.on('response', r => { if (r.url().endsWith('/vitals') && r.request().method() === 'PUT' && r.status() === 200) uploads++; });
   await page.goto(`${base}/table/${room.code}`);
   await page.getByRole('button', { name: 'Turn on camera', exact: true }).click();
   await page.waitForTimeout(6000);
-  await call(`/api/table/${room.code}/start`, { token: room.token });
   await page.waitForTimeout(process.env.CAM ? 40000 : 17000);
   const url = `${base}/api/table/${room.code}/vitals`, headers = { Authorization: `Bearer ${room.token}` };
   const view = await fetch(`${url}?history=1`, { headers }).then(r => r.json());
@@ -25,12 +23,11 @@ try {
   assert.ok(['measuring', 'starting'].includes(view.status), view.message);
   assert.ok(uploads > 30, 'camera should upload automatically');
   assert.equal((await fetch(url)).status, 401, 'rail cannot read private measurements');
-  assert.equal(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight), true, 'game viewport must not scroll');
-  await page.screenshot({ path: '/tmp/presage-playing.png' });
-  await page.getByRole('button', { name: 'Turn off camera and measurements' }).click();
-  await page.waitForTimeout(1000);
+  await page.screenshot({ path: '/tmp/presage-camera-setup.png' });
+  await page.close();
+  await new Promise(resolve => setTimeout(resolve, 1000));
   const stopped = await fetch(url, { headers }).then(r => r.json());
   assert.equal(stopped.status, 'stopped'); assert.equal(stopped.latest, null);
   assert.deepEqual(errors, []);
-  console.log('Automatic capture, authenticated access, fixed viewport and shutdown passed.');
+  console.log('Automatic capture, authenticated access and shutdown passed.');
 } finally { if (room) await call(`/api/table/${room.code}/end`, { token: room.token }).catch(() => {}); await browser.close(); }

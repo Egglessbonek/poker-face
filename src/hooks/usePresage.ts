@@ -112,7 +112,7 @@ export function usePresage(code: string, token: string, preview: RefObject<HTMLV
           if (video && frameCallbacks && performance.now() - lastCapturedAt > 750) {
             cancelCapture(); frameCallbacks = false; lastPresented = -1; frameId = requestAnimationFrame(capture);
           }
-          if (performance.now() - lastCapturedAt > 6000) { fail(new MeasurementError("Camera frames stopped arriving. Turn the camera off and on to reconnect.", true)); return; }
+          if (performance.now() - lastCapturedAt > 6000) { fail(new MeasurementError("Camera frames stopped arriving. Check the connection and try again.", true)); return; }
           if (sending) return;
           if (!queue.length && performance.now() - lastPoll < 2000) return;
           sending = true; lastPoll = performance.now();

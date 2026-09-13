@@ -128,7 +128,7 @@ Use one shared measurement contract for gameplay, AI, rail and the teammate's re
 These are requirements for future work on our own PRs, not permission to change the teammate's analytics PR.
 
 
-Implementation steering: Presage starts with the existing camera setup and shares its stream. There is no separate Presage opt-in. Skipping or turning off the camera stops both pipelines. The camera explanation discloses server processing before capture starts.
+Implementation steering: Presage starts with the required camera setup and shares its stream. There is no separate Presage opt-in. Leaving the table or losing the camera stops both pipelines. The camera explanation discloses server processing before capture starts.
 
 
 ## Adaptive implementation, September 13

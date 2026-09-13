@@ -3,15 +3,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 type TableModule = typeof import("@/lib/game/table");
+type CameraModule = typeof import("@/lib/game/lobbyCamera");
 let table: TableModule;
+let camera: CameraModule;
 
 describe("table visibility", () => {
   beforeEach(async () => {
     delete (globalThis as { __tables?: unknown }).__tables;
     delete (globalThis as { __tableBus?: unknown }).__tableBus;
     delete (globalThis as { __tableLogs?: unknown }).__tableLogs;
+    delete (globalThis as { __lobbyCameraStatuses?: unknown }).__lobbyCameraStatuses;
     vi.resetModules();
     table = await import("@/lib/game/table");
+    camera = await import("@/lib/game/lobbyCamera");
   });
 
   it("keeps the creator in public listings when hosting transfers", async () => {
@@ -44,6 +48,7 @@ describe("table visibility", () => {
     table.updateVisibility(created.code, created.token, true);
     expect(table.listOpenTables().map((entry) => entry.code)).toContain(created.code);
 
+    for (const player of table.getState(created.code, { kind: "rail" }).players) camera.setLobbyCameraStatus(created.code, player.id, "ready");
     table.startTable(created.code, created.token);
     expect(() => table.updateVisibility(created.code, created.token, false)).toThrow("Visibility can only change before the game starts");
   });

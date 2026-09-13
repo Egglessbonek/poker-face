@@ -23,7 +23,7 @@ async function recover() {
   if (recovering || closing) return;
   const now = Date.now(); failures.push(now);
   while (failures[0] < now - 60_000) failures.shift();
-  if (failures.length > 3) { emit({ type: 'error', retryable: false, message: 'Camera processing could not recover. Turn the camera off and on to reconnect.' }); return void close(1); }
+  if (failures.length > 3) { emit({ type: 'error', retryable: false, message: 'Camera processing could not recover. Check the connection and try again.' }); return void close(1); }
   recovering = true; queue.length = 0;
   emit({ type: 'recovering', message: 'Camera tracking interrupted. Reacquiring your face and chest.' });
   let timer;

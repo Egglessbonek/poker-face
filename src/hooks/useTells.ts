@@ -46,7 +46,7 @@ export function useTells() {
   const buffer = useRef<TellFrame[]>([]);
   const reveals = useRef<Array<{ event: RevealEvent; t: number }>>([]);
   const stopLoop = useRef<() => void>(() => {});
-  /** Invalidates an in-flight permission/model load when the player skips or closes setup. */
+  /** Invalidates an in-flight permission/model load when capture stops or the component unmounts. */
   const startAttempt = useRef(0);
   const baselineRef = useRef<BaselineStats | null>(null);
 
@@ -63,6 +63,17 @@ export function useTells() {
         return;
       }
       stream.current = s;
+      const cameraEnded = () => {
+        if (attempt !== startAttempt.current) return;
+        startAttempt.current++;
+        stopLoop.current();
+        stream.current = null;
+        captureContextRef.current = null;
+        setFrame(null);
+        buffer.current = [];
+        setStatus("idle");
+      };
+      s.getVideoTracks().forEach((track) => track.addEventListener("ended", cameraEnded, { once: true }));
       video.srcObject = s;
       await video.play();
       const landmarker = await getFaceLandmarker();

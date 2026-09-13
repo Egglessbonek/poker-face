@@ -8,7 +8,7 @@ type CameraModule = typeof import("@/lib/game/lobbyCamera");
 let table: TableModule;
 let camera: CameraModule;
 
-describe("camera-independent table lifecycle", () => {
+describe("camera-required table lifecycle", () => {
   beforeEach(async () => {
     delete (globalThis as { __tables?: unknown }).__tables;
     delete (globalThis as { __tableBus?: unknown }).__tableBus;
@@ -20,10 +20,15 @@ describe("camera-independent table lifecycle", () => {
     camera = await import("@/lib/game/lobbyCamera");
   });
 
-  it("allows the host to deal while human cameras are still warming up", async () => {
+  it("requires every human camera before the host can deal", async () => {
     const created = await table.createTable({ aiPlayers: [], turnTimerSec: 0 }, "Host");
     table.joinTable(created.code, "Guest");
+    const humans = table.getState(created.code, { kind: "rail" }).players.filter((player) => player.kind === "human");
 
+    expect(() => table.startTable(created.code, created.token)).toThrow("Camera setup is required for Host, Guest");
+    camera.setLobbyCameraStatus(created.code, humans[0].id, "ready");
+    expect(() => table.startTable(created.code, created.token)).toThrow("Camera setup is required for Guest");
+    camera.setLobbyCameraStatus(created.code, humans[1].id, "ready");
     expect(() => table.startTable(created.code, created.token)).not.toThrow();
     expect(table.getState(created.code, { kind: "rail" }).phase).toBe("playing");
   });
