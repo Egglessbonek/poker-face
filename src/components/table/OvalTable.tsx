@@ -5,6 +5,7 @@ import { Bot, Crown, Eye, EyeOff } from "lucide-react";
 import { PlayingCard } from "@/components/Card";
 import type { TalkEvent } from "@/hooks/useTable";
 import type { Action, HandView, Player, PlayerTells, TableState } from "@/lib/types";
+import { tellAudiences } from "@/lib/tells/visibility";
 import { cn } from "@/lib/utils";
 
 const TALK_TTL_MS = 9000;
@@ -56,7 +57,7 @@ export default function OvalTable({ state, viewerSeat, lastActions, talk, speaki
                     speaking={speaking === player.id}
                     handOver={!!hand?.over}
                     tell={tells[player.id]}
-                    showTell={state.config.tellVisibility === "everyone" && player.kind === "human" && viewerSeat !== seatIndex}
+                    showTell={tellAudiences(state.config.tellVisibility).humans && player.kind === "human" && viewerSeat !== seatIndex}
                   />
                 ) : (
                   <div className="flex h-16 items-center justify-center rounded-2xl border border-dashed border-felt-edge/60 bg-background/60 text-[9px] uppercase tracking-[0.22em] text-muted">Open</div>

@@ -29,15 +29,12 @@ page.on("pageerror", (e) => errors.push(`pageerror: ${String(e).slice(0, 200)}`)
 try {
   await page.goto(`${BASE}/table/new`, { waitUntil: "networkidle", timeout: 60000 });
   await page.getByPlaceholder("Host").fill("E2E Human");
-  await page.getByLabel(/hands/i).fill("3");
-  const timer = page.getByLabel(/turn timer/i);
-  if ((await timer.evaluate((el) => el.tagName)) === "SELECT") await timer.selectOption("0");
-  else await timer.fill("0");
-  await shot(page, "01-config");
+  await shot(page, "01-create");
   await page.locator("form button[type=submit], form button:not([type=button])").last().click();
   await page.waitForURL(/\/table\/[A-Z]{4}$/, { timeout: 30000 });
   const code = page.url().split("/").pop();
   log("table", code);
+  // Camera setup opens on arrival so it can run while the rest of the lobby fills.
   await page.getByRole("button", { name: /turn on camera/i }).click({ timeout: 30000 });
   const calib = page.getByRole("button", { name: /relax and start baseline/i });
   await calib.waitFor({ state: "visible", timeout: 60000 });
@@ -47,6 +44,12 @@ try {
   await shot(page, "02-lobby-camera");
   if (await calib.isEnabled()) { await calib.click(); await page.waitForTimeout(11500); log("calibrated"); } else { log("face never locked; skipping baseline"); await page.getByRole("button", { name: /skip/i }).click().catch(() => {}); }
   await shot(page, "03-lobby-calibrated");
+  // Rules and model seating now live beside the waiting room.
+  await page.getByLabel(/^hands/i).fill("3");
+  await page.getByLabel(/^hands/i).blur();
+  await page.getByLabel(/turn timer/i).fill("0");
+  await page.getByLabel(/turn timer/i).blur();
+  await page.getByRole("button", { name: /claude sonnet/i }).click();
   await page.getByRole("button", { name: /deal the first hand/i }).click();
   log("started");
 

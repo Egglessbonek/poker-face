@@ -97,7 +97,15 @@ export interface ActionBounds {
 
 // ---------- Table ----------
 
-export type TellVisibility = "ai_and_rail" | "everyone" | "ai_only" | "rail_only" | "off";
+export type TellVisibility =
+  | "ai_and_rail"
+  | "ai_and_humans"
+  | "rail_and_humans"
+  | "everyone"
+  | "ai_only"
+  | "rail_only"
+  | "human_only"
+  | "off";
 
 export interface TableConfig {
   /** 2-9 */
@@ -146,6 +154,9 @@ export interface Player {
 }
 
 export type TablePhase = "lobby" | "playing" | "finished";
+
+/** Shared pregame state; camera data itself never leaves the player's browser. */
+export type LobbyCameraStatus = "not_started" | "setting_up" | "skipped" | "ready";
 
 export interface TableState {
   code: string;

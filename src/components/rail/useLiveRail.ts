@@ -65,9 +65,12 @@ function actionText(action: Action): string {
 
 const VISIBILITY: Record<TableState["config"]["tellVisibility"], RailTableSnapshot["tellVisibility"]> = {
   ai_and_rail: "rail",
+  ai_and_humans: "everyone",
+  rail_and_humans: "everyone",
   rail_only: "rail",
   everyone: "everyone",
   ai_only: "ai-only",
+  human_only: "everyone",
   off: "ai-only",
 };
 
