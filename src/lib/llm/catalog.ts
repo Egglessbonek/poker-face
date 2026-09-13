@@ -19,7 +19,10 @@ export async function getCatalog(): Promise<CatalogModel[]> {
       return models.length ? models : (cached?.models ?? []);
     })
     .catch((err) => {
-      console.error("OpenRouter catalog fetch failed", (err as Error).message);
+      // The live catalog is an optional enhancement: callers deliberately fall back to
+      // pinned model IDs when OpenRouter is unreachable. Logging this as an error makes
+      // Next's dev overlay report a broken app even though that fallback succeeded.
+      console.warn("OpenRouter catalog unavailable; using pinned model IDs", (err as Error).message);
       return cached?.models ?? [];
     })
     .finally(() => {
