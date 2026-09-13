@@ -10,7 +10,7 @@ const ICON = {
 
 export default function RailHistory({ entries, embedded = false }: { entries: RailHistoryEntry[]; embedded?: boolean }) {
   return (
-    <section className={`${embedded ? "flex h-full min-h-0 flex-col" : "rounded-2xl border border-white/10 bg-white/[0.025]"}`}>
+    <section className={`${embedded ? "flex h-[28rem] min-h-0 max-h-full flex-col" : "rounded-2xl border border-white/10 bg-white/[0.025]"}`}>
       <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
         <h2 className="text-sm font-semibold text-white">Hand history</h2>
         <span className="text-xs text-white/35">Hand {entries.at(-1)?.handNumber ?? "—"}</span>
