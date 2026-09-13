@@ -95,17 +95,17 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
   return (
     <>
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-4 py-8 sm:px-8">
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <header className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
             <p className="text-xs uppercase tracking-[0.32em] text-gold">The room is open</p>
             <h1 className="mt-2 text-4xl font-semibold">Table <span className="font-mono text-gold">{state.code}</span></h1>
-            <p className="mt-2 text-sm text-muted">{state.isPublic ? "This table is listed publicly." : "This table is private to people with the code."} Seats, guests, and rules stay live.</p>
+            <p className="mt-2 text-sm text-muted">List the table publicly or keep it code-only. Seats, guests, and rules stay live.</p>
           </div>
-          <div className="flex flex-col items-stretch gap-2 sm:items-end">
-            <div className="flex flex-wrap justify-end gap-2">
-              <button type="button" disabled={!isHost} aria-pressed={state.isPublic} aria-label={state.isPublic ? "Public table; make private" : "Private table; make public"} title={isHost ? (state.isPublic ? "Hide this table from Browse the tables" : "List this table in Browse the tables") : "Only the host can change table visibility"} onClick={() => void updateVisibility()} className={`flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm transition disabled:cursor-default ${state.isPublic ? "border-ok/50 text-ok" : "border-felt-edge text-muted"}`}>{state.isPublic ? <Globe2 size={15} /> : <Lock size={15} />} {state.isPublic ? "Public" : "Private"}</button>
-              <button type="button" onClick={() => setShowQR(true)} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-felt-edge px-4 py-2.5 text-sm transition hover:border-gold"><QrCode size={15} /> QR code</button>
-              <button type="button" onClick={copyInvite} className={`flex flex-1 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm transition ${copied ? "border-ok text-ok" : "border-felt-edge hover:border-gold"}`}><Copy size={15} /> {copied ? "Copied" : "Copy invite"}</button>
+          <div className="flex w-full flex-col items-stretch gap-2 lg:w-[30rem] lg:items-end">
+            <div className="grid h-10 w-full grid-cols-3 gap-2">
+              <button type="button" disabled={!isHost} aria-pressed={state.isPublic} aria-label={state.isPublic ? "Public table; make private" : "Private table; make public"} title={isHost ? (state.isPublic ? "Hide this table from Browse the tables" : "List this table in Browse the tables") : "Only the host can change table visibility"} onClick={() => void updateVisibility()} className={`flex h-10 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border px-2 text-sm transition disabled:cursor-default sm:px-3 ${state.isPublic ? "border-ok/50 text-ok" : "border-felt-edge text-muted"}`}>{state.isPublic ? <Globe2 size={15} /> : <Lock size={15} />} {state.isPublic ? "Public" : "Private"}</button>
+              <button type="button" onClick={() => setShowQR(true)} className="flex h-10 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-felt-edge px-2 text-sm transition hover:border-gold sm:px-3"><QrCode size={15} /> QR code</button>
+              <button type="button" onClick={copyInvite} className={`flex h-10 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border px-2 text-sm transition sm:px-3 ${copied ? "border-ok text-ok" : "border-felt-edge hover:border-gold"}`}><Copy size={15} /> {copied ? "Copied" : "Copy"}</button>
             </div>
             {isHost && <SaveIndicator status={saveStatus} />}
           </div>

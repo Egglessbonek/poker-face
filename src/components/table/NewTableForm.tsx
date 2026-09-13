@@ -64,16 +64,16 @@ export default function NewTableForm() {
             <span className="text-xs uppercase tracking-wider text-muted">Your name</span>
             <input value={hostName} maxLength={20} placeholder="Host" autoFocus onChange={(event) => setHostName(event.target.value)} className="w-full rounded-xl border border-felt-edge bg-background px-4 py-3 text-base outline-none transition focus:border-gold" />
           </label>
-          <button type="button" aria-pressed={isPublic} onClick={() => setIsPublic((current) => !current)} className="flex items-center justify-between gap-4 rounded-2xl border border-felt-edge bg-background/35 p-4 text-left transition hover:border-gold">
+          <button type="button" aria-pressed={isPublic} onClick={() => setIsPublic((current) => !current)} className="flex min-h-24 items-center justify-between gap-4 rounded-2xl border border-felt-edge bg-background/35 p-4 text-left transition hover:border-gold">
             <span className="flex min-w-0 items-center gap-3">
               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isPublic ? "bg-ok/15 text-ok" : "bg-felt-edge/60 text-muted"}`}>{isPublic ? <Globe2 size={17} /> : <Lock size={17} />}</span>
-              <span><span className="block text-sm font-medium">{isPublic ? "Public table" : "Private table"}</span><span className="mt-0.5 block text-xs leading-relaxed text-muted">{isPublic ? "Listed in Browse the tables. Anyone can discover it." : "Hidden from browsing. Players need the four-letter code."}</span></span>
+              <span><span className="block text-sm font-medium">{isPublic ? "Public table" : "Private table"}</span><span className="mt-0.5 block text-xs leading-relaxed text-muted">Public tables are listed. Private tables require the code.</span></span>
             </span>
             <span aria-hidden="true" className={`relative h-6 w-11 shrink-0 rounded-full transition ${isPublic ? "bg-ok" : "bg-felt-edge"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${isPublic ? "translate-x-6" : "translate-x-1"}`} /></span>
           </button>
           {error && <p role="alert" className="rounded-xl bg-danger/15 px-4 py-3 text-sm text-danger">{error}</p>}
           <button disabled={creating} className="rounded-full bg-gold px-8 py-3 font-semibold text-background transition hover:brightness-110 disabled:opacity-40">{creating ? "Opening your room…" : "Open the room"}</button>
-          <p className="text-center text-[11px] text-muted">{isPublic ? "Public tables can be discovered or joined by code." : "Private tables can only be joined by code."} Nothing starts until you deal.</p>
+          <p className="text-center text-[11px] text-muted">Visibility can be changed again in the lobby. Nothing starts until you deal.</p>
         </form>
       </div>
     </main>
