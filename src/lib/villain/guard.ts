@@ -3,6 +3,7 @@
  *
  * - `leaksOwnCards`: a spoken line must never name a card the seat holds. The prompt forbids it; models still
  *   do it, so the line is dropped server-side. Ranks also on the board are public and stay allowed.
+ * - `leaksPrivateMetrics`: table talk must sound like poker talk, not expose the private numerical strategy feed.
  * - `canonicalTells`: `tellsUsed` may only contain tells that exist in the evidence the model was shown, phrased
  *   as "<player>: <evidence>". Models paraphrase ("that quick look at the chips") or paste the summary line
  *   ("arousal 68/100, bluff likelihood 59%"), so each string is mapped by keyword to a real evidence signal.
@@ -45,6 +46,15 @@ export function leaksOwnCards(text: string, hole: Card[], board: Card[]): boolea
     if (wa && wb && (word(`${wa}[- ]${wb}`).test(lower) || word(`${wb}[- ]${wa}`).test(lower))) return true;
   }
   return false;
+}
+
+/** True when spoken table talk exposes private numerical strategy inputs or model-only metrics. */
+export function leaksPrivateMetrics(text: string): boolean {
+  if (!text.trim()) return false;
+  return /\b(?:equity|pot odds?|stack[- ]to[- ]pot ratio|spr|bluff likelihood|confidence score|percent|percentage)\b/i.test(text)
+    || /\b\d{1,3}(?:\.\d+)?\s*%/.test(text)
+    || /\bmy\s+(?:odds|chance to win|winning chance)\b/i.test(text)
+    || /\bthe\s+(?:chance to win|winning chance)\b/i.test(text);
 }
 
 /** Keyword -> candidate evidence signals, in priority order. Only signals that exist in `fuse.ts` can come out. */
