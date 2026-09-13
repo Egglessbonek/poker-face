@@ -501,6 +501,8 @@ export interface TableLog {
 /** A public table anyone can discover and watch from the landing page's diamonds card. */
 export interface TableListing {
   code: string;
+  /** The original creator’s display name, independent of the current host. */
+  creatorName: string;
   phase: TablePhase;
   handNumber: number;
   handsPerMatch: number;

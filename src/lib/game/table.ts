@@ -71,6 +71,8 @@ interface Table {
   config: TableConfig;
   phase: TableState["phase"];
   hostId: string;
+  /** Original creator, retained even when hosting transfers to another player. */
+  creatorName: string;
   players: Player[];
   tokens: Map<string, string>; // token -> playerId
   hand: HandState | null;
@@ -109,6 +111,7 @@ export function listOpenTables(limit = 24): TableListing[] {
     .slice(0, limit)
     .map((t) => ({
       code: t.code,
+      creatorName: t.creatorName ?? t.players.find(p => p.id === t.hostId)?.name ?? "Host",
       phase: t.phase,
       handNumber: t.handNumber,
       handsPerMatch: t.config.handsPerMatch,
@@ -137,6 +140,7 @@ export async function createTable(configPatch: Partial<TableConfig>, hostName: s
     config,
     phase: "lobby",
     hostId,
+    creatorName: cleanName(hostName, "Host"),
     players: [{ id: hostId, seat: 0, name: cleanName(hostName, "Host"), kind: "human", stack: config.startingStack, connected: false, sittingOut: false }],
     tokens: new Map([[token, hostId]]),
     hand: null,

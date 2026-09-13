@@ -66,10 +66,10 @@ export default function LandingActions() {
       </div>
       <div key={selected} className={styles.cardSlot}>
         {selected === 0 && (
-          <section aria-label="Create a table" className={cardStyles.card}>
+          <Link href="/table/new" aria-label="Create a table" className={`${cardStyles.card} ${cardStyles.cardLink}`}>
             <PlayingCardMarks rank="A" suit="♠" />
-            <Link href="/table/new" className={cardStyles.cardAction}>create <span aria-hidden="true">→</span></Link>
-          </section>
+            <span className={cardStyles.actionLabel}>create <span aria-hidden="true">→</span></span>
+          </Link>
         )}
         {selected === 1 && <CodeEntry title="Join a table" mode="join" rank="K" suit="♥" />}
         {selected === 2 && <CodeEntry title="Watch from the rail" mode="watch" rank="Q" suit="♣" />}

@@ -46,9 +46,12 @@ export default function BrowseTables() {
         ) : (
           <ul>
             {tables.map((t) => (
-              <li key={t.code} className={styles.row}>
-                <span className={styles.rowCode}>{t.code}</span>
-                <Link href={`/rail/${t.code}`} className={styles.rowAction} aria-label={`Watch table ${t.code}`}>watch <span aria-hidden="true">→</span></Link>
+              <li key={t.code}>
+                <Link href={`/rail/${t.code}`} className={styles.row} aria-label={`Watch ${t.creatorName ?? "Host"}’s table ${t.code}`}>
+                  <span className={styles.rowHost} title={t.creatorName}>{t.creatorName ?? "Host"}</span>
+                  <span className={styles.rowCode}>{t.code}</span>
+                  <span className={styles.rowAction}>watch <span aria-hidden="true">→</span></span>
+                </Link>
               </li>
             ))}
           </ul>

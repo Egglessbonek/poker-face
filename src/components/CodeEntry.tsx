@@ -37,12 +37,12 @@ export default function CodeEntry({
           placeholder="table code"
           aria-label="Table code"
         />
-        <button disabled={!valid || checking}>
+        <button type="submit" disabled={!valid || checking}>
           {checking ? "checking…" : mode} <span aria-hidden="true">→</span>
         </button>
       </div>
       {error && (
-        <span role="alert" className="mt-2 block text-xs text-danger">
+        <span role="alert" className={`${styles.entryError} text-xs text-danger`}>
           {error}
           {revealHref && (
             <>
