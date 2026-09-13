@@ -124,6 +124,8 @@ export interface TableConfig {
   allowLateJoin: boolean;
   /** TTS table talk for AI players. */
   voice: boolean;
+  /** Let rail spectators stake SOL on live, server-settled markets. Host opt-in only. */
+  predictionMarket: boolean;
 }
 
 export const DEFAULT_TABLE: TableConfig = {
@@ -137,7 +139,68 @@ export const DEFAULT_TABLE: TableConfig = {
   aiPlayers: ["anthropic/claude-sonnet-5", "openai/gpt-5.6-terra"],
   allowLateJoin: true,
   voice: true,
+  predictionMarket: false,
 };
+
+// ---------- Rail prediction market ----------
+
+export type PredictionMarketKind = "next_action" | "hand_winner" | "hand_finish" | "match_winner";
+export type PredictionMarketStatus = "open" | "locked" | "settled" | "void";
+
+export interface PredictionOutcome {
+  id: string;
+  label: string;
+  /** Present for player-specific outcomes such as hand and match winner. */
+  playerId?: string;
+  poolLamports: number;
+}
+
+export interface PredictionMarket {
+  id: string;
+  kind: PredictionMarketKind;
+  question: string;
+  status: PredictionMarketStatus;
+  outcomes: PredictionOutcome[];
+  totalPoolLamports: number;
+  handNumber?: number;
+  createdAt: number;
+  lockedAt?: number;
+  winningOutcomeId?: string;
+}
+
+export interface PredictionActivity {
+  id: string;
+  marketId: string;
+  outcomeLabel: string;
+  wallet: string;
+  stakeLamports: number;
+  placedAt: number;
+}
+
+export interface PredictionSnapshot {
+  enabled: boolean;
+  /** Betting is only enabled when a matching server-side treasury key is configured. */
+  bettingReady: boolean;
+  cluster: "devnet";
+  treasury?: string;
+  markets: PredictionMarket[];
+  recentActivity: PredictionActivity[];
+  minStakeLamports: number;
+  maxStakeLamports: number;
+  feeBps: number;
+}
+
+export interface PredictionBetReceipt {
+  id: string;
+  marketId: string;
+  outcomeId: string;
+  wallet: string;
+  stakeLamports: number;
+  signature: string;
+  placedAt: number;
+  payoutLamports?: number;
+  claimSignature?: string;
+}
 
 export interface Player {
   id: string;
@@ -172,6 +235,8 @@ export interface TableState {
   createdAt: number;
   /** Final standings once finished. */
   standings?: Array<{ playerId: string; name: string; stack: number; net: number }>;
+  /** Aggregate market state. Individual rail bets stay private to the submitting wallet. */
+  predictions?: PredictionSnapshot;
 }
 
 /** Who is looking at the table; controls which hole cards and tells are visible. */
@@ -196,6 +261,7 @@ export type TableEvent =
   | { type: "tells"; playerId: string; tells: PlayerTells }
   | { type: "ai_decision"; playerId: string; decision: VillainDecision; handNumber: number; street: Street }
   | { type: "hand_end"; hand: HandView }
+  | { type: "prediction_state"; predictions: PredictionSnapshot }
   | { type: "rematch"; code: string }
   | { type: "ended"; code: string };
 

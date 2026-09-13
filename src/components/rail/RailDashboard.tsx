@@ -5,6 +5,7 @@ import { Activity, Bot, Eye, Home, Hourglass, Radio, RefreshCw, Spade, Trophy } 
 import RailInspector from "./RailInspector";
 import RailTable from "./RailTable";
 import RailTicker from "./RailTicker";
+import PredictionMarketPanel from "./PredictionMarket";
 import { useFakeRail } from "./useFakeRail";
 import { useLiveRail } from "./useLiveRail";
 import type { RailConnectionState, RailTableSnapshot, RailViewModel } from "./model";
@@ -93,7 +94,7 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
       {waiting ? (
         <WaitingRoom table={table} />
       ) : (
-        <div className={`mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:items-start xl:overflow-hidden ${finished ? "place-items-center" : "xl:grid-cols-[minmax(0,1fr)_320px]"}`}>
+        <div className={`mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:items-start xl:overflow-hidden ${finished ? "place-items-center" : "xl:grid-cols-[minmax(0,1fr)_360px]"}`}>
           <div className="min-w-0">
             {!finished && (
               <div className="mb-2 flex shrink-0 items-center justify-between rounded-xl border border-gold/15 bg-gold/[0.055] px-3.5 py-2">
@@ -106,7 +107,12 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
             )}
             <div className="min-h-0">{finished && table.standings?.length ? <FinalStandings table={table} /> : <RailTable table={table} />}</div>
           </div>
-          {!finished && <RailInspector humans={humans} ais={ais} history={view.history} currentPlayerId={table.currentPlayerId} />}
+          {!finished && (
+            <aside className="flex min-h-0 flex-col gap-3 xl:h-full">
+              <PredictionMarketPanel code={code} snapshot={view.predictions} />
+              <div className="min-h-[280px] flex-1 overflow-hidden"><RailInspector humans={humans} ais={ais} history={view.history} currentPlayerId={table.currentPlayerId} /></div>
+            </aside>
+          )}
         </div>
       )}
       {!finished && (

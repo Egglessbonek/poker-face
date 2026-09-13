@@ -23,6 +23,16 @@ import { closeChannel, connections, hasChannel, openChannel, publish } from "@/l
 import { generateCode } from "@/lib/rail/code";
 import { aiGuestList } from "@/lib/game/rematch";
 import {
+  configurePredictionTable,
+  finishPredictionMatch,
+  openNextActionPrediction,
+  predictionSnapshot,
+  settleNextActionPrediction,
+  settlePredictionHand,
+  startPredictionHand,
+  startPredictionMatch,
+} from "@/lib/prediction/market";
+import {
   DEFAULT_TABLE,
   type ActionBounds,
   type ActionType,
@@ -135,6 +145,7 @@ export async function createTable(configPatch: Partial<TableConfig>, hostName: s
   };
   tables.set(code, t);
   openChannel(code);
+  configurePredictionTable(code, config.predictionMarket);
   for (const modelId of config.aiPlayers) await seatAI(t, modelId);
   createLog(code, config, t.players);
   return { code, playerId: hostId, token };
@@ -184,6 +195,7 @@ export function updateConfig(code: string, token: string, patch: Partial<TableCo
   const next = sanitizeConfig({ ...t.config, ...patch, aiPlayers: t.config.aiPlayers });
   if (next.maxSeats < t.players.length) throw new TableError(`${t.players.length} players are seated; cannot shrink to ${next.maxSeats} seats`);
   t.config = next;
+  configurePredictionTable(code, next.predictionMarket);
   for (const p of t.players) p.stack = next.startingStack;
   const log = getLog(code);
   if (log) log.config = next;
@@ -196,6 +208,7 @@ export function startTable(code: string, token: string): void {
   if (t.phase !== "lobby") throw new TableError("Table already started");
   if (t.players.length < 2) throw new TableError("Need at least two players");
   t.phase = "playing";
+  startPredictionMatch(code, t.players);
   appendLog(code, "table_start", { config: t.config, players: t.players });
   broadcastState(t);
   void drive(t);
@@ -357,6 +370,7 @@ function toState(t: Table, viewer: Viewer): TableState {
     turnDeadline: t.turnDeadline,
     createdAt: t.createdAt,
     standings: t.standings,
+    predictions: predictionSnapshot(t.code),
   };
 }
 
@@ -431,6 +445,7 @@ function sanitizeConfig(c: TableConfig): TableConfig {
     aiPlayers: Array.isArray(c.aiPlayers) ? c.aiPlayers.filter((x) => typeof x === "string" && isSeatableModelId(x)).slice(0, 8) : DEFAULT_TABLE.aiPlayers,
     allowLateJoin: c.allowLateJoin !== false,
     voice: c.voice !== false,
+    predictionMarket: c.predictionMarket === true,
   };
 }
 
@@ -504,6 +519,8 @@ function dealNext(t: Table): boolean {
     button,
     seats: t.hand.seats.map((s, i) => (s ? { seat: i, playerId: s.playerId, stack: s.stack + s.totalIn, holeCards: s.holeCards } : null)).filter(Boolean),
   });
+  startPredictionHand(t.code, t.handNumber, eligible);
+  if (!t.hand.over && t.hand.toAct !== null) openNextActionPrediction(t.code, t.handNumber, t.hand.actions.length, playerAtSeat(t, t.hand.toAct));
   broadcastState(t);
   if (t.hand.over) settleHand(t);
   return true;
@@ -511,6 +528,7 @@ function dealNext(t: Table): boolean {
 
 function applyAndPublish(t: Table, req: ActionRequest, tells: TellVector | null) {
   if (!t.hand) return;
+  const predictionActionNumber = t.hand.actions.length;
   t.hand = applyAction(t.hand, req, t.config);
   const action = t.hand.actions[t.hand.actions.length - 1];
   const player = playerAtSeat(t, req.seat);
@@ -518,6 +536,8 @@ function applyAndPublish(t: Table, req: ActionRequest, tells: TellVector | null)
   appendLog(t.code, "action", { handNumber: t.hand.handNumber, playerId: player?.id, action, tells });
   if (tells && player) appendLog(t.code, "tells", { handNumber: t.hand.handNumber, street: action.street, playerId: player.id, tells });
   t.turnDeadline = undefined;
+  settleNextActionPrediction(t.code, t.hand.handNumber, predictionActionNumber, action.type);
+  if (!t.hand.over && t.hand.toAct !== null) openNextActionPrediction(t.code, t.hand.handNumber, t.hand.actions.length, playerAtSeat(t, t.hand.toAct));
   publish(t.code, { type: "action", action, playerId: player?.id ?? "" });
   broadcastState(t);
   if (t.hand.over) settleHand(t);
@@ -578,6 +598,13 @@ function settleHand(t: Table) {
     foldedOut: hand.foldedOut,
     stacks: t.players.map((p) => ({ playerId: p.id, stack: p.stack })),
   });
+  const awards = (hand.results ?? []).filter((result) => result.won > 0);
+  const largestAward = awards.length ? Math.max(...awards.map((result) => result.won)) : 0;
+  const predictionWinners = awards
+    .filter((result) => result.won === largestAward)
+    .map((result) => playerAtSeat(t, result.seat)?.id)
+    .filter((id): id is string => !!id);
+  settlePredictionHand(t.code, hand.handNumber, predictionWinners, !!hand.foldedOut);
   publish(t.code, { type: "hand_end", hand: publicHand(hand, "all") });
   broadcastState(t);
 }
@@ -737,6 +764,8 @@ function finishTable(t: Table, reason: string): false {
   t.standings = [...t.players]
     .sort((a, b) => b.stack - a.stack)
     .map((p) => ({ playerId: p.id, name: p.name, stack: p.stack, net: p.stack - t.config.startingStack }));
+  const topStack = t.standings[0]?.stack;
+  finishPredictionMatch(t.code, t.standings.filter((standing) => standing.stack === topStack).map((standing) => standing.playerId));
   appendLog(t.code, "table_end", { reason, standings: t.standings });
   endLog(t.code);
   syncLogPlayers(t.code, t.players);

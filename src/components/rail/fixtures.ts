@@ -1,4 +1,45 @@
 import type { RailHistoryEntry, RailTableSnapshot } from "./model";
+import type { PredictionSnapshot } from "@/lib/types";
+
+export const FAKE_PREDICTIONS: PredictionSnapshot = {
+  enabled: true,
+  bettingReady: false,
+  cluster: "devnet",
+  minStakeLamports: 1_000_000,
+  maxStakeLamports: 100_000_000,
+  feeBps: 500,
+  recentActivity: [],
+  markets: [
+    {
+      id: "demo-action",
+      kind: "next_action",
+      question: "What will Vega do next?",
+      status: "open",
+      handNumber: 6,
+      createdAt: Date.now(),
+      totalPoolLamports: 42_000_000,
+      outcomes: [
+        { id: "fold", label: "Fold", poolLamports: 8_000_000 },
+        { id: "passive", label: "Check / call", poolLamports: 13_000_000 },
+        { id: "aggressive", label: "Bet / raise", poolLamports: 21_000_000 },
+      ],
+    },
+    {
+      id: "demo-hand",
+      kind: "hand_winner",
+      question: "Who takes the most chips in hand 6?",
+      status: "open",
+      handNumber: 6,
+      createdAt: Date.now(),
+      totalPoolLamports: 75_000_000,
+      outcomes: [
+        { id: "maya", label: "Maya", playerId: "maya", poolLamports: 25_000_000 },
+        { id: "vega", label: "Vega", playerId: "vega", poolLamports: 40_000_000 },
+        { id: "theo", label: "Theo", playerId: "theo", poolLamports: 10_000_000 },
+      ],
+    },
+  ],
+};
 
 export const FAKE_TABLE: RailTableSnapshot = {
   code: "4821",
