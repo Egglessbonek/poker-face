@@ -33,9 +33,7 @@ export default function TableSettingsEditor({ config, disabled = false, onUpdate
   return (
     <section className="rounded-3xl border border-felt-edge bg-felt/15 p-5 sm:p-7" aria-labelledby="table-rules-title">
       <div className="mb-5">
-        <p className="text-xs uppercase tracking-[0.24em] text-gold">House rules</p>
-        <h2 id="table-rules-title" className="mt-1 text-2xl">Set the game while everyone arrives</h2>
-        <p className="mt-1 text-xs text-muted">{disabled ? "The host can update these rules until the first deal." : "Changes are live for everyone in the room and lock when you deal."}</p>
+        <h2 id="table-rules-title" className="mt-1 text-2xl">Table rules</h2>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -47,8 +45,7 @@ export default function TableSettingsEditor({ config, disabled = false, onUpdate
       </div>
 
       <div className="mt-6 rounded-2xl border border-felt-edge bg-background/35 p-4 sm:p-5">
-        <div className="mb-3 flex items-center gap-2 text-sm font-medium"><Eye size={16} className="text-gold" /> Who can see human tells?</div>
-        <p className="mb-3 text-xs text-muted">Choose each audience independently. Players never see their own private read.</p>
+        <h3 className="mb-3 flex items-center gap-2 text-base"><Eye size={16} className="text-gold" /> Who can see human tells?</h3>
         <div className="grid gap-3 sm:grid-cols-3">
           <Toggle disabled={disabled} checked={audiences.ai} onChange={(checked) => updateAudience("ai", checked)} icon={<Bot size={15} className="text-gold" />} title="AI opponents" body="Models can use tells in decisions." />
           <Toggle disabled={disabled} checked={audiences.rail} onChange={(checked) => updateAudience("rail", checked)} icon={<Radio size={15} className="text-gold" />} title="Rail spectators" body="People watching can see live reads." />
@@ -57,8 +54,6 @@ export default function TableSettingsEditor({ config, disabled = false, onUpdate
       </div>
 
       <div className="mt-6 border-t border-felt-edge/70 pt-5">
-        <p className="text-xs uppercase tracking-[0.2em] text-gold">Table behavior</p>
-        <p className="mt-1 text-xs text-muted">Control the table experience separately from tell sharing.</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <Toggle disabled={disabled} checked={config.voice} onChange={(voice) => update({ voice })} icon={<Mic2 size={15} className="text-gold" />} title="AI voices" body="Play table talk with vendor voices." />
           <Toggle disabled={disabled} checked={config.allowLateJoin} onChange={(allowLateJoin) => update({ allowLateJoin })} icon={<Users size={15} className="text-gold" />} title="Late joining" body="New players receive a seat on the next hand." />
@@ -72,7 +67,7 @@ export default function TableSettingsEditor({ config, disabled = false, onUpdate
 const inputClass = "w-full rounded-xl border border-felt-edge bg-background px-3 py-2.5 text-sm outline-none transition focus:border-gold";
 
 function Field({ label, icon, hint, children }: { label: string; icon?: React.ReactNode; hint?: string; children: React.ReactNode }) {
-  return <label className="flex flex-col gap-2"><span className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted">{icon}{label}</span>{children}{hint && <span className="text-[10px] text-muted">{hint}</span>}</label>;
+  return <label className="flex flex-col gap-2"><span className="flex items-center gap-2 text-xs text-muted">{icon}{label}</span>{children}{hint && <span className="text-[10px] text-muted">{hint}</span>}</label>;
 }
 
 function NumberField({ label, hint, value, min, max, step, disabled, onCommit }: { label: string; hint?: string; value: number; min: number; max: number; step?: number; disabled?: boolean; onCommit: (raw: string) => number }) {
@@ -86,7 +81,7 @@ function NumberField({ label, hint, value, min, max, step, disabled, onCommit }:
 function Toggle({ checked, onChange, icon, title, body, disabled }: { checked: boolean; onChange: (checked: boolean) => void; icon: React.ReactNode; title: string; body: string; disabled?: boolean }) {
   return (
     <label className={`flex items-center justify-between gap-4 rounded-2xl border border-felt-edge p-4 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
-      <span><span className="flex items-center gap-2 text-sm font-medium">{icon}{title}</span><span className="mt-1 block text-xs text-muted">{body}</span></span>
+      <span><span className="flex items-center gap-2 font-display text-base">{icon}{title}</span><span className="mt-1 block font-sans text-xs text-muted">{body}</span></span>
       <input type="checkbox" disabled={disabled} checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-5 w-5 shrink-0 accent-gold" />
     </label>
   );

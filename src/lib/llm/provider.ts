@@ -13,6 +13,19 @@ export type Provider = "openrouter" | "gemini" | "anthropic";
 // A seat that has not answered in 12s plays the math instead; a live table cannot wait longer than that.
 const TIMEOUT_MS = 12_000;
 
+type Diagnostics = { requests: number; succeeded: number; failed: number; lastSuccessAt: number | null; lastFailure: { at: number; kind: string; status?: number } | null };
+const globals = globalThis as unknown as { __llmDiagnostics?: Diagnostics };
+const diagnostics = globals.__llmDiagnostics ??= { requests: 0, succeeded: 0, failed: 0, lastSuccessAt: null, lastFailure: null };
+
+class ProviderError extends Error {
+  constructor(public status: number) { super(`OpenRouter request failed (HTTP ${status})`); }
+}
+
+/** Configuration is not proof of a successful call. No credentials or completion contents. */
+export function llmDiagnostics() {
+  return { configured: llmAvailable(), ...diagnostics };
+}
+
 export function currentProvider(): Provider {
   const p = process.env.LLM_PROVIDER ?? (process.env.OPENROUTER_API_KEY ? "openrouter" : "gemini");
   if (p !== "openrouter" && p !== "gemini" && p !== "anthropic") throw new Error(`Unknown LLM_PROVIDER: ${p}`);
@@ -50,19 +63,32 @@ export interface CompleteOptions<T> {
   temperature?: number;
   /** OpenRouter reasoning budget for models that support it. */
   reasoningEffort?: "low" | "medium" | "high";
+  signal?: AbortSignal;
 }
 
 export async function completeJSON<T>(opts: CompleteOptions<T>): Promise<T> {
-  const p = currentProvider();
   const run = async () => {
+    const p = currentProvider();
+    opts.signal?.throwIfAborted();
     const raw = p === "openrouter" ? await openrouterText(opts) : p === "anthropic" ? await anthropicText(opts) : await geminiText(opts);
     return opts.schema.parse(extractJSON(raw));
   };
+  diagnostics.requests++;
   try {
-    return await run();
+    let result: T;
+    try { result = await run(); }
+    catch (err) {
+      if (!/empty response|No JSON object/.test((err as Error).message)) throw err;
+      result = await run();
+    }
+    diagnostics.succeeded++;
+    diagnostics.lastSuccessAt = Date.now();
+    return result;
   } catch (err) {
-    // Empty or truncated output is usually transient (reasoning ate the budget); one retry is cheap.
-    if (/empty response|No JSON object/.test((err as Error).message)) return run();
+    const status = err instanceof ProviderError ? err.status : undefined;
+    const kind = status === 401 || status === 403 ? "authentication" : status === 402 ? "credits" : status === 429 ? "rate_limit" : /timeout|abort/i.test((err as Error).name + (err as Error).message) ? "timeout" : "request_failed";
+    diagnostics.failed++;
+    diagnostics.lastFailure = { at: Date.now(), kind, ...(status ? { status } : {}) };
     throw err;
   }
 }
@@ -90,9 +116,9 @@ async function openrouterText(opts: CompleteOptions<unknown>): Promise<string> {
       // Keep hidden reasoning short so it does not consume the output budget; ignored by non-reasoning models.
       reasoning: { effort: opts.reasoningEffort ?? "low" },
     }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: opts.signal ? AbortSignal.any([opts.signal, AbortSignal.timeout(TIMEOUT_MS)]) : AbortSignal.timeout(TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`OpenRouter ${model}: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) { await res.body?.cancel(); throw new ProviderError(res.status); }
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string | Array<{ type: string; text?: string }> } }>; error?: { message?: string } };
   if (data.error) throw new Error(`OpenRouter ${model}: ${data.error.message}`);
   const content = data.choices?.[0]?.message?.content;
@@ -110,7 +136,7 @@ async function geminiText(opts: CompleteOptions<unknown>): Promise<string> {
     systemInstruction: opts.system,
     generationConfig: { responseMimeType: "application/json", maxOutputTokens: opts.maxTokens ?? 512, temperature: opts.temperature ?? 0.7 },
   });
-  const res = await model.generateContent(opts.user);
+  const res = await model.generateContent(opts.user, { signal: opts.signal });
   return res.response.text();
 }
 
@@ -125,7 +151,7 @@ async function anthropicText(opts: CompleteOptions<unknown>): Promise<string> {
     temperature: opts.temperature ?? 0.7,
     system: opts.system,
     messages: [{ role: "user", content: opts.user }],
-  });
+  }, { signal: opts.signal });
   return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
 }
 

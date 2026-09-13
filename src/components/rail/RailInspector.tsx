@@ -44,7 +44,7 @@ export default function RailInspector({ humans, ais, history, currentPlayerId = 
       {read && spotlight && (
         <section className="shrink-0 border-b border-white/8 bg-[linear-gradient(135deg,rgba(212,175,55,0.09),transparent)] px-3.5 py-3" aria-label="Current AI decision">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold">Current decision</p>
+            <p className="text-[10px] font-semibold text-gold">Current decision</p>
             {read.equity !== undefined && <span className="font-mono text-[11px] text-gold">{read.equity}% equity</span>}
           </div>
           <div className="mt-1.5 flex items-center justify-between gap-3">
@@ -59,7 +59,7 @@ export default function RailInspector({ humans, ais, history, currentPlayerId = 
         <section id="rail-panel-tells" role="tabpanel" aria-labelledby="rail-tab-tells" hidden={tab !== "tells"} className="h-full overflow-y-auto p-2.5">
           <div className="mb-2 flex items-center justify-between px-1">
             <h2 className="text-xs font-semibold text-white">Human signals</h2>
-            <span className="text-[10px] uppercase tracking-wider text-white/30">{onCamera} of {humans.length} on camera</span>
+            <span className="text-[10px] text-white/30">{onCamera} of {humans.length} on camera</span>
           </div>
           {onCamera === 0 ? (
             <p className="px-1 py-6 text-center text-xs leading-relaxed text-white/40">No camera feed yet. Signals appear the moment a player turns theirs on; reads follow their first bet.</p>

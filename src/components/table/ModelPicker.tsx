@@ -54,8 +54,7 @@ export default function ModelPicker({ onAdd, disabled }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">Popular opponents</p>
-        <div className="grid gap-1.5 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {regulars.map((model) => (
             <button type="button" key={model.id} disabled={disabled} onClick={() => add(model.id)} title={model.id} className="group flex min-h-14 items-center gap-2 rounded-xl border border-felt-edge bg-background/35 p-2 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-chip-blue/50 text-foreground"><Bot size={13} /></span>

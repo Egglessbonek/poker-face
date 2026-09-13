@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Copy, Eye, Radio, X } from "lucide-react";
+import { Copy, Eye, X } from "lucide-react";
+import { usePresage } from "@/hooks/usePresage";
 import ActionBar from "@/components/ActionBar";
 import BluffMeter from "@/components/BluffMeter";
 import Calibration from "@/components/Calibration";
@@ -21,8 +22,10 @@ import { dominantEmotion } from "@/lib/tells/emotion";
 import { AFTER_ACTION_MS, fuseAfterAction, fuseTells } from "@/lib/tells/fuse";
 import { getFaceLandmarker } from "@/lib/tells/landmarker";
 import { tellAudiences } from "@/lib/tells/visibility";
-import TellHUD from "@/components/TellHUD";
+import PlayerCameraPanel from "@/components/table/PlayerCameraPanel";
 import VoiceControls from "@/components/table/VoiceControls";
+import BestHand from "@/components/table/BestHand";
+import layout from "./GameLayout.module.css";
 import type { ActionType, LobbyCameraStatus, Player, PlayerTells, TellVector } from "@/lib/types";
 
 export default function TableClient({ code }: { code: string }) {
@@ -51,7 +54,7 @@ export default function TableClient({ code }: { code: string }) {
   if (gone) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-gold">Table {code}</p>
+        <p className="text-xs text-gold">Table {code}</p>
         <h1 className="text-3xl font-semibold">This table has left the room.</h1>
         <p className="max-w-md text-sm text-muted">{gone}</p>
         <Link href="/" className="rounded-full bg-gold px-6 py-2.5 font-medium text-background">Back to Poker Face</Link>
@@ -64,14 +67,18 @@ export default function TableClient({ code }: { code: string }) {
 }
 
 function Seated({ code, identity }: { code: string; identity: Identity }) {
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const router = useRouter();
   const table = useTable(code, identity.token, identity.playerId);
   const tells = useTells();
+  const presage = usePresage(code, identity.token, tells.videoElementRef, tells.status === "running" && table.state?.phase !== "finished", tells.captureContextRef);
   const voice = useTalk(table.talk, table.state?.config.voice ?? true);
   /** The fused read from this player's latest decision, tagged with its hand so it is never re-sent into the next one. */
   const [lastVector, setLastVector] = useState<{ vector: TellVector; handNumber: number } | null>(null);
   /** Once the camera has run, a later "idle" means it was lost and should be restarted; a skipped camera never was. */
   const cameraEverOn = useRef(false);
+  const cameraSuppressed = useRef(false);
   /** The hand on screen, readable from a timer callback. */
   const handNumberRef = useRef(0);
   const afterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,6 +92,12 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   /** Rolling live reads after the first decision; action-time history remains a separate trend baseline. */
   const liveVectorHistory = useRef<TellVector[]>([]);
   const promptedAt = useRef(0);
+  const interruptedAt = useRef(0);
+  useEffect(() => {
+    const interrupt = () => { if (document.hidden || !navigator.onLine) interruptedAt.current = Date.now(); };
+    document.addEventListener("visibilitychange", interrupt); window.addEventListener("offline", interrupt);
+    return () => { document.removeEventListener("visibilitychange", interrupt); window.removeEventListener("offline", interrupt); };
+  }, []);
   const wasMyTurn = useRef(false);
   const previousReveal = useRef("");
   const lastTellsSent = useRef(0);
@@ -94,7 +107,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const frame = tells.frame;
   const markReveal = tells.markReveal;
   const snapshotTells = tells.snapshot;
-  const ownCameraStatus: LobbyCameraStatus = tells.baseline ? "ready" : cameraDone ? "skipped" : cameraDialogOpen || tells.status !== "idle" ? "setting_up" : "not_started";
+  const ownCameraStatus: LobbyCameraStatus = tells.baseline && tells.status === "running" ? "ready" : cameraDialogOpen || tells.status === "starting" || tells.status === "running" ? "setting_up" : cameraDone ? "skipped" : "not_started";
   const lobbyStatus = useLobbyCameraStatus(code, identity.token, identity.playerId, ownCameraStatus, state?.phase === "lobby");
 
   useEffect(() => {
@@ -142,7 +155,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     lastTellsSent.current = now;
     if (!baseline || !hand || !lastVector || lastVector.handNumber !== hand.handNumber) {
       liveVectorHistory.current = [];
-      sendTells({ frame, live: null });
+      sendTells({ frame: { ...frame, mouthMoving: undefined }, live: null });
       return;
     }
 
@@ -151,13 +164,13 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
       street: hand.street,
       // This rolling feed keeps the rail current and gives AIs the latest webcam read on their next turn.
       // Keep decision latency neutral here because no new player decision occurred.
-      decisionLatencyMs: baseline.decisionLatencyMs,
+      decisionLatencyMs: 0,
     });
     const history = liveVectorHistory.current.length >= 2 ? liveVectorHistory.current : [lastVector.vector, lastVector.vector];
     const liveVector = fuseTells(liveSnapshot, baseline, history);
     liveVectorHistory.current = [...liveVectorHistory.current.slice(-19), liveVector];
     // Spectators only: the rolling read goes under `live`. The AIs read `vector` (the decision) and `after` (post-bet).
-    sendTells({ frame, live: liveVector });
+    sendTells({ frame: { ...frame, mouthMoving: undefined }, live: liveVector });
   }, [baseline, frame, hand, lastVector, sendTells, snapshotTells, state?.phase]);
 
   const onAct = useCallback((type: ActionType, amount?: number) => {
@@ -165,15 +178,11 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     const promptKey = `${hand.handNumber}:${hand.actions.length}`;
     setSentFor(promptKey);
     const latency = Date.now() - promptedAt.current;
-    let vector: TellVector | null = null;
+    const timingValid = promptedAt.current > interruptedAt.current && !document.hidden && navigator.onLine;
+    const snapshot = tells.snapshot(promptedAt.current, { handNumber: hand.handNumber, street: hand.street, decisionLatencyMs: timingValid ? latency : 0 });
+    if (tells.status !== "running") snapshot.frames = [];
+    const vector = fuseTells(snapshot, tells.baselineRef.current, vectorHistory.current);
     if (tells.status === "running" && tells.baselineRef.current) {
-      const snapshot = tells.snapshot(promptedAt.current, { handNumber: hand.handNumber, street: hand.street, decisionLatencyMs: latency });
-      vector = fuseTells(snapshot, tells.baselineRef.current, vectorHistory.current);
-      vectorHistory.current = [...vectorHistory.current.slice(-20), vector];
-      tells.noteDecision(snapshot, latency);
-      setLastVector({ vector, handNumber: hand.handNumber });
-      liveVectorHistory.current = [vector, vector];
-      // The second evidence line: what the face does in the seconds after a bet or raise (Elwood's post-bet tells).
       if (type === "bet" || type === "raise" || type === "allin") {
         const actedAt = Date.now();
         const { handNumber, street } = hand;
@@ -187,8 +196,13 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
       }
     }
     // A rejected action (stale bet bounds) must hand the bar back, or the player is stuck until the timer folds them.
-    void act(type, amount, latency, vector).then((ok) => {
+    void act(type, amount, timingValid ? latency : undefined, vector).then((ok) => {
       if (!ok) setSentFor(null);
+      else {
+        vectorHistory.current = [...vectorHistory.current.slice(-19), vector];
+        setLastVector({ vector, handNumber: hand.handNumber });
+        if (timingValid) tells.noteDecision(snapshot, latency);
+      }
     });
   }, [act, hand, sendTells, tells]);
 
@@ -200,10 +214,12 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     tells.stop();
     // A deliberate skip is not a lost camera: the first-hand safety net must not bring it back.
     cameraEverOn.current = false;
+    cameraSuppressed.current = true;
     setCameraDone(true);
     setCameraDialogOpen(false);
   }, [tells]);
   const openCamera = useCallback(() => {
+    cameraSuppressed.current = false;
     if (!tells.baseline) setCameraDone(false);
     setCameraDialogOpen(true);
   }, [tells.baseline]);
@@ -211,14 +227,17 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const startCamera = tells.start;
   const hasBaseline = !!tells.baseline;
   useEffect(() => {
-    if (state?.phase === "playing" && tells.status === "idle" && (hasBaseline || cameraEverOn.current)) void startCamera();
+    if (!cameraSuppressed.current && state?.phase === "playing" && tells.status === "idle" && (hasBaseline || cameraEverOn.current)) void startCamera();
   }, [state?.phase, hasBaseline, tells.status, startCamera]);
   const leave = useCallback(() => {
-    void table.leave().then(() => {
+    if (leaving) return;
+    setLeaving(true);
+    void table.leave().then((accepted) => {
+      if (!accepted) { setLeaving(false); return; }
       clearIdentity(code);
       router.push("/");
     });
-  }, [code, router, table]);
+  }, [code, router, table, leaving]);
   // Rematch: the server seats the host at the new table; carry that identity over and go there.
   const requestRematch = table.rematch;
   const rematch = useCallback(async () => {
@@ -228,7 +247,10 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     router.push(`/table/${next.code}`);
   }, [identity.name, requestRematch, router]);
 
-  const camera = <CameraSetup tells={tells} onReady={finishCamera} onSkip={skipCamera} onClose={() => setCameraDialogOpen(false)} />;
+  const camera = <CameraSetup compact={state?.phase === "playing"} tells={tells} onReady={finishCamera} onSkip={skipCamera} onClose={() => setCameraDialogOpen(false)} />;
+
+  const cameraPanel = <PlayerCameraPanel tells={tells} presage={presage} setupOpen={cameraDialogOpen} onSetup={openCamera} onStop={skipCamera} />;
+  const cameraDialog = cameraDialogOpen && <CameraDialog ready={ownCameraStatus === "ready"} onDismiss={ownCameraStatus === "ready" ? () => setCameraDialogOpen(false) : skipCamera}>{camera}</CameraDialog>;
 
   if (!state) {
     return (
@@ -238,8 +260,9 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     );
   }
 
-  if (state.phase === "lobby") return <><TableLobby state={state} playerId={identity.playerId} error={table.error} cameraStatuses={lobbyStatus.cameraStatuses} readyPlayers={lobbyStatus.readyPlayers} ownCameraStatus={ownCameraStatus} onReadyChange={lobbyStatus.setReady} onOpenCamera={openCamera} onAddAI={table.addAI} onRemove={table.removePlayer} onUpdateConfig={table.updateConfig} onUpdateVisibility={table.updateVisibility} onStart={table.start} onLeave={leave} />{cameraDialogOpen && <CameraDialog ready={ownCameraStatus === "ready"} onDismiss={ownCameraStatus === "ready" ? () => setCameraDialogOpen(false) : skipCamera}>{camera}</CameraDialog>}</>;
+  if (state.phase === "lobby") return <><TableLobby state={state} playerId={identity.playerId} error={table.error} cameraStatuses={lobbyStatus.cameraStatuses} readyPlayers={lobbyStatus.readyPlayers} onReadyChange={lobbyStatus.setReady} onAddAI={table.addAI} onRemove={table.removePlayer} onUpdateConfig={table.updateConfig} onUpdateVisibility={table.updateVisibility} onStart={table.start} onLeave={leave} cameraPanel={cameraPanel} />{cameraDialog}</>;
   if (state.phase === "finished") return <FinishedTable state={state} playerId={identity.playerId} rematchCode={table.rematchCode} onRematch={rematch} error={table.error} />;
+
 
   const opponents = state.players.filter((player) => player.id !== identity.playerId);
   const detailedTells = tellAudiences(state.config.tellVisibility).humans ? opponents.filter((player) => player.kind === "human" && table.tells[player.id]) : [];
@@ -252,54 +275,61 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const calloutKey = callout ? `${callout.player.id}-${callout.read.at}` : null;
 
   return (
-    <main className="flex flex-1 flex-col gap-4 px-3 py-4 sm:px-6">
-      <TableHeader code={code} playerName={me?.name} status={table.status} voiceOn={state.config.voice} voice={voice} isHost={state.hostId === identity.playerId} onEnd={table.end} />
+    <>
+    <main className={layout.game}>
+      <TableHeader code={code} playerName={me?.name} status={table.status} voiceOn={state.config.voice} voice={voice} isHost={state.hostId === identity.playerId} onEnd={table.end} onLeave={leave} leaving={leaving} />
       {table.error && <p className="rounded-xl bg-danger/15 px-4 py-2 text-sm text-danger">{table.error}</p>}
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
-        <section className="flex min-w-0 flex-col gap-3">
+      <div className={layout.workspace}>
+        <section className={layout.play}>
           {callout && calloutKey && calloutKey !== calloutDone && (
-            <div key={calloutKey} onAnimationEnd={() => setCalloutDone(calloutKey)} className="animate-callout flex items-start gap-2 rounded-2xl border border-gold/50 bg-gold/10 px-4 py-2.5 text-sm shadow-[0_0_30px_rgba(212,175,55,0.15)]">
+            <div key={calloutKey} onAnimationEnd={() => setCalloutDone(calloutKey)} className={`${layout.callout} animate-callout flex items-start gap-2 rounded-2xl border border-gold/50 bg-background/95 px-4 py-2.5 text-sm shadow-[0_0_30px_rgba(212,175,55,0.15)]`}>
               <Eye size={16} className="mt-0.5 shrink-0 text-gold" />
               <p><span className="font-semibold text-gold">{callout.player.name}</span> <span className="text-muted">read the table on the {callout.read.street}:</span> {callout.read.decision.tellsUsed.join(" · ")}</p>
             </div>
           )}
           <OvalTable state={state} viewerSeat={me?.seat ?? null} lastActions={table.lastActions} talk={table.talk} speaking={voice.speaking} tells={table.tells} />
-          {hand && !hand.over && me && !me.sittingOut && <ActionBar legal={table.legal} bounds={table.bounds} pot={hand.pot} disabled={!myTurn || sentFor === `${hand.handNumber}:${hand.actions.length}`} onAct={onAct} />}
-          {hand?.over && <p className="text-center text-xs text-muted">Next hand in a moment…</p>}
+          <div className={layout.controls}>
+            <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-2">
+              {me && hand?.seats[me.seat] ? <BestHand hole={hand.seats[me.seat]!.holeCards} board={hand.board} folded={hand.seats[me.seat]!.folded} /> : <span />}
+              <button type="button" aria-controls="table-info" aria-expanded={infoOpen} onClick={() => setInfoOpen((open) => !open)} className={`${layout.infoToggle} shrink-0 rounded-full border border-felt-edge px-3 py-1 text-xs text-muted`}>Table info</button>
+            </div>
+          <ActionBar legal={table.legal} bounds={table.bounds} pot={hand?.pot ?? 0} disabled={!myTurn || !!me?.sittingOut || !hand || hand.over || sentFor === `${hand.handNumber}:${hand.actions.length}`} onAct={onAct} />
+          </div>
         </section>
 
-        <aside className="flex flex-col gap-3">
-          <section className="rounded-2xl border border-felt-edge p-3">
-            <div className="mb-2 flex items-center justify-between text-xs"><span className="flex items-center gap-1.5 font-medium"><Radio size={13} className={tells.status === "running" ? "text-ok" : "text-muted"} /> Your camera</span><span className="text-muted">{tells.status === "running" ? "tells sent every 2s" : tells.status}</span></div>
-            {cameraDone || baseline ? <><WebcamFeed videoRef={tells.videoRef} className="aspect-[4/3] w-full" /><p className="mt-2 text-xs text-muted">{baseline ? "Calibrated. Your bluff read stays hidden until the reveal." : tells.status === "running" ? "Camera on without a baseline; reads are coarse." : "Playing without a camera."}</p>{tells.status === "running" && <div className="mt-2"><TellHUD frame={frame} baseline={baseline} vector={null} cameraStatus="live" /></div>}</> : camera}
-          </section>
+        <aside id="table-info" aria-label="Table information" data-open={infoOpen} className={layout.sidebar}>
+          <button type="button" onClick={() => setInfoOpen(false)} className={`${layout.closeInfo} self-end rounded-full border border-felt-edge px-3 py-1 text-xs`}>Close table info</button>
+          {state.players.some((p) => state.aiModes?.[p.id] === "strategy") && <p role="status" className="rounded-xl border border-gold/40 bg-gold/10 p-3 text-xs text-gold">{state.players.filter((p) => state.aiModes?.[p.id] === "strategy").map((p) => p.name).join(", ")}: model unavailable on the last turn; the built-in strategy played instead.</p>}
+          {cameraPanel}
 
           {detailedTells.map((player) => <OpponentTells key={player.id} player={player} tells={table.tells[player.id]} />)}
 
           {aiReads.length > 0 && (
             <section className="rounded-2xl border border-felt-edge p-3 text-xs">
-              <p className="mb-2 flex items-center gap-2 font-semibold text-gold"><Eye size={13} /> Reads on you this hand</p>
+              <h2 className="mb-2 flex items-center gap-2 text-base text-gold"><Eye size={13} /> Reads on you this hand</h2>
               <ul className="flex flex-col gap-2">{aiReads.map((player) => { const read = table.reads[player.id]; return <li key={player.id}><span className="font-medium">{player.name}</span> <span className="capitalize text-muted">· {read.street}</span><p className="mt-0.5 text-muted">{read.decision.tellsUsed.length ? read.decision.tellsUsed.join(" · ") : "No tell used. Played the odds."}</p></li>; })}</ul>
             </section>
           )}
 
           {table.history.length > 0 && (
             <section className="rounded-2xl border border-felt-edge p-3 text-xs">
-              <p className="mb-2 font-semibold">Recent hands</p>
+              <h2 className="mb-2 text-base">Recent hands</h2>
               <ul className="flex flex-col gap-1.5 text-muted">{table.history.slice(-4).reverse().map((record) => <li key={record.handNumber} className="flex justify-between gap-2"><span>Hand {record.handNumber}</span><span className="truncate font-mono">{record.board.join(" ") || "preflop"}</span></li>)}</ul>
             </section>
           )}
         </aside>
       </div>
     </main>
+    {cameraDialog}
+    </>
   );
 }
 
-function CameraSetup({ tells, onReady, onSkip, onClose }: { tells: ReturnType<typeof useTells>; onReady: () => void; onSkip: () => void; onClose: () => void }) {
-  if (tells.baseline) {
-    return <div className="p-6 text-center"><p className="text-xs uppercase tracking-[0.3em] text-gold">Camera ready</p><h2 className="mt-2 text-2xl font-semibold">Your baseline is captured</h2><WebcamFeed videoRef={tells.videoRef} className="mx-auto mt-5 aspect-[4/3] w-full max-w-sm" /><p className="mx-auto mt-3 max-w-md text-xs text-muted">{tells.calibrationReport ?? "Your camera is ready for the first hand."}</p><button type="button" onClick={onClose} className="mt-5 rounded-full bg-gold px-7 py-2.5 text-sm font-medium text-background">Done</button></div>;
+function CameraSetup({ tells, onReady, onSkip, onClose, compact = false }: { compact?: boolean; tells: ReturnType<typeof useTells>; onReady: () => void; onSkip: () => void; onClose: () => void }) {
+  if (tells.baseline && tells.status === "running") {
+    return <div className="p-6 text-center"><h2 className="mt-2 text-2xl font-semibold">Your baseline is captured</h2><WebcamFeed videoRef={tells.videoRef} className="mx-auto mt-5 aspect-[4/3] w-full max-w-sm" /><p className="mx-auto mt-3 max-w-md text-xs text-muted">{tells.calibrationReport ?? "Your camera is ready for the first hand."}</p><button type="button" onClick={onClose} className="mt-5 rounded-full bg-gold px-7 py-2.5 text-sm font-medium text-background">Done</button></div>;
   }
-  return <Calibration videoRef={tells.videoRef} status={tells.status} progress={tells.calibrating?.progress ?? null} facePresent={!!tells.frame?.facePresent} onStartCamera={tells.start} onCalibrate={() => tells.calibrate().then((baseline) => baseline && onReady())} onSkip={onSkip} message={tells.calibrationReport} />;
+  return <Calibration compact={compact} videoRef={tells.videoRef} status={tells.status} progress={tells.calibrating?.progress ?? null} facePresent={!!tells.frame?.facePresent} onStartCamera={tells.start} onCalibrate={() => tells.calibrate().then((baseline) => baseline && onReady())} onSkip={onSkip} message={tells.calibrationReport} />;
 }
 
 function CameraDialog({ children, ready, onDismiss }: { children: React.ReactNode; ready: boolean; onDismiss: () => void }) {
@@ -324,13 +354,13 @@ function OpponentTells({ player, tells }: { player: Player; tells: PlayerTells }
   );
 }
 
-function TableHeader({ code, playerName, status, voiceOn, voice, isHost, onEnd }: { code: string; playerName?: string; status: string; voiceOn: boolean; voice: ReturnType<typeof useTalk>; isHost: boolean; onEnd: () => void }) {
+function TableHeader({ code, playerName, status, voiceOn, voice, isHost, onEnd, onLeave, leaving }: { code: string; playerName?: string; status: string; voiceOn: boolean; voice: ReturnType<typeof useTalk>; isHost: boolean; onEnd: () => void; onLeave: () => void; leaving: boolean }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-felt-edge bg-background/90 px-4 py-3">
-      <div className="flex items-center gap-3"><div><p className="text-[10px] uppercase tracking-[0.28em] text-muted">Poker Face</p><p className="text-sm">Table <span className="font-mono text-gold">{code}</span></p></div><span className="text-xs text-muted">{playerName}</span><span className={`h-2 w-2 rounded-full ${status === "live" ? "bg-ok" : "bg-danger"}`} title={status} /></div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3"><div><p className="text-[10px] text-muted">Poker Face</p><p className="text-sm">Table <span className="font-mono text-gold">{code}</span></p></div><span className="text-xs text-muted">{playerName}</span><span className={`h-2 w-2 rounded-full ${status === "live" ? "bg-ok" : "bg-danger"}`} title={status} /></div>
+      <div className="flex flex-wrap items-center gap-2">
         {isHost && <EndGameButton onEnd={onEnd} />}
-        <Link href={`/rail/${code}`} target="_blank" className="rounded-full border border-felt-edge px-4 py-2 text-xs text-muted hover:border-gold hover:text-foreground">Open rail</Link>
+        <button type="button" onClick={onLeave} disabled={leaving} className="rounded-full border border-felt-edge px-4 py-2 text-xs text-muted hover:border-danger hover:text-danger disabled:opacity-40">{leaving ? "Leaving…" : "Leave table"}</button>
         <button type="button" aria-label="Copy table code" onClick={() => navigator.clipboard?.writeText(code)} className="rounded-full border border-felt-edge p-2.5 text-muted hover:border-gold hover:text-foreground"><Copy size={15} /></button>
         {voiceOn && <VoiceControls voice={voice} />}
       </div>

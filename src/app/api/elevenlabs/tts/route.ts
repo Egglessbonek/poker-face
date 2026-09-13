@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ttsCache, ttsCacheKey } from "@/lib/ttsCache";
+import { safeTableTalk } from "@/lib/villain/speechGuard";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as { text?: unknown; voiceId?: unknown } | null;
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   if (!text || text.length > MAX_TEXT_CHARS) return NextResponse.json({ error: "text must be 1-400 characters" }, { status: 400 });
+  if (!safeTableTalk(text)) return NextResponse.json({ error: "Table talk rejected" }, { status: 400 });
   const voice = (typeof body?.voiceId === "string" && body.voiceId) || process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
 
   try {

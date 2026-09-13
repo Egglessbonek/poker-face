@@ -2,7 +2,7 @@
 
 /**
  * The table header's voice controls: the mute toggle, a "Tap to unmute" state for tabs whose audio the browser
- * has not unlocked yet (a refreshed page), and the ElevenLabs credit. Drop-in for the old inline button:
+ * has not unlocked yet (a refreshed page). Drop-in for the old inline button:
  * `<VoiceControls voice={voice} />` where `voice` is the `useTalk()` result.
  */
 
@@ -31,9 +31,6 @@ export default function VoiceControls({ voice }: { voice: ReturnType<typeof useT
         {!muted ? <Mic2 size={14} className={speaking ? "animate-pulse" : ""} /> : <MicOff size={14} />}
         {label}
       </button>
-      <span className="hidden items-center rounded-full border border-gold/35 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-gold/80 sm:inline-flex" title="Every AI line is spoken with ElevenLabs text-to-speech">
-        Voiced by ElevenLabs
-      </span>
     </div>
   );
 }

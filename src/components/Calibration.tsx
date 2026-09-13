@@ -15,22 +15,24 @@ interface Props {
   onSkip: () => void;
   /** Why the last attempt did not produce a baseline. */
   message?: string | null;
+  compact?: boolean;
 }
 
-export default function Calibration({ videoRef, status, progress, facePresent, onStartCamera, onCalibrate, onSkip, message }: Props) {
+export default function Calibration({ videoRef, status, progress, facePresent, onStartCamera, onCalibrate, onSkip, message, compact = false }: Props) {
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-3xl border border-felt-edge bg-background p-6 text-center">
-      <h2 className="text-2xl font-semibold">Let the table get a read on you</h2>
+    <div className={compact ? "flex w-full flex-col items-center gap-3 text-center" : "mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-3xl border border-felt-edge bg-background p-6 text-center"}>
+      {!compact && <h2 className="text-2xl">Camera setup</h2>}
+      <p className="text-xs text-muted">Facial tells run in your browser. Presage processes camera frames on our server without saving them; your pulse and breathing stay private.</p>
       <div className="relative aspect-[4/3] w-full max-w-80 overflow-hidden rounded-xl bg-felt/30">
         <WebcamFeed videoRef={videoRef} className="h-full w-full rounded-none" />
         {status !== "running" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-felt/70 to-background text-muted" aria-label="Camera preview unavailable">
             <CameraOff size={40} strokeWidth={1.5} aria-hidden="true" />
-            <span className="text-xs uppercase tracking-[0.2em]">Camera is off</span>
+            <span className="text-xs">{status === "starting" ? "Starting camera…" : "Camera is off"}</span>
           </div>
         )}
         {status === "running" && (
-          <span className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider ${facePresent ? "bg-ok/80" : "bg-danger/80"}`}>
+          <span className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] ${facePresent ? "bg-ok/80" : "bg-danger/80"}`}>
             {facePresent ? "face locked" : "no face"}
           </span>
         )}

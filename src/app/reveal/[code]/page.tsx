@@ -13,13 +13,20 @@ export default async function RevealPage(props: PageProps<"/reveal/[code]">) {
     // Tables live in server memory: a redeploy or restart takes the log with them.
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-gold">The Reveal · table {code}</p>
+        <p className="text-xs text-gold">The Reveal · table {code}</p>
         <h1 className="text-2xl font-semibold">That table has left the building.</h1>
         <p className="max-w-md text-sm text-muted">Either the code is wrong, or the server restarted since the match and its record is gone. Match records live only as long as the server does.</p>
         <Link href="/" className="rounded-full bg-gold px-6 py-2 font-medium text-background">Start a new table</Link>
       </main>
     );
   }
+  if (!log.endedAt) return (
+    <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+      <h1 className="text-2xl">The reveal opens when the match ends.</h1>
+      <p className="text-sm text-muted">Private cards and decision analysis stay sealed while the table is playing.</p>
+      <Link href={`/table/${code}`} className="rounded-full bg-gold px-6 py-2 text-background">Back to the table</Link>
+    </main>
+  );
   const data = buildReveal(log);
   // Where each human stands in the Hall of Poker Faces. Only humans with a graded face have an entry.
   const ranks: HallRanks = {};

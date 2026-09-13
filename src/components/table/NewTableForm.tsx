@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Globe2, Lock, SlidersHorizontal, Users } from "lucide-react";
+import { ArrowLeft, Globe2, Lock } from "lucide-react";
 import { api, lastName, saveIdentity } from "@/lib/client/identity";
 import { DEFAULT_TABLE } from "@/lib/types";
 
@@ -49,7 +49,7 @@ export default function NewTableForm() {
 
         <form onSubmit={create} className="flex flex-col gap-5 rounded-3xl border border-felt-edge bg-felt/20 p-6 shadow-2xl shadow-black/20 sm:p-8">
           <label className="flex flex-col gap-2">
-            <span className="text-xs uppercase tracking-wider text-muted">Your name</span>
+            <span className="text-xs text-muted">Your name</span>
             <input value={hostName} maxLength={20} placeholder="Host" autoFocus onChange={(event) => setHostName(event.target.value)} className="w-full rounded-xl border border-felt-edge bg-background px-4 py-3 text-base outline-none transition focus:border-gold" />
           </label>
           <button type="button" aria-pressed={isPublic} onClick={() => setIsPublic((current) => !current)} className="flex min-h-24 items-center justify-between gap-4 rounded-2xl border border-felt-edge bg-background/35 p-4 text-left transition hover:border-gold">
@@ -65,8 +65,4 @@ export default function NewTableForm() {
       </div>
     </main>
   );
-}
-
-function Benefit({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
-  return <li className="rounded-2xl border border-felt-edge/70 bg-background/50 p-4"><span className="text-gold">{icon}</span><p className="mt-3 font-medium">{title}</p><p className="mt-1 text-xs leading-relaxed text-muted">{body}</p></li>;
 }

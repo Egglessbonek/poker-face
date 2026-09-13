@@ -18,6 +18,7 @@ import { gazeZone } from "./gaze";
 
 export interface FeatureExtractorState {
   blinkTimestamps: number[];
+  jawHistory?: Array<{ t: number; value: number }>;
   /** First frame time; the blink window is scaled by elapsed time until 20s have passed. */
   startedAt?: number;
   eyesClosed: boolean;
@@ -32,6 +33,11 @@ export function createFeatureState(): FeatureExtractorState {
 export function extractFrame(result: FaceLandmarkerResult, t: number, state: FeatureExtractorState): TellFrame {
   const facePresent = (result.faceLandmarks?.length ?? 0) > 0;
   const bs = blendshapeMap(result);
+  state.jawHistory = (state.jawHistory ?? []).filter(f => t - f.t < 1000);
+  if (facePresent) state.jawHistory.push({ t, value: bs.jawOpen ?? 0 });
+  // Conservative artifact hint only; this is not a validated speech detector.
+  const jaw = state.jawHistory.map(f => f.value);
+  const mouthMoving = facePresent && jaw.length >= 6 && Math.max(...jaw) - Math.min(...jaw) > 0.25;
 
   // Blink edge detection.
   const blinkScore = Math.max(bs.eyeBlinkLeft ?? 0, bs.eyeBlinkRight ?? 0);
@@ -95,6 +101,7 @@ export function extractFrame(result: FaceLandmarkerResult, t: number, state: Fea
     headYaw,
     distance,
     bigMove,
+    mouthMoving,
     headMotion,
     tension: state.ewma.tension ?? 0,
     smile: state.ewma.smile ?? 0,

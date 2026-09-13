@@ -93,6 +93,8 @@ export interface RailTableSnapshot {
   pots: RailPotView[];
   currentPlayerId: string | null;
   turnSecondsRemaining: number | null;
+  turnDeadline?: number;
+  turnStartedAt?: number;
   /** Chairs at the table, for seat placement around the felt. */
   seatCount: number;
   tellVisibility: "ai-only" | "everyone" | "rail";

@@ -11,7 +11,7 @@ export default function Landing() {
       <div className={styles.hero}>
         <div className={`${styles.copy} flex flex-col items-start gap-4`}>
           <BlurText as="h1" text="poker face" animateBy="letters" delay={90} stepDuration={0.3} className="font-display text-7xl leading-none tracking-tight text-gold sm:text-8xl lg:text-9xl" />
-          <p className="max-w-3xl font-display text-3xl leading-tight sm:text-4xl">play poker with ai that knows how to read you.</p>
+          <p className="max-w-3xl font-sans text-3xl leading-tight sm:text-4xl">play poker with ai that knows how to read you.</p>
         </div>
         <div className={styles.chipSlot}>
           <LandingBackdrop />

@@ -33,7 +33,7 @@ export default function HallOfPokerFaces() {
         <div className="mt-6 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="text-[10px] uppercase tracking-[0.22em] text-muted">
+              <tr className="text-[10px] text-muted">
                 <th scope="col" className="pb-2 pr-3 font-normal">
                   #
                 </th>

@@ -177,13 +177,14 @@ export function legalActions(state: HandView, seat: number, config: BlindConfig)
   const { toCall, maxTotal } = bounds(state, seat, config);
   // Someone else must be able to respond for a bet/raise to mean anything.
   const responders = activeSeats(state).filter((i) => i !== seat).length;
-  const acts: ActionType[] = [];
+  // House rule: an in-turn fold is binding even when checking is free.
+  const acts: ActionType[] = ["fold"];
   if (toCall === 0) {
     acts.push("check");
     // Preflop the big blind's option is a raise (there is a live bet); otherwise it is a bet.
     if (p.stack > 0 && responders > 0) acts.push(state.currentBet > 0 ? "raise" : "bet");
   } else {
-    acts.push("fold", "call");
+    acts.push("call");
     if (maxTotal > state.currentBet && responders > 0) acts.push("raise");
   }
   if (p.stack > 0 && (responders > 0 || toCall > 0)) acts.push("allin");

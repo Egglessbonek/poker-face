@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { currentProvider, llmAvailable } from "@/lib/llm/provider";
+import { currentProvider, llmAvailable, llmDiagnostics } from "@/lib/llm/provider";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +10,7 @@ export async function GET() {
     ok: true,
     uptimeSec: Math.round(process.uptime()),
     llm: llmAvailable(),
+    llmStatus: llmDiagnostics(),
     provider: (() => {
       try {
         return currentProvider();

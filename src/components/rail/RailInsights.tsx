@@ -33,7 +33,7 @@ export function HumanTellCard({ player, compact = false }: { player: RailPlayerV
             <TrendIcon trend={composureTrend} /> {composureTrend}
           </div>
         ) : (
-          <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${tell.faceLocked ? "bg-ok/15 text-ok" : "bg-danger/15 text-danger"}`}>
+          <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${tell.faceLocked ? "bg-ok/15 text-ok" : "bg-danger/15 text-danger"}`}>
             {tell.faceLocked ? "face locked" : "no face"}
           </span>
         )}
@@ -89,7 +89,7 @@ export function AiReadCard({ player, compact = false }: { player: RailPlayerView
         {read.equity !== undefined && <span className="font-mono text-xs text-gold">{read.equity}% equity</span>}
       </div>
       <div className={compact ? "p-3" : "p-3.5"}>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/30">Reading {read.target}</p>
+        <p className="mb-2 text-[11px] font-semibold text-white/30">Reading {read.target}</p>
         <div className="mb-3 flex items-center gap-2 text-xs">
           <span className="rounded-md bg-white/5 px-2 py-1 text-white/45">Math: {read.mathAction}</span>
           <span className="text-white/25">→</span>

@@ -136,11 +136,11 @@ export default function PredictionMarketPanel({ code, snapshot }: { code: string
     <section className="overflow-hidden rounded-2xl border border-violet-400/20 bg-[linear-gradient(145deg,rgba(91,33,182,0.16),rgba(12,18,16,0.96)_58%)] text-white" aria-labelledby="prediction-market-title">
       <header className="flex items-start justify-between gap-3 border-b border-white/8 px-4 py-3.5">
         <div>
-          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-violet-300"><Zap size={11} fill="currentColor" /> Solana speed market</p>
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold text-violet-300"><Zap size={11} fill="currentColor" /> Solana speed market</p>
           <h2 id="prediction-market-title" className="mt-1 text-sm font-semibold">Predict the action</h2>
           <p className="mt-0.5 text-[10px] text-white/40">Spectating is free · stakes settle on devnet</p>
         </div>
-        <span className="flex items-center gap-1 rounded-full border border-violet-300/20 bg-violet-300/8 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-violet-200"><Radio size={9} /> Live</span>
+        <span className="flex items-center gap-1 rounded-full border border-violet-300/20 bg-violet-300/8 px-2 py-1 text-[9px] font-semibold text-violet-200"><Radio size={9} /> Live</span>
       </header>
 
       <div className="max-h-[48vh] space-y-3 overflow-y-auto p-3 xl:max-h-[43vh]">
@@ -154,7 +154,7 @@ export default function PredictionMarketPanel({ code, snapshot }: { code: string
           const selected = selections[market.id];
           return (
             <article key={market.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
-              <div className="flex items-center justify-between gap-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/35"><span>{marketLabel(market.kind)}</span><span>Pool ◎{sol(market.totalPoolLamports)}</span></div>
+              <div className="flex items-center justify-between gap-2 text-[9px] font-semibold text-white/35"><span>{marketLabel(market.kind)}</span><span>Pool ◎{sol(market.totalPoolLamports)}</span></div>
               <h3 className="mt-1.5 text-xs font-semibold leading-snug">{market.question}</h3>
               <div className="mt-2 grid gap-1.5">
                 {market.outcomes.map((outcome) => {
@@ -185,7 +185,7 @@ export default function PredictionMarketPanel({ code, snapshot }: { code: string
 
         {resolved.length > 0 && (
           <div>
-            <p className="mb-1.5 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/30"><Trophy size={10} /> Settled</p>
+            <p className="mb-1.5 flex items-center gap-1.5 text-[9px] font-semibold text-white/30"><Trophy size={10} /> Settled</p>
             {resolved.map((market) => {
               const winner = market.outcomes.find((outcome) => outcome.id === market.winningOutcomeId);
               return <div key={market.id} className="flex items-center justify-between gap-3 border-t border-white/6 py-1.5 text-[10px] text-white/45"><span className="truncate">{market.question}</span><span className={market.status === "void" ? "text-white/35" : "text-emerald-300"}>{market.status === "void" ? "Void" : winner?.label}</span></div>;
@@ -202,7 +202,7 @@ export default function PredictionMarketPanel({ code, snapshot }: { code: string
           </div>
         ) : snapshot.bettingReady ? (
           <button type="button" onClick={() => void connect()} className="flex w-full items-center justify-center gap-1.5 text-[10px] font-semibold text-violet-200"><Wallet size={11} /> Connect Solana wallet</button>
-        ) : <span className="block text-center text-[9px] uppercase tracking-widest text-white/25">Devnet · pari-mutuel · 5% fee</span>}
+        ) : <span className="block text-center text-[9px] text-white/25">Devnet · pari-mutuel · 5% fee</span>}
         {message && <p className="mt-2 text-[10px] text-emerald-300">{message}</p>}
         {error && <p role="alert" className="mt-2 text-[10px] leading-relaxed text-rose-300">{error}</p>}
         {message?.includes("placed") && <a href="https://explorer.solana.com/?cluster=devnet" target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[9px] text-white/35 hover:text-violet-200">Open Solana Explorer <ExternalLink size={9} /></a>}

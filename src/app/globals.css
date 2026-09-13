@@ -6,6 +6,12 @@
   --foreground: #ece7dc;
   --felt: #0f3b2e;
   --felt-edge: #1d5c47;
+  --table-wood: linear-gradient(135deg, #946b43, #38251b 28%, #674329 65%, #241b16);
+  --table-cushion: linear-gradient(160deg, #33372e, #151b17 35%, #0c100e 80%, #242a22);
+  --table-felt:
+    repeating-linear-gradient(35deg, transparent 0 2px, rgb(255 255 255 / 1.5%) 2px 3px),
+    repeating-linear-gradient(125deg, transparent 0 3px, rgb(0 0 0 / 3%) 3px 4px),
+    radial-gradient(ellipse at 50% 35%, #236447, #12452f 58%, #0b2c20);
   --gold: #d4af37;
   --chip-red: #b3261e;
   --chip-blue: #1f4e9c;
@@ -27,20 +33,22 @@
   --color-card: var(--card);
   --color-danger: var(--danger);
   --color-ok: var(--ok);
-  --font-sans: var(--font-pliant);
-  --font-display: var(--font-newsreader);
+  --font-sans: var(--font-pliant), system-ui, sans-serif;
+  --font-display: var(--font-newsreader), Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-pliant), system-ui, sans-serif;
-}
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-pliant), system-ui, sans-serif;
+  }
 
-h1, h2, h3 {
-  font-family: var(--font-newsreader), Georgia, serif;
-  font-weight: 400;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-newsreader), Georgia, serif;
+    font-weight: 400;
+  }
 }
 
 /* The tell callout banner: slides in, holds, then fades so it never needs a timer to clear. */

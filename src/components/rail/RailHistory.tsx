@@ -26,7 +26,7 @@ export default function RailHistory({ entries, embedded = false }: { entries: Ra
               </span>
               <div>
                 <p className="text-xs leading-relaxed">{entry.message}</p>
-                <p className="mt-0.5 text-[10px] uppercase tracking-wider text-white/25">{entry.street}</p>
+                <p className="mt-0.5 text-[10px] text-white/25">{entry.street}</p>
               </div>
             </li>
           );

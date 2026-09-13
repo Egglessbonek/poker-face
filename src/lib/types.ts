@@ -218,7 +218,7 @@ export interface Player {
 
 export type TablePhase = "lobby" | "playing" | "finished";
 
-/** Shared pregame state; camera data itself never leaves the player's browser. */
+/** Shared pregame readiness state; contains no camera frames or measurements. */
 export type LobbyCameraStatus = "not_started" | "setting_up" | "skipped" | "ready";
 
 export interface TableState {
@@ -232,11 +232,15 @@ export interface TableState {
   /** Current hand, with hole cards and deck filtered per viewer by the server. */
   hand: HandView | null;
   handNumber: number;
-  /** Epoch ms when the current human turn auto-folds. */
+  /** Epoch ms when this turn began, shared by players and the rail. */
+  turnStartedAt?: number;
+  /** Epoch ms when a human auto-checks/folds or an AI falls back to its strategy. */
   turnDeadline?: number;
   createdAt: number;
   /** Final standings once finished. */
   standings?: Array<{ playerId: string; name: string; stack: number; net: number }>;
+  /** Source of each AI seat's latest completed turn; survives reconnects. */
+  aiModes?: Record<string, "model" | "strategy">;
   /** Aggregate market state. Individual rail bets stay private to the submitting wallet. */
   predictions?: PredictionSnapshot;
 }
@@ -294,6 +298,8 @@ export interface TellFrame {
   distance?: number;
   /** Largest head displacement over any one second in the rolling window: posture shifts, not fidgeting. */
   bigMove?: number;
+  /** Visible jaw movement, not a claim that speech occurred. Used privately to qualify breathing. */
+  mouthMoving?: boolean;
   headMotion: number; // rolling variance of head pose (raw units)
   tension: number; // 0-1 composite of brow/jaw/lip blendshapes
   smile: number; // 0-1 mouthSmile
@@ -330,6 +336,8 @@ export interface TellSnapshot {
   handNumber: number;
   street: Street;
   decisionLatencyMs: number;
+  /** Median of previous decisions on this street; independent of face calibration. */
+  decisionReferenceMs?: number;
   frames: TellFrame[]; // frames in the decision window
   cardRevealReactions: CardReaction[];
 }

@@ -32,7 +32,7 @@ export default function RevealView({ data, ranks = {} }: { data: RevealData; ran
       <section aria-labelledby="important-moments-title">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-gold">Important moments</p>
+            <p className="text-xs font-semibold text-gold">Important moments</p>
             <h2 id="important-moments-title" className="mt-1 text-2xl font-medium">How the AIs read the table</h2>
           </div>
           {data.tellMoments.length > 0 && <p className="text-xs text-muted">Select a moment for the full decision breakdown</p>}
@@ -56,10 +56,10 @@ export default function RevealView({ data, ranks = {} }: { data: RevealData; ran
             <Spade size={17} fill="currentColor" />
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">Poker Face · Reveal</p>
+            <p className="text-[11px] font-semibold text-gold">Poker Face · Reveal</p>
             <p className="mt-0.5 font-display text-xl font-semibold text-white">Table <span className="font-mono text-gold">{data.code}</span></p>
           </div>
-          <span className="flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-gold">
+          <span className="flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 text-xs font-semibold text-gold">
             <Trophy size={12} /> Complete
           </span>
         </div>
@@ -72,7 +72,7 @@ export default function RevealView({ data, ranks = {} }: { data: RevealData; ran
 
       <section className="grid gap-5 border-b border-felt-edge/70 pb-8 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-end">
         <div className="min-w-0 max-w-2xl">
-          <p className="text-xs uppercase tracking-[0.3em] text-gold">Post-match analysis</p>
+          <p className="text-xs text-gold">Post-match analysis</p>
           <h1 className="mt-1 text-3xl font-semibold leading-tight sm:text-4xl">What your face gave away</h1>
           <p className="mt-2 text-sm text-muted">{data.hands.length} hands · {data.aiDecisions} AI decisions · tells changed {data.aiTellChanged} of them</p>
         </div>
@@ -134,7 +134,7 @@ function MomentCard({ moment, onOpen }: { moment: TellMoment; onOpen: () => void
     <li>
       <button type="button" onClick={onOpen} className={`group flex h-full w-full flex-col rounded-2xl border p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-gold/60 hover:bg-gold/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${caught ? "border-danger/50 bg-danger/[0.06]" : "border-felt-edge bg-felt/[0.04]"}`}>
         <div className="flex w-full items-center justify-between gap-3">
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${caught ? "bg-danger/15 text-danger" : "bg-gold/10 text-gold"}`}>
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold ${caught ? "bg-danger/15 text-danger" : "bg-gold/10 text-gold"}`}>
             {caught ? <Eye size={12} /> : <Sparkles size={12} />}{caught ? "Bluff caught" : changed ? "Tell changed the play" : "Tell considered"}
           </span>
           <span className="text-xs text-muted">Hand {moment.handNumber} · {moment.street}</span>
@@ -178,7 +178,7 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
         <header className={`sticky top-0 z-10 border-b px-5 py-5 sm:px-7 ${moment.caughtBluff ? "border-danger/30 bg-[#160f0f]" : "border-gold/25 bg-[#15150f]"}`}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className={`text-xs font-semibold uppercase tracking-[0.28em] ${moment.caughtBluff ? "text-danger" : "text-gold"}`}>{moment.caughtBluff ? "Successful bluff catch" : moment.changedAction ? "Tell-driven change" : "Tell-aware decision"}</p>
+              <p className={`text-xs font-semibold ${moment.caughtBluff ? "text-danger" : "text-gold"}`}>{moment.caughtBluff ? "Successful bluff catch" : moment.changedAction ? "Tell-driven change" : "Tell-aware decision"}</p>
               <h2 className="mt-1 text-2xl leading-tight sm:text-3xl">Hand {moment.handNumber}: {moment.aiName} {moment.changedAction ? "changed course" : "held its course"}</h2>
               <p className="mt-1 text-sm text-muted">{moment.street} · {moment.changedAction ? `math said ${moment.decision.mathAction}, tells led to ${actionText(moment.decision)}` : `the read reinforced ${actionText(moment.decision)}`}</p>
             </div>
@@ -203,7 +203,7 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
                 </div>
                 {moment.situation.actions.length > 0 && (
                   <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.025] p-4">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Action leading in</p>
+                    <p className="mb-2 text-xs font-semibold text-muted">Action leading in</p>
                     <ol className="space-y-1 text-sm text-white/70">
                       {moment.situation.actions.slice(-5).map((action, index) => <li key={`${action.at}-${index}`}><span className="text-foreground">{seatName(action.seat)}</span> {actionText(action)}</li>)}
                     </ol>
@@ -223,7 +223,7 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
                   <p className="mt-3 text-sm">Reading <strong>{read.name}</strong>: <span className="font-mono text-xl text-gold">{Math.round(read.bluffLikelihood * 100)}%</span> bluff</p>
                   <p className="mt-1 text-xs text-muted">Signal confidence {read.confidence === null ? "not recorded" : `${Math.round(read.confidence * 100)}%`}</p>
                   <div className="mt-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted">Tells used in the decision</p>
+                    <p className="text-xs font-semibold text-muted">Tells used in the decision</p>
                     {moment.decision.tellsUsed.length > 0 ? (
                       <ul className="mt-2 space-y-1 text-sm text-foreground">
                         {moment.decision.tellsUsed.map((tell) => <li key={tell}>• {tell}</li>)}
@@ -232,13 +232,13 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
                       <p className="mt-2 text-sm text-white/65">{moment.changedAction ? "The tell-adjusted strategy used the combined read; it did not cite an individual signal." : "The AI saw the read but did not cite an individual signal or change its action."}</p>
                     )}
                   </div>
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted">Supporting signals captured</p>
+                  <p className="mt-4 text-xs font-semibold text-muted">Supporting signals captured</p>
                   {read.evidence.length ? (
                     <ul className="mt-3 space-y-2">
                       {read.evidence.map((evidence) => (
                         <li key={evidence.signal} className="rounded-xl border border-white/8 bg-background/40 p-3 text-sm">
                           <p>{evidence.text}</p>
-                          <p className="mt-1 font-mono text-[11px] uppercase text-muted">{Math.round(evidence.strength * 100)}% signal strength · {signalName(evidence.signal)}</p>
+                          <p className="mt-1 font-mono text-[11px] text-muted">{Math.round(evidence.strength * 100)}% signal strength · {signalName(evidence.signal)}</p>
                         </li>
                       ))}
                     </ul>
@@ -275,7 +275,7 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
             ) : <p className="mt-3 text-sm text-muted">No completed result was recorded for this hand.</p>}
           </section>
 
-          {moment.decision.reasoning && <blockquote className="border-l-2 border-gold/50 pl-4 text-sm leading-relaxed text-white/65"><span className="text-xs font-semibold uppercase tracking-wider text-gold">AI reasoning</span><br />{moment.decision.reasoning}</blockquote>}
+          {moment.decision.reasoning && <blockquote className="border-l-2 border-gold/50 pl-4 text-sm leading-relaxed text-white/65"><span className="text-xs font-semibold text-gold">AI reasoning</span><br />{moment.decision.reasoning}</blockquote>}
         </div>
       </article>
     </dialog>
@@ -283,11 +283,11 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
 }
 
 function ModalStat({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted">{label}</p><p className="mt-1 font-mono text-lg text-foreground">{value}</p></div>;
+  return <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-3"><p className="text-[10px] font-semibold text-muted">{label}</p><p className="mt-1 font-mono text-lg text-foreground">{value}</p></div>;
 }
 
 function CardGroup({ label, cards, empty = "No cards" }: { label: string; cards: RevealDecision["holeCards"]; empty?: string }) {
-  return <div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>{cards.length ? <div className="flex flex-wrap gap-1">{cards.map((card) => <PlayingCard key={card} card={card} size="sm" />)}</div> : <p className="text-sm text-muted">{empty}</p>}</div>;
+  return <div><p className="mb-2 text-xs font-semibold text-muted">{label}</p>{cards.length ? <div className="flex flex-wrap gap-1">{cards.map((card) => <PlayingCard key={card} card={card} size="sm" />)}</div> : <p className="text-sm text-muted">{empty}</p>}</div>;
 }
 
 function actionText(action: { action: string; amount?: number } | RevealDecision["action"]): string {
@@ -317,7 +317,7 @@ function HumanSection({ h, rank }: { h: RevealPlayer; rank?: { rank: number; of:
     <section className="flex flex-col gap-6 rounded-3xl border border-felt-edge bg-felt/[0.04] p-4 sm:p-6 lg:p-7">
       <div className="grid gap-5 border-b border-felt-edge/50 pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.3em] text-gold">{h.player.name}</p>
+          <p className="text-xs text-gold">{h.player.name}</p>
           <h2 className="mt-1 text-2xl font-semibold leading-tight sm:text-3xl">{verdict(h)}</h2>
           {rank && <p className="mt-1 text-sm text-gold">{hallLine(rank)}</p>}
           {h.achievements.length > 0 && (
@@ -418,7 +418,7 @@ function BluffRow({ d }: { d: RevealDecision }) {
         <p>Hand {d.handNumber}, {d.street}: {d.action.type}{d.action.amount ? ` to ${d.action.amount}` : ""} with {Math.round(d.equity * 100)}% equity</p>
         <p className="text-muted">{d.tells ? `face said ${Math.round(d.tells.bluffLikelihood * 100)}% bluff${d.tells.evidence.length ? ` · ${d.tells.evidence[0].text}` : ""}` : "no tell data"}</p>
       </div>
-      <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase ${caught ? "bg-danger/80" : "bg-ok/80"}`}>{caught ? "caught" : "got away"}</span>
+      <span className={`rounded-full px-2 py-0.5 text-[10px] ${caught ? "bg-danger/80" : "bg-ok/80"}`}>{caught ? "caught" : "got away"}</span>
     </li>
   );
 }
@@ -438,7 +438,7 @@ function BluffTip({ active, payload }: { active?: boolean; payload?: Array<{ pay
 function Stat({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
     <div className="min-w-0 rounded-2xl border border-felt-edge/60 bg-background/45 px-2 py-3 sm:min-w-28 sm:px-3">
-      <p className="text-[10px] uppercase tracking-widest text-muted">{label}</p>
+      <p className="text-[10px] text-muted">{label}</p>
       <p className="mt-1 font-mono text-xl sm:text-2xl">{value}<span className="text-xs text-muted sm:text-sm">{unit}</span></p>
     </div>
   );

@@ -82,8 +82,8 @@
 .category {
   color: #64675d;
   font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .title {
@@ -115,9 +115,9 @@
   color: var(--background);
   font-family: var(--font-mono);
   font-size: 18px;
-  letter-spacing: 0.18em;
+  letter-spacing: normal;
   text-align: center;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .entry input::placeholder {
@@ -214,7 +214,7 @@
   color: var(--background);
   font-family: var(--font-mono);
   font-size: 15px;
-  letter-spacing: 0.14em;
+  letter-spacing: normal;
 }
 
 .rowMeta {

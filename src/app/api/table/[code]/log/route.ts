@@ -9,5 +9,6 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/table/[code]/lo
   const { code } = await ctx.params;
   const log = getTableLog(code);
   if (!log) return NextResponse.json({ error: "No such table" }, { status: 404 });
+  if (!log.endedAt) return NextResponse.json({ error: "The match log is available after the match ends" }, { status: 403 });
   return NextResponse.json(log);
 }

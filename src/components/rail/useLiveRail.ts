@@ -139,6 +139,8 @@ function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells
     board: hand?.board.map(toRailCard) ?? [],
     pots,
     currentPlayerId: toAct,
+    turnDeadline: toAct ? state.turnDeadline : undefined,
+    turnStartedAt: toAct ? state.turnStartedAt : undefined,
     turnSecondsRemaining: toAct && state.turnDeadline ? Math.max(0, Math.ceil((state.turnDeadline - now) / 1000)) : null,
     seatCount: state.config.maxSeats,
     standings: state.standings?.map((s) => ({ ...s, isAi: state.players.find((p) => p.id === s.playerId)?.kind === "ai" })),

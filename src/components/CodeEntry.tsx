@@ -5,8 +5,23 @@ import { useCodeEntry, type CodeEntryMode } from "@/hooks/useCodeEntry";
 import PlayingCardMarks from "./PlayingCardMarks";
 import styles from "./PlayingCard.module.css";
 
-export default function CodeEntry({ title, hint, mode, label, rank, suit }: { title: string; hint: string; mode: CodeEntryMode; label: string; rank: string; suit: string }) {
-  const { code, setCode, valid, checking, error, revealHref, submit } = useCodeEntry(mode);
+export default function CodeEntry({
+  title,
+  hint,
+  mode,
+  label,
+  rank,
+  suit,
+}: {
+  title: string;
+  hint: string;
+  mode: CodeEntryMode;
+  label: string;
+  rank: string;
+  suit: string;
+}) {
+  const { code, setCode, valid, checking, error, revealHref, submit } =
+    useCodeEntry(mode);
   return (
     <form
       onSubmit={submit}
@@ -24,10 +39,12 @@ export default function CodeEntry({ title, hint, mode, label, rank, suit }: { ti
           value={code}
           onChange={(e) => setCode(e.target.value)}
           aria-invalid={!!error}
-          placeholder="KXTR"
+          placeholder="HKRC"
           aria-label="Table code"
         />
-        <button disabled={!valid || checking}>{checking ? "Checking…" : label}</button>
+        <button disabled={!valid || checking}>
+          {checking ? "Checking…" : label}
+        </button>
       </div>
       {error && (
         <span role="alert" className="mt-2 block text-xs text-danger">
@@ -35,7 +52,9 @@ export default function CodeEntry({ title, hint, mode, label, rank, suit }: { ti
           {revealHref && (
             <>
               {" "}
-              <Link href={revealHref} className="underline">See the reveal</Link>
+              <Link href={revealHref} className="underline">
+                See the reveal
+              </Link>
             </>
           )}
         </span>

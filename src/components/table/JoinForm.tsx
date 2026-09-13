@@ -33,7 +33,7 @@ export default function JoinForm({ code, onJoined }: { code: string; onJoined: (
     <main className="flex flex-1 items-center justify-center px-6 py-16">
       <div className="flex w-full max-w-md flex-col gap-6 rounded-3xl border border-felt-edge bg-felt/15 p-6 text-center sm:p-8">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-gold">Table {code}</p>
+          <p className="text-xs text-gold">Table {code}</p>
           <h1 className="mt-2 text-3xl font-semibold">Take a seat</h1>
           <p className="mt-2 text-sm text-muted">Your name is the only thing the table needs.</p>
         </div>
