@@ -17,6 +17,9 @@ import {
   type PointerEvent,
 } from "react";
 import styles from "./OptionWheel.module.css";
+import { rebaseLoop, wrapIndex } from "./optionWheelMath";
+
+const LOOP_OVERSCAN_CYCLES = 2;
 
 export interface OptionWheelProps {
   items: string[];
@@ -102,6 +105,10 @@ function layout(
     filter: cfg.blur > 0 ? `blur(${(dist * cfg.blur).toFixed(2)}px)` : "none",
     p: Math.max(0, 1 - Math.min(dist, 1)).toFixed(4),
   };
+}
+
+function virtualItemIsVisible(distance: number, count: number, loop: boolean) {
+  return !loop || Math.abs(distance) <= count + 0.5;
 }
 
 export default function OptionWheel({
@@ -193,20 +200,21 @@ export default function OptionWheel({
     if (settled) next = target;
     posRef.current = next;
 
-    const els = itemRefs.current;
     const n = cfg.count;
-    for (let i = 0; i < n; i++) {
-      const el = els[i];
+    const virtualCount = cfg.loop && n > 1
+      ? n * (LOOP_OVERSCAN_CYCLES * 2 + 1)
+      : n;
+    const firstPosition = cfg.loop && n > 1 ? -n * LOOP_OVERSCAN_CYCLES : 0;
+    for (let i = 0; i < virtualCount; i++) {
+      const el = itemRefs.current[i];
       if (!el) continue;
-      let d = i - next;
-      if (cfg.loop && n > 1) {
-        d = ((d % n) + n) % n;
-        if (d > n / 2) d -= n;
-      }
-      const l = layout(d, cfg);
+      const distance = firstPosition + i - next;
+      const l = layout(distance, cfg);
+      const visible = virtualItemIsVisible(distance, n, cfg.loop);
       el.style.transform = l.transform;
-      el.style.opacity = l.opacity;
+      el.style.opacity = visible ? l.opacity : "0";
       el.style.filter = l.filter;
+      el.style.pointerEvents = visible ? "auto" : "none";
       el.style.setProperty("--ow-p", l.p);
     }
     rafRef.current = settled
@@ -247,8 +255,13 @@ export default function OptionWheel({
       let v = value;
       if (!cfg.loop) v = Math.min(Math.max(v, 0), Math.max(cfg.count - 1, 0));
       if (snap) v = Math.round(v);
+      if (cfg.loop && cfg.count > 1) {
+        const rebased = rebaseLoop(posRef.current, v, cfg.count);
+        posRef.current = rebased.position;
+        v = rebased.target;
+      }
       targetRef.current = v;
-      const idx = ((Math.round(v) % cfg.count) + cfg.count) % cfg.count;
+      const idx = wrapIndex(Math.round(v), cfg.count);
       if (idx !== selectedRef.current) {
         selectedRef.current = idx;
         setSelectedIndex(idx);
@@ -319,16 +332,10 @@ export default function OptionWheel({
   }, [applyTarget]);
 
   const handleItemClick = useCallback(
-    (index: number) => {
+    (position: number) => {
       if (dragMovedRef.current) return;
       const cfg = cfgRef.current;
-      const cur = targetRef.current;
-      let d = index - (((cur % cfg.count) + cfg.count) % cfg.count);
-      if (cfg.loop && cfg.count > 1) {
-        if (d > cfg.count / 2) d -= cfg.count;
-        else if (d < -cfg.count / 2) d += cfg.count;
-      }
-      applyTarget(cur + d, true);
+      applyTarget(cfg.loop ? position : wrapIndex(position, cfg.count), true);
     },
     [applyTarget],
   );
@@ -350,16 +357,19 @@ export default function OptionWheel({
     if (selected === undefined) return;
     const cfg = cfgRef.current;
     const n = Math.max(cfg.count, 1);
-    const idx = cfg.loop ? ((selected % n) + n) % n : Math.min(Math.max(selected, 0), n - 1);
+    const idx = cfg.loop ? wrapIndex(selected, n) : Math.min(Math.max(selected, 0), n - 1);
     if (idx === selectedRef.current) return;
     let target = idx;
     if (cfg.loop && n > 1) {
       // Shortest way round from wherever the wheel is now.
       const cur = targetRef.current;
-      let d = idx - (((Math.round(cur) % n) + n) % n);
+      let d = idx - wrapIndex(Math.round(cur), n);
       if (d > n / 2) d -= n;
       else if (d < -n / 2) d += n;
       target = cur + d;
+      const rebased = rebaseLoop(posRef.current, target, n);
+      posRef.current = rebased.position;
+      target = rebased.target;
     }
     selectedRef.current = idx;
     targetRef.current = target;
@@ -369,10 +379,12 @@ export default function OptionWheel({
 
   // Re-lay the wheel out when its geometry changes (and once on mount, with the measured rem).
   useEffect(() => {
-    targetRef.current = Math.min(
-      Math.max(targetRef.current, 0),
-      Math.max(items.length - 1, 0),
-    );
+    if (!loop) {
+      targetRef.current = Math.min(
+        Math.max(targetRef.current, 0),
+        Math.max(items.length - 1, 0),
+      );
+    }
     startLoop();
   }, [
     items,
@@ -398,7 +410,18 @@ export default function OptionWheel({
     [],
   );
 
-  const current = selected === undefined ? selectedIndex : ((selected % Math.max(items.length, 1)) + items.length) % Math.max(items.length, 1);
+  const itemCount = Math.max(items.length, 1);
+  const current = selected === undefined ? selectedIndex : wrapIndex(selected, itemCount);
+  const virtualItems = loop && items.length > 1
+    ? Array.from(
+        { length: items.length * (LOOP_OVERSCAN_CYCLES * 2 + 1) },
+        (_, slot) => {
+          const position = slot - items.length * LOOP_OVERSCAN_CYCLES;
+          const index = wrapIndex(position, items.length);
+          return { index, label: items[index], position };
+        },
+      )
+    : items.map((label, index) => ({ index, label, position: index }));
   const rootStyle = {
     "--ow-text-color": textColor,
     "--ow-active-color": activeColor,
@@ -421,26 +444,31 @@ export default function OptionWheel({
       onPointerCancel={handlePointerEnd}
       onKeyDown={handleKeyDown}
     >
-      {items.map((label, index) => {
-        const l = layout(index - defaultSelected, baseCfg);
+      {virtualItems.map(({ index, label, position }, slot) => {
+        const distance = position - defaultSelected;
+        const l = layout(distance, baseCfg);
+        const visible = virtualItemIsVisible(distance, items.length, loop);
+        const canonical = position === index;
         return (
           <div
-            key={`${label}-${index}`}
+            key={`${position}-${label}`}
             ref={(el) => {
-              itemRefs.current[index] = el;
+              itemRefs.current[slot] = el;
             }}
-            role="option"
-            aria-selected={current === index}
+            role={canonical ? "option" : undefined}
+            aria-hidden={canonical ? undefined : true}
+            aria-selected={canonical ? current === index : undefined}
             className={`${styles.item}${current === index ? ` ${styles.selected}` : ""}`}
             style={
               {
                 transform: l.transform,
-                opacity: l.opacity,
+                opacity: visible ? l.opacity : "0",
                 filter: l.filter,
+                pointerEvents: visible ? "auto" : "none",
                 "--ow-p": l.p,
               } as CSSProperties
             }
-            onClick={() => handleItemClick(index)}
+            onClick={() => handleItemClick(position)}
           >
             {label}
           </div>
