@@ -362,7 +362,7 @@ function TableHeader({ code, playerName, status, voiceOn, voice, isHost, onEnd, 
         {isHost && <EndGameButton onEnd={onEnd} />}
         <button type="button" onClick={onLeave} disabled={leaving} className="rounded-full border border-felt-edge px-4 py-2 text-xs text-muted hover:border-danger hover:text-danger disabled:opacity-40">{leaving ? "Leaving…" : "Leave table"}</button>
         <button type="button" aria-label="Copy table code" onClick={() => navigator.clipboard?.writeText(code)} className="rounded-full border border-felt-edge p-2.5 text-muted hover:border-gold hover:text-foreground"><Copy size={15} /></button>
-        {voiceOn && <VoiceControls voice={voice} />}
+        <VoiceControls voice={voice} tableVoiceEnabled={voiceOn} />
       </div>
     </header>
   );

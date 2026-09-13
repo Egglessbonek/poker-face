@@ -7,9 +7,6 @@ import { prettyCard } from "@/lib/poker/cards";
 import type { Card } from "@/lib/types";
 import styles from "./PokerTable.module.css";
 
-const TABLE_MUSIC_URL = "/sounds/pokerface.wav";
-const TABLE_MUSIC_VOLUME = 0.3;
-
 /** View data only: adapters must supply cards and details that this viewer is allowed to see. */
 export interface PokerSeatView {
   id: string; seat: number; name: string; kind: "human" | "ai"; stack: number; committed: number;
@@ -30,39 +27,6 @@ export default function PokerTable({ players, seatCount, anchor = 0, board, pots
   const stage = useRef<HTMLDivElement>(null);
   const [space, setSpace] = useState({ width: 1000, height: 600 });
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const music = new Audio(TABLE_MUSIC_URL);
-    music.loop = true;
-    music.preload = "auto";
-    music.volume = TABLE_MUSIC_VOLUME;
-    let active = true;
-    let playPending = false;
-
-    const stopRetrying = () => {
-      document.removeEventListener("pointerdown", play);
-      document.removeEventListener("keydown", play);
-    };
-    const play = () => {
-      if (!active || playPending || !music.paused) return;
-      playPending = true;
-      void music.play()
-        .then(stopRetrying)
-        .catch(() => {})
-        .finally(() => { playPending = false; });
-    };
-
-    // Autoplay may be blocked on a direct visit. Keep the first interaction as a fallback.
-    document.addEventListener("pointerdown", play);
-    document.addEventListener("keydown", play);
-    play();
-
-    return () => {
-      active = false;
-      stopRetrying();
-      music.pause();
-      music.currentTime = 0;
-    };
-  }, []);
   useEffect(() => {
     if (!stage.current) return;
     const observer = new ResizeObserver(([entry]) => setSpace({ width: entry.contentRect.width, height: entry.contentRect.height }));
