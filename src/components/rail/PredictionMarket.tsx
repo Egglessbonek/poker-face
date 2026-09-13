@@ -10,20 +10,8 @@ import {
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
+import { rememberSolanaWallet, solanaProvider } from "@/lib/client/solanaWallet";
 import type { PredictionMarket, PredictionSnapshot } from "@/lib/types";
-
-interface SolanaProvider {
-  publicKey?: PublicKey;
-  connect: () => Promise<{ publicKey: PublicKey }>;
-  signAndSendTransaction: (transaction: Transaction) => Promise<{ signature: string }>;
-}
-
-declare global {
-  interface Window {
-    solana?: SolanaProvider;
-    phantom?: { solana?: SolanaProvider };
-  }
-}
 
 const MEMO_PROGRAM = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 const STAKES = [0.001, 0.005, 0.01, 0.05];
@@ -56,12 +44,11 @@ export default function PredictionMarketPanel({ code, snapshot }: { code: string
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const openMarkets = useMemo(() => snapshot?.markets.filter((market) => market.status === "open") ?? [], [snapshot]);
-  const resolved = useMemo(() => snapshot?.markets.filter((market) => market.status === "settled" || market.status === "void").slice(0, 3) ?? [], [snapshot]);
+  const resolved = useMemo(() => snapshot?.markets.filter((market) => market.status === "settled").slice(0, 3) ?? [], [snapshot]);
 
   if (!snapshot?.enabled) return null;
 
   const rpc = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
-  const provider = () => window.phantom?.solana ?? window.solana;
   const updateBalance = async (address: string) => {
     try {
       setBalance(await new Connection(rpc, "confirmed").getBalance(new PublicKey(address)));
@@ -72,7 +59,7 @@ export default function PredictionMarketPanel({ code, snapshot }: { code: string
   const connect = async () => {
     setError(null);
     setMessage(null);
-    const injected = provider();
+    const injected = solanaProvider();
     if (!injected) {
       setError("Install a Solana wallet such as Phantom to place a prediction.");
       return;
@@ -81,6 +68,7 @@ export default function PredictionMarketPanel({ code, snapshot }: { code: string
       const connected = await injected.connect();
       const address = connected.publicKey.toBase58();
       setWallet(address);
+      rememberSolanaWallet(address);
       await updateBalance(address);
     } catch (reason) {
       setError((reason as Error).message || "Wallet connection was cancelled");
@@ -90,7 +78,7 @@ export default function PredictionMarketPanel({ code, snapshot }: { code: string
   const bet = async (market: PredictionMarket) => {
     const outcomeId = selections[market.id];
     if (!wallet || !outcomeId || !snapshot.treasury) return;
-    const injected = provider();
+    const injected = solanaProvider();
     if (!injected) return setError("Your Solana wallet disconnected.");
     const stakeLamports = Math.round(stake * LAMPORTS_PER_SOL);
     setBusy(market.id);

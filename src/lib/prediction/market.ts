@@ -25,6 +25,7 @@ import type {
   PredictionBetReceipt,
   PredictionMarket,
   PredictionMarketKind,
+  PredictionResults,
   PredictionSnapshot,
 } from "@/lib/types";
 
@@ -32,6 +33,9 @@ const MIN_STAKE_LAMPORTS = 1_000_000; // 0.001 SOL
 const MAX_STAKE_LAMPORTS = 100_000_000; // 0.1 SOL on devnet
 const FEE_BPS = 500;
 const LATE_CONFIRMATION_MS = 12_000;
+const AUTOMATIC_PAYOUT_RETRIES = 3;
+const AUTOMATIC_PAYOUT_RETRY_MS = 2_500;
+const MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 
 interface StoredBet extends PredictionBetReceipt {
   payoutLamports?: number;
@@ -62,10 +66,12 @@ const globals = globalThis as unknown as {
   __predictionBooks?: Map<string, PredictionBook>;
   __predictionSignatures?: Set<string>;
   __predictionPendingSignatures?: Set<string>;
+  __predictionPendingVerifications?: Map<string, number>;
 };
 const books = (globals.__predictionBooks ??= new Map());
 const usedSignatures = (globals.__predictionSignatures ??= new Set());
 const pendingSignatures = (globals.__predictionPendingSignatures ??= new Set());
+const pendingVerifications = (globals.__predictionPendingVerifications ??= new Map());
 
 export class PredictionError extends Error {
   constructor(message: string, public status = 400) {
@@ -132,6 +138,75 @@ export function predictionSnapshot(code: string): PredictionSnapshot {
   };
 }
 
+export function predictionResults(code: string, wallet?: string): PredictionResults {
+  const book = bookFor(code);
+  const storedMarkets = [...book.markets.values()].sort((a, b) => b.createdAt - a.createdAt);
+  const allBets = storedMarkets.flatMap((market) => market.bets.map((bet) => ({ market, bet })));
+  const returnedLamports = allBets.reduce((sum, { bet }) => sum + (bet.payoutLamports ?? 0), 0);
+  const paidLamports = allBets.reduce((sum, { bet }) => sum + (bet.claimSignature ? (bet.payoutLamports ?? 0) : 0), 0);
+  const settledStake = allBets.reduce((sum, { market, bet }) => sum + (market.status === "settled" || market.status === "void" ? bet.stakeLamports : 0), 0);
+  const result: PredictionResults = {
+    code,
+    enabled: book.enabled,
+    complete: storedMarkets.length > 0 && storedMarkets.every((market) => market.status === "settled" || market.status === "void"),
+    cluster: "devnet",
+    totals: {
+      markets: storedMarkets.length,
+      bets: allBets.length,
+      bettors: new Set(allBets.map(({ bet }) => bet.wallet)).size,
+      stakedLamports: allBets.reduce((sum, { bet }) => sum + bet.stakeLamports, 0),
+      returnedLamports,
+      paidLamports,
+      feeLamports: Math.max(0, settledStake - returnedLamports),
+    },
+    markets: storedMarkets.map((market) => ({ ...publicMarket(market), betCount: market.bets.length })),
+  };
+
+  if (!wallet) return result;
+  let normalizedWallet: string;
+  try {
+    normalizedWallet = new PublicKey(wallet).toBase58();
+  } catch {
+    throw new PredictionError("Invalid Solana wallet");
+  }
+  const walletBets = allBets.filter(({ bet }) => bet.wallet === normalizedWallet);
+  const walletReturned = walletBets.reduce((sum, { bet }) => sum + (bet.payoutLamports ?? 0), 0);
+  const walletPaid = walletBets.reduce((sum, { bet }) => sum + (bet.claimSignature ? (bet.payoutLamports ?? 0) : 0), 0);
+  const walletStaked = walletBets.reduce((sum, { bet }) => sum + bet.stakeLamports, 0);
+  result.wallet = {
+    address: normalizedWallet,
+    stakedLamports: walletStaked,
+    returnedLamports: walletReturned,
+    paidLamports: walletPaid,
+    pendingLamports: walletReturned - walletPaid,
+    netLamports: walletReturned - walletStaked,
+    bets: walletBets.map(({ market, bet }) => {
+      const selected = market.outcomes.find((outcome) => outcome.id === bet.outcomeId);
+      const winning = market.outcomes.find((outcome) => outcome.id === market.winningOutcomeId);
+      const payout = bet.payoutLamports ?? 0;
+      const betResult = market.status === "open" || market.status === "locked"
+        ? "pending"
+        : market.status === "void"
+          ? "refunded"
+          : payout > 0 ? "won" : "lost";
+      return {
+        id: bet.id,
+        marketId: market.id,
+        marketQuestion: market.question,
+        outcomeLabel: selected?.label ?? bet.outcomeId,
+        winningOutcomeLabel: winning?.label,
+        stakeLamports: bet.stakeLamports,
+        payoutLamports: payout,
+        result: betResult,
+        placedAt: bet.placedAt,
+        depositSignature: bet.signature,
+        payoutSignature: bet.claimSignature,
+      };
+    }),
+  };
+  return result;
+}
+
 function broadcast(code: string): void {
   publish(code, { type: "prediction_state", predictions: predictionSnapshot(code) });
 }
@@ -140,7 +215,7 @@ export function configurePredictionTable(code: string, enabled: boolean): void {
   const book = bookFor(code);
   book.enabled = enabled;
   if (!enabled) {
-    for (const market of book.markets.values()) if (market.status === "open") voidMarket(market);
+    for (const market of book.markets.values()) if (market.status === "open") voidMarket(code, market);
   }
   broadcast(code);
 }
@@ -209,16 +284,16 @@ function nextActionOutcome(action: ActionType): string {
 }
 
 export function settleNextActionPrediction(code: string, handNumber: number, actionNumber: number, action: ActionType): void {
-  settleMarket(bookFor(code).markets.get(`hand-${handNumber}-action-${actionNumber}`), nextActionOutcome(action));
+  settleMarket(code, bookFor(code).markets.get(`hand-${handNumber}-action-${actionNumber}`), nextActionOutcome(action));
   broadcast(code);
 }
 
 export function settlePredictionHand(code: string, handNumber: number, winners: string[], foldedOut: boolean): void {
   const uniqueWinners = [...new Set(winners)];
   const winnerMarket = bookFor(code).markets.get(`hand-${handNumber}-winner`);
-  if (uniqueWinners.length === 1) settleMarket(winnerMarket, uniqueWinners[0]);
-  else if (winnerMarket) voidMarket(winnerMarket);
-  settleMarket(bookFor(code).markets.get(`hand-${handNumber}-finish`), foldedOut ? "fold" : "showdown");
+  if (uniqueWinners.length === 1) settleMarket(code, winnerMarket, uniqueWinners[0]);
+  else if (winnerMarket) voidMarket(code, winnerMarket);
+  settleMarket(code, bookFor(code).markets.get(`hand-${handNumber}-finish`), foldedOut ? "fold" : "showdown");
   broadcast(code);
 }
 
@@ -226,29 +301,31 @@ export function finishPredictionMatch(code: string, winnerIds: string[]): void {
   const book = bookFor(code);
   for (const market of book.markets.values()) {
     if (market.status !== "open" || market.id === "match-winner") continue;
-    voidMarket(market);
+    voidMarket(code, market);
   }
   const winners = [...new Set(winnerIds)];
   const match = book.markets.get("match-winner");
-  if (winners.length === 1) settleMarket(match, winners[0]);
-  else if (match) voidMarket(match);
+  if (winners.length === 1) settleMarket(code, match, winners[0]);
+  else if (match) voidMarket(code, match);
   broadcast(code);
 }
 
-function settleMarket(market: StoredMarket | undefined, outcomeId: string): void {
+function settleMarket(code: string, market: StoredMarket | undefined, outcomeId: string): void {
   if (!market || market.status !== "open") return;
   market.status = "locked";
   market.lockedAt = Date.now();
   market.resolvedOutcomeId = outcomeId;
   recalculatePayouts(market);
+  scheduleAutomaticPayout(code, market.claimableAt);
 }
 
-function voidMarket(market: StoredMarket): void {
+function voidMarket(code: string, market: StoredMarket): void {
   if (market.status !== "open" && market.status !== "locked") return;
   market.status = "void";
   market.lockedAt ??= Date.now();
   market.claimableAt = Date.now() + LATE_CONFIRMATION_MS;
   for (const bet of market.bets) bet.payoutLamports = bet.stakeLamports;
+  scheduleAutomaticPayout(code, market.claimableAt);
 }
 
 function recalculatePayouts(market: StoredMarket): void {
@@ -277,6 +354,17 @@ function parsedSystemTransfer(tx: ParsedTransactionWithMeta, source: string, des
   });
 }
 
+function parsedMemo(tx: ParsedTransactionWithMeta, expected: string): boolean {
+  return tx.transaction.message.instructions.some((instruction) => {
+    if (!("parsed" in instruction) || instruction.programId.toBase58() !== MEMO_PROGRAM_ID) return false;
+    const parsed = (instruction as ParsedInstruction).parsed as unknown;
+    if (typeof parsed === "string") return parsed === expected;
+    if (!parsed || typeof parsed !== "object") return false;
+    const value = parsed as { memo?: unknown; info?: { memo?: unknown } };
+    return value.memo === expected || value.info?.memo === expected;
+  });
+}
+
 async function confirmedTransaction(signature: string): Promise<ParsedTransactionWithMeta> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const tx = await connection().getParsedTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
@@ -287,6 +375,7 @@ async function confirmedTransaction(signature: string): Promise<ParsedTransactio
 }
 
 export async function placePredictionBet(code: string, input: BetInput): Promise<PredictionBetReceipt> {
+  const receivedAt = Date.now();
   const book = bookFor(code);
   if (!book.enabled) throw new PredictionError("Predictions are not enabled at this table", 403);
   const signer = treasury();
@@ -303,13 +392,16 @@ export async function placePredictionBet(code: string, input: BetInput): Promise
     throw new PredictionError("Invalid Solana wallet");
   }
   if (!input.signature || usedSignatures.has(input.signature) || pendingSignatures.has(input.signature)) throw new PredictionError("Transaction signature was already used", 409);
+  if (market.claimableAt && receivedAt > market.claimableAt) throw new PredictionError("That market no longer accepts confirmed bets", 409);
 
   pendingSignatures.add(input.signature);
+  pendingVerifications.set(code, (pendingVerifications.get(code) ?? 0) + 1);
   try {
     const tx = await confirmedTransaction(input.signature);
     if (tx.meta?.err) throw new PredictionError("Solana transaction failed", 402);
     const signedByWallet = tx.transaction.message.accountKeys.some((key) => key.pubkey.toBase58() === input.wallet && key.signer);
-    if (!signedByWallet || !parsedSystemTransfer(tx, input.wallet, signer.publicKey.toBase58(), amount)) throw new PredictionError("Transaction does not match this stake", 402);
+    const expectedMemo = `poker-face:${code}:${market.id}:${input.outcomeId}`;
+    if (!signedByWallet || !parsedSystemTransfer(tx, input.wallet, signer.publicKey.toBase58(), amount) || !parsedMemo(tx, expectedMemo)) throw new PredictionError("Transaction does not match this prediction", 402);
     const confirmedAt = (tx.blockTime ?? 0) * 1000;
     if (!confirmedAt || confirmedAt + 5_000 < market.createdAt) throw new PredictionError("Transaction predates this market", 409);
     if (market.lockedAt && confirmedAt > market.lockedAt + 1_000) throw new PredictionError("The market locked before that transaction landed", 409);
@@ -339,6 +431,42 @@ export async function placePredictionBet(code: string, input: BetInput): Promise
     return receipt;
   } finally {
     pendingSignatures.delete(input.signature);
+    const remaining = (pendingVerifications.get(code) ?? 1) - 1;
+    if (remaining > 0) pendingVerifications.set(code, remaining);
+    else pendingVerifications.delete(code);
+  }
+}
+
+function scheduleAutomaticPayout(code: string, claimableAt = Date.now()): void {
+  const delay = Math.max(0, claimableAt - Date.now()) + 250;
+  setTimeout(() => void payReadyWallets(code), delay);
+}
+
+async function payReadyWallets(code: string): Promise<void> {
+  if ((pendingVerifications.get(code) ?? 0) > 0) {
+    setTimeout(() => void payReadyWallets(code), 500);
+    return;
+  }
+  const now = Date.now();
+  const wallets = new Set(
+    [...bookFor(code).markets.values()].flatMap((market) =>
+      (market.claimableAt ?? Infinity) <= now
+        ? market.bets.filter((bet) => !bet.claimed && (bet.payoutLamports ?? 0) > 0).map((bet) => bet.wallet)
+        : [],
+    ),
+  );
+  await Promise.all([...wallets].map((wallet) => payWalletAutomatically(code, wallet)));
+}
+
+async function payWalletAutomatically(code: string, wallet: string, attempt = 1): Promise<void> {
+  try {
+    await claimPredictionWinnings(code, wallet);
+  } catch (error) {
+    if (error instanceof PredictionError && error.status === 409) return;
+    console.error(`prediction payout attempt ${attempt} failed for table ${code}`, error);
+    if (attempt < AUTOMATIC_PAYOUT_RETRIES) {
+      setTimeout(() => void payWalletAutomatically(code, wallet, attempt + 1), AUTOMATIC_PAYOUT_RETRY_MS * attempt);
+    }
   }
 }
 
@@ -366,6 +494,7 @@ export async function claimPredictionWinnings(code: string, wallet: string): Pro
     const confirmation = await connection().confirmTransaction(signature, "confirmed");
     if (confirmation.value.err) throw new Error("Payout transaction failed");
     for (const bet of bets) bet.claimSignature = signature;
+    broadcast(code);
     return { signature, amountLamports };
   } catch (error) {
     for (const bet of bets) bet.claimed = false;
