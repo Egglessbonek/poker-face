@@ -17,6 +17,7 @@ import { isSeatableModelId } from "@/lib/llm/models";
 import { appendLog, createLog, endLog, getLog, setBaseline, syncLogPlayers } from "@/lib/store";
 import { buildReveal } from "@/lib/game/reveal";
 import { recordHall } from "@/lib/hall";
+import { actionKey, showdownNotes, type ActionTells } from "./notes";
 import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
 import { generateCode } from "@/lib/rail/code";
 import { aiGuestList } from "@/lib/game/rematch";
@@ -35,6 +36,8 @@ import {
   type TableEvent,
   type TableLog,
   type TableState,
+  type Action,
+  type ShowdownNote,
   type TableListing,
   type TellFrame,
   type TellVector,
@@ -60,6 +63,8 @@ interface Table {
   tells: Record<string, PlayerTells>;
   /** Per player tendencies over the match. */
   stats: Record<string, PlayerStats>;
+  /** Showdown facts about the humans this match, oldest first. See notes.ts. */
+  notes: ShowdownNote[];
   /** Players who already counted VPIP/PFR this hand. */
   vpipThisHand: Set<string>;
   pfrThisHand: Set<string>;
@@ -120,6 +125,7 @@ export async function createTable(configPatch: Partial<TableConfig>, hostName: s
     button: 0,
     tells: {},
     stats: {},
+    notes: [],
     vpipThisHand: new Set(),
     pfrThisHand: new Set(),
     saidLines: {},
@@ -543,6 +549,20 @@ function settleHand(t: Table) {
       st.showdowns++;
       if (r.won > 0) st.showdownsWon++;
     }
+    // The notebook: every bet a human made this hand, now that we know what they held. Never let it break settling.
+    try {
+      const tells: ActionTells = new Map();
+      for (const e of getLog(t.code)?.entries ?? []) {
+        if (e.kind !== "action") continue;
+        const d = e.data as { handNumber: number; action: Action; tells: TellVector | null };
+        if (d.handNumber === hand.handNumber) tells.set(actionKey(d.action), d.tells);
+      }
+      const fresh = showdownNotes(hand, t.players, tells);
+      for (const n of fresh) appendLog(t.code, "showdown_note", n);
+      t.notes = [...t.notes, ...fresh].slice(-60);
+    } catch (err) {
+      console.error("notebook: could not write showdown notes for", t.code, err);
+    }
   }
   for (const p of t.players) {
     const s = hand.seats[p.seat];
@@ -593,6 +613,7 @@ async function aiAct(t: Table, seat: number) {
       const p = playerAtSeat(t, i);
       return {
         seat: i,
+        id: p?.id,
         name: p?.name ?? `Seat ${i + 1}`,
         kind: p?.kind ?? "human",
         stack: s.stack,
@@ -621,6 +642,8 @@ async function aiAct(t: Table, seat: number) {
     raisesThisStreet,
     modelId: player.modelId ?? DEFAULT_TABLE.aiPlayers[0],
     recentTalk: (t.saidLines[player.id] ?? []).slice(-4),
+    notes: t.notes,
+    meId: player.id,
   });
 
   // The table may have moved on while the LLM was thinking (e.g. host ended it).

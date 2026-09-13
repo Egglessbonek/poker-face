@@ -137,7 +137,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     lastTellsSent.current = now;
     if (!baseline || !hand || !lastVector || lastVector.handNumber !== hand.handNumber) {
       liveVectorHistory.current = [];
-      sendTells({ frame, vector: null });
+      sendTells({ frame, live: null });
       return;
     }
 
@@ -151,7 +151,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     const history = liveVectorHistory.current.length >= 2 ? liveVectorHistory.current : [lastVector.vector, lastVector.vector];
     const liveVector = fuseTells(liveSnapshot, baseline, history);
     liveVectorHistory.current = [...liveVectorHistory.current.slice(-19), liveVector];
-    sendTells({ frame, vector: liveVector });
+    // Spectators only: the rolling read goes under `live`. The AIs read `vector` (the decision) and `after` (post-bet).
+    sendTells({ frame, live: liveVector });
   }, [baseline, frame, hand, lastVector, sendTells, snapshotTells, state?.phase]);
 
   const onAct = useCallback((type: ActionType, amount?: number) => {
