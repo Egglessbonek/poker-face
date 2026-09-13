@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, ChevronDown, LoaderCircle, Plus, Search } from "lucide-react";
-import { FEATURED_MODEL_IDS, OPENROUTER_ID, describeModelId, formatPrice, tierOf, type CatalogModel } from "@/lib/llm/models";
+import { FEATURED_MODEL_IDS, OPENROUTER_ID, describeModelId, formatPrice, modelSpeed, type CatalogModel } from "@/lib/llm/models";
 
 interface Props {
   onAdd: (id: string) => void;
@@ -64,7 +64,7 @@ export default function ModelPicker({ onAdd, disabled }: Props) {
           {regulars.map((model) => (
             <button type="button" key={model.id} disabled={disabled} onClick={() => add(model.id)} title={model.id} className="group flex items-center gap-3 rounded-2xl border border-felt-edge bg-background/35 p-3 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-chip-blue/50 text-foreground"><Bot size={16} /></span>
-              <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{model.name}</span><span className="block truncate text-[10px] text-muted">{model.vendor}{tierOf(model.id) ? ` · ${tierOf(model.id)}` : ""}</span></span>
+              <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{model.name}</span><span className="block truncate text-[10px] text-muted">{model.vendor}</span><span className="mt-1 flex flex-wrap gap-1"><ModelBadge>{modelSpeed(model.id)}</ModelBadge><ModelBadge>{all ? formatPrice(model) : "Pricing…"}</ModelBadge></span></span>
               <Plus size={15} className="shrink-0 text-muted transition group-hover:text-gold" />
             </button>
           ))}
@@ -90,7 +90,7 @@ export default function ModelPicker({ onAdd, disabled }: Props) {
               {matches.map((model) => (
                 <li key={model.id}>
                   <button type="button" disabled={disabled} onClick={() => add(model.id)} title={model.id} className="group flex h-full w-full items-center gap-3 rounded-xl border border-felt-edge p-3 text-left transition hover:border-gold disabled:opacity-40">
-                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{model.name}</span><span className="block truncate text-[10px] text-muted">{model.vendor} · {formatPrice(model)}</span></span>
+                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{model.name}</span><span className="block truncate text-[10px] text-muted">{model.vendor}</span><span className="mt-1 flex flex-wrap gap-1"><ModelBadge>{modelSpeed(model.id)}</ModelBadge><ModelBadge>{formatPrice(model)}</ModelBadge></span></span>
                     <Plus size={14} className="shrink-0 text-muted group-hover:text-gold" />
                   </button>
                 </li>
@@ -112,4 +112,8 @@ export default function ModelPicker({ onAdd, disabled }: Props) {
 function fallback(id: string): CatalogModel {
   const { label, vendor } = describeModelId(id);
   return { id, name: label, vendor, contextLength: 0, promptPerM: 0, completionPerM: 0 };
+}
+
+function ModelBadge({ children }: { children: React.ReactNode }) {
+  return <span className="rounded-full border border-felt-edge bg-background/60 px-1.5 py-0.5 text-[9px] leading-none text-muted">{children}</span>;
 }

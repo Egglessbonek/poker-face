@@ -95,7 +95,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const markReveal = tells.markReveal;
   const snapshotTells = tells.snapshot;
   const ownCameraStatus: LobbyCameraStatus = tells.baseline ? "ready" : cameraDone ? "skipped" : cameraDialogOpen || tells.status !== "idle" ? "setting_up" : "not_started";
-  const cameraStatuses = useLobbyCameraStatus(code, identity.token, ownCameraStatus, state?.phase === "lobby");
+  const lobbyStatus = useLobbyCameraStatus(code, identity.token, identity.playerId, ownCameraStatus, state?.phase === "lobby");
 
   useEffect(() => {
     if (baseline) sendTells({ baseline });
@@ -238,7 +238,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     );
   }
 
-  if (state.phase === "lobby") return <><TableLobby state={state} playerId={identity.playerId} error={table.error} cameraStatuses={cameraStatuses} ownCameraStatus={ownCameraStatus} onOpenCamera={openCamera} onAddAI={table.addAI} onRemove={table.removePlayer} onUpdateConfig={table.updateConfig} onStart={table.start} onLeave={leave} />{cameraDialogOpen && <CameraDialog ready={ownCameraStatus === "ready"} onDismiss={ownCameraStatus === "ready" ? () => setCameraDialogOpen(false) : skipCamera}>{camera}</CameraDialog>}</>;
+  if (state.phase === "lobby") return <><TableLobby state={state} playerId={identity.playerId} error={table.error} cameraStatuses={lobbyStatus.cameraStatuses} readyPlayers={lobbyStatus.readyPlayers} ownCameraStatus={ownCameraStatus} onReadyChange={lobbyStatus.setReady} onOpenCamera={openCamera} onAddAI={table.addAI} onRemove={table.removePlayer} onUpdateConfig={table.updateConfig} onStart={table.start} onLeave={leave} />{cameraDialogOpen && <CameraDialog ready={ownCameraStatus === "ready"} onDismiss={ownCameraStatus === "ready" ? () => setCameraDialogOpen(false) : skipCamera}>{camera}</CameraDialog>}</>;
   if (state.phase === "finished") return <FinishedTable state={state} playerId={identity.playerId} rematchCode={table.rematchCode} onRematch={rematch} error={table.error} />;
 
   const opponents = state.players.filter((player) => player.id !== identity.playerId);
