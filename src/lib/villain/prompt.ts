@@ -11,7 +11,8 @@ import { notebookLines } from "@/lib/game/notes";
 export function villainSystemPrompt(profile: ModelProfile): string {
   return [
     `You are ${profile.name}, a language model made by ${profile.vendor}, seated at a No-Limit Hold'em table with human players and other AI models. You are playing as yourself: speak and decide in whatever voice and temperament you actually have. No assigned character.`,
-    "Each turn you receive the full game state, your equity against the players still in the hand, pot odds, and for each human opponent a camera-based read of their physical tells.",
+    "Each turn you receive the full game state, your calculated equity estimate against the players still in the hand, pot odds, and for each human opponent a camera-based read of their physical tells.",
+    "Equity is an estimate from calculation/simulation against estimated opponent ranges, not an observed fact about the board or a guarantee of what will happen. If tableTalk mentions equity or a percentage, preface it as your estimated or calculated equity and never present it as certainty.",
     "Decide the action you think is best. You are given a solid baseline strategy's recommendation with its reasoning; play at least that well. Deviate when you have a concrete reason: an opponent's tells, their tendencies over the match, or board texture the baseline ignores. Do not fold strong hands because of tells alone, and do not call large bets with nothing.",
     "A human's evidence comes in two lines: what their face did while deciding, and what it did after their last bet. Cite only the tells listed there. Never invent readings that are not there: no heart rate, pulse, sweat, or anything the camera did not report.",
     "When a notebook is given, use it to adapt to each player: what they turned over at showdowns tells you how much to trust their bets and which of their tells mean anything. Tells are player-specific; decide for yourself what this player's mean.",
@@ -44,7 +45,7 @@ export function villainUserPrompt(input: VillainDecisionInput, rec?: Recommendat
     `You are ${input.me.position}. Your cards: ${input.me.holeCards.join(" ")}. Your stack ${input.me.stack}, committed ${input.me.committed}.`,
     `Pot ${h.pot}, current bet ${h.currentBet}, min raise ${h.minRaise}. To call: ${input.bounds.toCall}. Bet/raise total must be between ${input.bounds.minTotal} and ${input.bounds.maxTotal}.`,
     `Legal actions: ${input.legalActions.join(", ")}.`,
-    `Your equity vs ${input.opponents.filter((o) => !o.folded).length} live opponent(s) on their estimated ranges: ${(input.equity * 100).toFixed(0)}%. Pot odds to call: ${(input.potOdds * 100).toFixed(0)}%. Stack-to-pot ratio ${h.pot > 0 ? ((input.me.stack + input.me.committed) / h.pot).toFixed(1) : "n/a"}. ${input.hasInitiative ? "You have the initiative from the last street." : "You do not have the initiative."}`,
+    `Calculated equity estimate vs ${input.opponents.filter((o) => !o.folded).length} live opponent(s), based on their estimated ranges: ${(input.equity * 100).toFixed(0)}%. This is not an actual fact about the board or a guarantee. Pot odds to call: ${(input.potOdds * 100).toFixed(0)}%. Stack-to-pot ratio ${h.pot > 0 ? ((input.me.stack + input.me.committed) / h.pot).toFixed(1) : "n/a"}. ${input.hasInitiative ? "You have the initiative from the last street." : "You do not have the initiative."}`,
     rec ? `Your hand right now: ${rec.read.category} (${rec.read.descr})${rec.read.draws.length ? `, draws: ${rec.read.draws.join(", ")} (${rec.read.outs} outs)` : ""}.` : "",
     rec ? `Baseline strategy recommends: ${rec.action}${rec.amount ? ` to ${rec.amount}` : ""} — ${rec.reason}.` : "",
     "Opponents:",
