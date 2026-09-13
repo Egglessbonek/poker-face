@@ -72,6 +72,8 @@ export interface TellMoment {
   aiName: string;
   aiSeat: number;
   aiEquity: number;
+  /** True only when the tell-adjusted or final action differed from the no-tell baseline. */
+  changedAction: boolean;
   decision: VillainDecision;
   /** Exact table state immediately before the AI acted. Null for logs created before snapshots were added. */
   situation: RevealSituation | null;
@@ -193,22 +195,32 @@ export function buildReveal(log: TableLog): RevealData {
     }
     return null;
   };
+  const meaningfulTell = (tell: TellVector | null | undefined) => !!tell
+    && Number.isFinite(tell.confidence)
+    && tell.confidence > 0.2
+    && ((Array.isArray(tell.evidence) && tell.evidence.length > 0) || Math.abs(tell.bluffLikelihood - 0.5) >= 0.05);
   const tellChanged = (d: AIDecisionData) => (d.decision.tellAction ?? d.decision.mathAction) !== d.decision.mathAction || (d.decision.action !== d.decision.mathAction && d.decision.tellsUsed.length > 0);
+  const tellRelevant = (d: AIDecisionData) => tellChanged(d) || d.opponents.some((opponent) => !opponent.folded && (meaningfulTell(opponent.tells) || meaningfulTell(opponent.after)));
+  const readFor = (d: AIDecisionData, opponent: OpponentView): TellRead | null => {
+    const sources = [opponent.tells, opponent.after].filter((tell): tell is TellVector => !!tell);
+    if (!sources.length) return null;
+    const primary = [...sources].sort((a, b) => Math.abs(b.bluffLikelihood - 0.5) * b.confidence - Math.abs(a.bluffLikelihood - 0.5) * a.confidence)[0];
+    const evidence = sources.flatMap((tell) => Array.isArray(tell.evidence) ? tell.evidence : [])
+      .filter((item, index, all) => all.findIndex((candidate) => candidate.signal === item.signal && candidate.text === item.text) === index);
+    return {
+      name: opponent.name,
+      bluffLikelihood: Number.isFinite(primary.bluffLikelihood) ? Math.max(0, Math.min(1, primary.bluffLikelihood)) : 0.5,
+      confidence: Number.isFinite(primary.confidence) ? Math.max(0, Math.min(1, primary.confidence)) : null,
+      evidence,
+      actual: actualDecision(d, opponent),
+    };
+  };
   const tellMoments: TellMoment[] = aiDecisions
-    .filter(tellChanged)
+    .filter(tellRelevant)
     .map((d) => {
       const ai = log.players.find((p) => p.id === d.playerId);
       const result = handByNumber.get(d.handNumber) ?? null;
-      const reads: TellRead[] = d.opponents.filter((o) => o.tells && !o.folded).map((o) => {
-        const tell = o.tells!;
-        return {
-          name: o.name,
-          bluffLikelihood: Number.isFinite(tell.bluffLikelihood) ? Math.max(0, Math.min(1, tell.bluffLikelihood)) : 0.5,
-          confidence: Number.isFinite(tell.confidence) ? Math.max(0, Math.min(1, tell.confidence)) : null,
-          evidence: Array.isArray(tell.evidence) ? tell.evidence : [],
-          actual: actualDecision(d, o),
-        };
-      });
+      const reads = d.opponents.filter((o) => !o.folded).map((o) => readFor(d, o)).filter((read): read is TellRead => !!read);
       const challengedBluff = d.situation ? (reads.find((read) => read.actual?.isBluff && read.bluffLikelihood >= 0.5) ?? null) : null;
       const continued = d.decision.action === "call" || d.decision.action === "raise" || d.decision.action === "allin";
       const aiWon = !!ai && !!result?.results?.some((entry) => entry.seat === ai.seat && entry.won > 0);
@@ -218,6 +230,7 @@ export function buildReveal(log: TableLog): RevealData {
         aiName: ai?.name ?? "AI",
         aiSeat: ai?.seat ?? d.situation?.aiSeat ?? -1,
         aiEquity: d.equity,
+        changedAction: tellChanged(d),
         decision: d.decision,
         situation: d.situation ?? null,
         result,
