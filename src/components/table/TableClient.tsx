@@ -225,7 +225,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     router.push(`/table/${next.code}`);
   }, [identity.name, requestRematch, router]);
 
-  const camera = <CameraSetup compact={state?.phase === "playing"} tells={tells} onReady={finishCamera} onClose={() => setCameraDialogOpen(false)} />;
+  const camera = <CameraSetup tells={tells} onReady={finishCamera} onClose={() => setCameraDialogOpen(false)} />;
 
   const cameraSetupOpen = cameraDialogOpen || cameraRequired;
   const cameraPanel = <PlayerCameraPanel tells={tells} presage={presage} setupOpen={cameraSetupOpen} onSetup={openCamera} />;
@@ -304,11 +304,11 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   );
 }
 
-function CameraSetup({ tells, onReady, onClose, compact = false }: { compact?: boolean; tells: ReturnType<typeof useTells>; onReady: () => void; onClose: () => void }) {
+function CameraSetup({ tells, onReady, onClose }: { tells: ReturnType<typeof useTells>; onReady: () => void; onClose: () => void }) {
   if (tells.baseline && tells.status === "running") {
     return <div className="p-6 text-center"><h2 className="mt-2 text-2xl font-semibold">Your baseline is captured</h2><WebcamFeed videoRef={tells.videoRef} className="mx-auto mt-5 aspect-[4/3] w-full max-w-sm" /><p className="mx-auto mt-3 max-w-md text-xs text-muted">{tells.calibrationReport ?? "Your camera is ready for the first hand."}</p><button type="button" onClick={onClose} className="mt-5 rounded-full bg-gold px-7 py-2.5 text-sm font-medium text-background">Done</button></div>;
   }
-  return <Calibration compact={compact} videoRef={tells.videoRef} status={tells.status} progress={tells.calibrating?.progress ?? null} facePresent={!!tells.frame?.facePresent} onStartCamera={tells.start} onCalibrate={() => tells.calibrate().then((baseline) => baseline && onReady())} message={tells.calibrationReport} />;
+  return <Calibration videoRef={tells.videoRef} status={tells.status} progress={tells.calibrating?.progress ?? null} facePresent={!!tells.frame?.facePresent} onStartCamera={tells.start} onCalibrate={() => tells.calibrate().then((baseline) => baseline && onReady())} message={tells.calibrationReport} />;
 }
 
 function CameraDialog({ children }: { children: React.ReactNode }) {
