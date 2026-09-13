@@ -23,7 +23,7 @@ export default function RailInspector({ humans, ais, history, currentPlayerId = 
   const read = spotlight?.aiRead;
 
   return (
-    <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0e1613]/95 shadow-xl xl:h-full" aria-label="Table intelligence">
+    <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0e1613]/95 shadow-xl lg:h-full" aria-label="Table intelligence">
       <div className="grid grid-cols-3 gap-1 border-b border-white/8 p-1.5" role="tablist" aria-label="Rail information">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button

@@ -94,7 +94,7 @@ function PotDisplay({ table }: { table: RailTableSnapshot }) {
 export default function RailTable({ table }: { table: RailTableSnapshot }) {
   return (
     <section aria-label="Poker table" className="overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="relative mx-auto aspect-[16/10] min-w-[700px] max-w-[1000px]">
+      <div className="relative mx-auto aspect-[16/10] min-w-[700px] max-w-[min(1000px,calc((100dvh-10rem)*1.6))]">
         <div className="absolute inset-[9%_7%] rounded-[50%] border-[10px] border-[#174c3b] bg-felt shadow-[inset_0_0_80px_rgba(0,0,0,0.35),0_24px_80px_rgba(0,0,0,0.35)]">
           <div className="absolute inset-3 rounded-[50%] border border-gold/15" />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
