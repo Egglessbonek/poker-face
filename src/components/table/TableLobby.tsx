@@ -1,87 +1,177 @@
 "use client";
 
-import { Bot, Copy, Crown, Eye, LogOut, Plus, Trash2, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bot, CameraOff, CheckCircle2, CircleDashed, Copy, Crown, LoaderCircle, LogOut, Trash2, Users } from "lucide-react";
 import ModelPicker from "@/components/table/ModelPicker";
-import { TIERS, describeModelId, tierOf } from "@/lib/llm/models";
-import type { TableState } from "@/lib/types";
+import TableSettingsEditor from "@/components/table/TableSettingsEditor";
+import { TIERS, describeModelId } from "@/lib/llm/models";
+import type { LobbyCameraStatus, TableConfig, TableState } from "@/lib/types";
 
-const tellLabel: Record<TableState["config"]["tellVisibility"], string> = {
-  ai_and_rail: "AI players and the rail",
-  everyone: "Everyone at the table",
-  ai_only: "AI players only",
-  rail_only: "The rail only",
-  off: "Nobody",
-};
+interface Props {
+  state: TableState;
+  playerId: string;
+  error?: string | null;
+  cameraStatuses: Record<string, LobbyCameraStatus>;
+  ownCameraStatus: LobbyCameraStatus;
+  onOpenCamera: () => void;
+  onAddAI: (modelId: string) => void | Promise<unknown>;
+  onRemove: (playerId: string) => void | Promise<unknown>;
+  onUpdateConfig: (config: Partial<TableConfig>) => void | Promise<unknown>;
+  onStart: () => void;
+  onLeave: () => void;
+}
 
-export default function TableLobby({ state, playerId, camera, onAddAI, onRemove, onStart, onLeave }: { state: TableState; playerId: string; camera: React.ReactNode; onAddAI: (modelId: string) => void; onRemove: (playerId: string) => void; onStart: () => void; onLeave: () => void }) {
+export default function TableLobby({ state, playerId, error, cameraStatuses, ownCameraStatus, onOpenCamera, onAddAI, onRemove, onUpdateConfig, onStart, onLeave }: Props) {
   const isHost = state.hostId === playerId;
+  const minimumSeats = Math.max(2, state.players.length);
   const openSeats = state.config.maxSeats - state.players.length;
-  /** Labelled as a casual or pro table only when every AI seat sits in that one tier. */
-  const seatedTiers = new Set(state.players.filter((player) => player.kind === "ai" && player.modelId).map((player) => tierOf(player.modelId ?? "")));
-  const tableTier = seatedTiers.size === 1 ? TIERS.find((tier) => seatedTiers.has(tier.id)) : undefined;
+  const aiPlayers = state.players.filter((player) => player.kind === "ai");
+  const humanPlayers = state.players.filter((player) => player.kind === "human");
+  const unfinishedCamera = humanPlayers.filter((player) => !["ready", "skipped"].includes(cameraStatuses[player.id] ?? "not_started"));
+  const [rosterBusy, setRosterBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showStartWarning, setShowStartWarning] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = window.setTimeout(() => setCopied(false), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [copied]);
+
+  const copyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/table/${state.code}`);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+  const updateRoster = async (operation: () => void | Promise<unknown>) => {
+    if (rosterBusy) return;
+    setRosterBusy(true);
+    try {
+      await operation();
+    } finally {
+      setRosterBusy(false);
+    }
+  };
+  const addPreset = (modelIds: string[]) => updateRoster(async () => {
+    for (const modelId of modelIds) await onAddAI(modelId);
+  });
+  const requestStart = () => {
+    if (unfinishedCamera.length) setShowStartWarning(true);
+    else onStart();
+  };
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-8">
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs uppercase tracking-[0.32em] text-gold">The room is open</p>
-          <h1 className="mt-2 text-4xl font-semibold">Table <span className="font-mono text-gold">{state.code}</span></h1>
-          <p className="mt-2 text-sm text-muted">Players and spectators use the same code. Only seated players receive private cards.</p>
-        </div>
-        <button type="button" onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/table/${state.code}`)} className="flex items-center justify-center gap-2 rounded-full border border-felt-edge px-5 py-2.5 text-sm hover:border-gold"><Copy size={15} /> Copy invite</button>
-      </header>
+    <>
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-4 py-8 sm:px-8">
+        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs uppercase tracking-[0.32em] text-gold">The room is open</p>
+            <h1 className="mt-2 text-4xl font-semibold">Table <span className="font-mono text-gold">{state.code}</span></h1>
+            <p className="mt-2 text-sm text-muted">Share the code now. Seats, guests, and rules stay live while everyone gets ready.</p>
+          </div>
+          <button type="button" onClick={copyInvite} className={`flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm transition ${copied ? "border-ok text-ok" : "border-felt-edge hover:border-gold"}`}><Copy size={15} /> {copied ? "Invite copied" : "Copy invite"}</button>
+        </header>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        {error && <p role="alert" className="rounded-xl bg-danger/15 px-4 py-3 text-sm text-danger">{error}</p>}
+
+        <section className="rounded-3xl border border-felt-edge bg-felt/20 p-5 sm:p-7" aria-labelledby="capacity-title">
+          <div className="flex items-end justify-between gap-4">
+            <div><p className="text-xs uppercase tracking-[0.24em] text-gold">Table capacity</p><h2 id="capacity-title" className="mt-1 text-2xl">{state.config.maxSeats} seats</h2></div>
+            <p className="text-right text-xs text-muted">{state.players.length} seated · {openSeats} open</p>
+          </div>
+          {isHost ? (
+            <div className="mt-5">
+              <input type="range" aria-label="Maximum number of seats" min={minimumSeats} max={9} step={1} defaultValue={state.config.maxSeats} onChange={(event) => void onUpdateConfig({ maxSeats: Number(event.target.value) })} className="w-full accent-gold" />
+              <div className="mt-1 flex justify-between font-mono text-[10px] text-muted"><span>{minimumSeats} minimum now</span><span>9 maximum</span></div>
+            </div>
+          ) : <p className="mt-4 text-xs text-muted">Only the host can change the table capacity.</p>}
+        </section>
+
         <section className="rounded-3xl border border-felt-edge bg-felt/20 p-5 sm:p-7">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 font-medium"><Users size={17} className="text-gold" /> Players</h2>
+            <div><h2 className="flex items-center gap-2 font-medium"><Users size={17} className="text-gold" /> Live guest list</h2><p className="mt-1 text-xs text-muted">Camera readiness and seats update while people follow your invite.</p></div>
             <span className="font-mono text-xs text-muted">{state.players.length}/{state.config.maxSeats}</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {[...state.players].sort((a, b) => a.seat - b.seat).map((player) => {
               const model = player.modelId ? describeModelId(player.modelId) : null;
+              const cameraStatus = cameraStatuses[player.id] ?? "not_started";
               return (
-                <div key={player.id} className="flex min-h-20 items-center gap-3 rounded-2xl border border-felt-edge bg-background/50 p-3">
+                <div key={player.id} className="flex min-h-24 items-center gap-3 rounded-2xl border border-felt-edge bg-background/50 p-3">
                   <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${player.kind === "ai" ? "bg-chip-blue/60" : "bg-felt-edge"}`}>{player.kind === "ai" ? <Bot size={19} /> : player.name.slice(0, 1).toUpperCase()}</div>
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1.5 truncate text-sm font-medium">{player.name}{player.id === playerId && <span className="text-xs text-muted">(you)</span>}{player.id === state.hostId && <Crown size={13} className="shrink-0 text-gold" />}</p>
                     <p className="truncate text-xs text-muted">{model ? `${model.vendor} · ${player.modelId}` : player.connected ? "Human · connected" : "Human · reconnecting"}</p>
+                    {player.kind === "human" && <div className="mt-2"><CameraBadge status={cameraStatus} /></div>}
                   </div>
-                  {isHost && player.id !== state.hostId && <button type="button" aria-label={`Remove ${player.name}`} onClick={() => onRemove(player.id)} className="rounded-lg p-2 text-muted hover:bg-danger/10 hover:text-danger"><Trash2 size={15} /></button>}
+                  {isHost && player.id !== state.hostId && <button type="button" disabled={rosterBusy} aria-label={`Remove ${player.name}`} onClick={() => void updateRoster(() => onRemove(player.id))} className="rounded-lg p-2 text-muted hover:bg-danger/10 hover:text-danger disabled:opacity-40"><Trash2 size={15} /></button>}
                 </div>
               );
             })}
-            {Array.from({ length: Math.min(openSeats, 4) }, (_, index) => <div key={index} className="flex min-h-20 items-center justify-center rounded-2xl border border-dashed border-felt-edge text-xs text-muted">Open seat</div>)}
+            {Array.from({ length: openSeats }, (_, index) => <div key={index} className="flex min-h-24 items-center justify-center rounded-2xl border border-dashed border-felt-edge text-xs text-muted">Open seat</div>)}
           </div>
 
           {isHost && openSeats > 0 && (
             <div className="mt-5 border-t border-felt-edge/60 pt-5">
-              <p className="mb-3 flex items-center gap-2 text-sm text-muted"><Plus size={14} /> Pull up a chair for another model</p>
-              <ModelPicker onAdd={onAddAI} compact />
+              {aiPlayers.length === 0 && (
+                <div className="mb-5">
+                  <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">Seat a ready-made table</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {TIERS.map((tier) => {
+                      const models = tier.modelIds.slice(0, 3);
+                      const unavailable = rosterBusy || openSeats < models.length;
+                      return <button type="button" key={tier.id} disabled={unavailable} title={openSeats < models.length ? `Needs ${models.length} open seats` : undefined} onClick={() => void addPreset(models)} className="rounded-xl border border-felt-edge px-3 py-2.5 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40"><span className="text-sm font-medium">{tier.label}</span><span className="mt-0.5 block text-[10px] leading-relaxed text-muted">{tier.blurb} Seats three models.</span></button>;
+                    })}
+                  </div>
+                </div>
+              )}
+              <ModelPicker onAdd={(modelId) => void updateRoster(() => onAddAI(modelId))} disabled={rosterBusy} />
+              {rosterBusy && <p className="mt-3 flex items-center gap-2 text-xs text-gold"><LoaderCircle size={13} className="animate-spin" /> Updating the guest list…</p>}
             </div>
           )}
         </section>
 
-        <aside className="flex flex-col gap-4">
-          <section className="flex flex-col gap-5 rounded-3xl border border-felt-edge p-5">
-            <div><p className="flex items-center justify-between text-xs uppercase tracking-wider text-muted"><span>Game</span>{tableTier && <span title={tableTier.blurb} className="rounded border border-felt-edge px-1.5 py-0.5 text-[10px] text-gold">{tableTier.label}</span>}</p><p className="mt-1 text-lg">{state.config.smallBlind}/{state.config.bigBlind} No-Limit Hold’em</p></div>
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <Stat label="Stack" value={state.config.startingStack} />
-              <Stat label="Hands" value={state.config.handsPerMatch || "∞"} />
-              <Stat label="Clock" value={state.config.turnTimerSec ? `${state.config.turnTimerSec}s` : "off"} />
-              <Stat label="Seats" value={state.config.maxSeats} />
-            </dl>
-            <div className="flex gap-3 rounded-2xl bg-felt/30 p-3 text-xs text-muted"><Eye size={17} className="shrink-0 text-gold" /><p>Tells visible to {tellLabel[state.config.tellVisibility].toLowerCase()}.</p></div>
-            {isHost ? <button type="button" onClick={onStart} disabled={state.players.length < 2} className="rounded-full bg-gold py-3 font-semibold text-background disabled:opacity-40">Deal the first hand</button> : <p className="rounded-2xl border border-felt-edge p-3 text-center text-xs text-muted">Waiting for the host to start…</p>}
-            <button type="button" onClick={onLeave} className="flex items-center justify-center gap-2 text-xs text-muted hover:text-foreground"><LogOut size={13} /> {isHost ? "Close table" : "Leave table"}</button>
-          </section>
-          {camera}
-        </aside>
-      </div>
-    </main>
+        <TableSettingsEditor config={state.config} disabled={!isHost} onUpdate={onUpdateConfig} />
+
+        <footer className="flex flex-col gap-4 rounded-3xl border border-felt-edge bg-background/90 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted">Your camera</p>
+            <div className="mt-1 flex flex-wrap items-center gap-3"><CameraBadge status={ownCameraStatus} /><button type="button" onClick={onOpenCamera} className="text-xs text-gold underline underline-offset-4">{ownCameraStatus === "ready" ? "Review camera" : "Set up camera"}</button></div>
+          </div>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+            <button type="button" onClick={onLeave} className="flex items-center justify-center gap-2 px-4 py-2 text-xs text-muted hover:text-foreground"><LogOut size={13} /> {isHost ? "Close table" : "Leave table"}</button>
+            {isHost ? <button type="button" onClick={requestStart} disabled={state.players.length < 2 || rosterBusy} className="rounded-full bg-gold px-8 py-3 font-semibold text-background disabled:opacity-40">Deal the first hand</button> : <p className="rounded-2xl border border-felt-edge px-5 py-3 text-center text-xs text-muted">The host will deal when everyone is ready.</p>}
+          </div>
+        </footer>
+      </main>
+
+      {showStartWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-labelledby="camera-warning-title">
+          <div className="w-full max-w-md rounded-3xl border border-felt-edge bg-background p-6 shadow-2xl">
+            <CameraOff size={24} className="text-gold" />
+            <h2 id="camera-warning-title" className="mt-4 text-2xl">Some players are not camera-ready</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted">{unfinishedCamera.map((player) => player.name).join(", ")} {unfinishedCamera.length === 1 ? "has" : "have"} not finished or skipped setup. They can still play, but their tells may be unavailable.</p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" autoFocus onClick={() => setShowStartWarning(false)} className="rounded-full border border-felt-edge px-5 py-2.5 text-sm">Go back</button>
+              <button type="button" onClick={() => { setShowStartWarning(false); onStart(); }} className="rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-background">Start anyway</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return <div className="rounded-xl bg-felt/25 p-3"><dt className="text-[10px] uppercase tracking-wider text-muted">{label}</dt><dd className="mt-1 font-mono text-gold">{value}</dd></div>;
+const cameraDetails: Record<LobbyCameraStatus, { label: string; className: string; icon: React.ReactNode }> = {
+  not_started: { label: "Camera not set up", className: "text-muted", icon: <CircleDashed size={13} /> },
+  setting_up: { label: "Setting up camera", className: "text-gold", icon: <LoaderCircle size={13} className="animate-spin" /> },
+  skipped: { label: "Camera skipped", className: "text-muted", icon: <CameraOff size={13} /> },
+  ready: { label: "Camera ready", className: "text-ok", icon: <CheckCircle2 size={13} /> },
+};
+
+function CameraBadge({ status }: { status: LobbyCameraStatus }) {
+  const detail = cameraDetails[status];
+  return <span className={`inline-flex items-center gap-1.5 text-[11px] ${detail.className}`}>{detail.icon}{detail.label}</span>;
 }

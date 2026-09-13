@@ -97,7 +97,15 @@ export interface ActionBounds {
 
 // ---------- Table ----------
 
-export type TellVisibility = "ai_and_rail" | "everyone" | "ai_only" | "rail_only" | "off";
+export type TellVisibility =
+  | "ai_and_rail"
+  | "ai_and_humans"
+  | "rail_and_humans"
+  | "everyone"
+  | "ai_only"
+  | "rail_only"
+  | "human_only"
+  | "off";
 
 export interface TableConfig {
   /** 2-9 */
@@ -146,6 +154,9 @@ export interface Player {
 }
 
 export type TablePhase = "lobby" | "playing" | "finished";
+
+/** Shared pregame state; camera data itself never leaves the player's browser. */
+export type LobbyCameraStatus = "not_started" | "setting_up" | "skipped" | "ready";
 
 export interface TableState {
   code: string;
@@ -293,6 +304,8 @@ export interface ModelProfile {
 
 export interface OpponentView {
   seat: number;
+  /** Player id, so notebook entries can be matched to a seat. */
+  id?: string;
   name: string;
   kind: "human" | "ai";
   stack: number;
@@ -340,8 +353,38 @@ export interface VillainDecisionInput {
   hasInitiative: boolean;
   raisesThisStreet: number;
   modelId: string;
+  /** This seat's own player id, so the notebook can say "you folded". */
+  meId?: string;
   /** This seat's most recent table-talk lines, newest last, so it does not repeat itself. */
   recentTalk: string[];
+  /** Showdown facts about the live humans this match, oldest first. The model decides what to make of them. */
+  notes?: ShowdownNote[];
+}
+
+/**
+ * One fact learned at a showdown: a human bet or raised, and later showed their cards. Elwood's method is
+ * "baseline and correlate": what a player's behavior means is learned from what they turn over. The server
+ * writes these; the AI seats read them in their prompt and adapt (or not) on their own.
+ */
+export interface ShowdownNote {
+  handNumber: number;
+  street: Street;
+  playerId: string;
+  name: string;
+  action: "bet" | "raise" | "allin";
+  amount?: number;
+  /** What they showed, in pokersolver's words, e.g. "Pair, A's". */
+  held: string;
+  /** Aggressive with weak equity at the time: the Reveal's definition of a bluff. */
+  bluff: boolean;
+  /** 0-1 equity they actually had when they made the bet. */
+  equity: number;
+  /** What the tells said at that decision, when the camera was on. */
+  read?: { bluffLikelihood: number; evidence: string[] };
+  /** How each seat answered on that street, in order. */
+  responses: Array<{ playerId: string; name: string; action: ActionType }>;
+  /** Whether they won chips at the showdown. */
+  won: boolean;
 }
 
 export interface VillainDecision {
@@ -359,7 +402,7 @@ export interface VillainDecision {
 
 // ---------- Log / Reveal ----------
 
-export type TableLogKind = "table_start" | "hand_start" | "action" | "tells" | "ai_decision" | "talk" | "hand_end" | "table_end";
+export type TableLogKind = "table_start" | "hand_start" | "action" | "tells" | "ai_decision" | "talk" | "hand_end" | "showdown_note" | "table_end";
 
 export interface TableLogEntry {
   t: number;

@@ -14,9 +14,11 @@ import { decide } from "@/lib/villain/brain";
 import { getProfile, resolveProfile } from "@/lib/villain/profile";
 import { pickVoice } from "@/lib/villain/voices";
 import { isSeatableModelId } from "@/lib/llm/models";
+import { tellAudiences } from "@/lib/tells/visibility";
 import { appendLog, createLog, endLog, getLog, setBaseline, syncLogPlayers } from "@/lib/store";
 import { buildReveal } from "@/lib/game/reveal";
 import { recordHall } from "@/lib/hall";
+import { actionKey, showdownNotes, type ActionTells } from "./notes";
 import { closeChannel, connections, hasChannel, openChannel, publish } from "@/lib/realtime/bus";
 import { generateCode } from "@/lib/rail/code";
 import { aiGuestList } from "@/lib/game/rematch";
@@ -35,6 +37,8 @@ import {
   type TableEvent,
   type TableLog,
   type TableState,
+  type Action,
+  type ShowdownNote,
   type TableListing,
   type TellFrame,
   type TellVector,
@@ -60,6 +64,8 @@ interface Table {
   tells: Record<string, PlayerTells>;
   /** Per player tendencies over the match. */
   stats: Record<string, PlayerStats>;
+  /** Showdown facts about the humans this match, oldest first. See notes.ts. */
+  notes: ShowdownNote[];
   /** Players who already counted VPIP/PFR this hand. */
   vpipThisHand: Set<string>;
   pfrThisHand: Set<string>;
@@ -120,6 +126,7 @@ export async function createTable(configPatch: Partial<TableConfig>, hostName: s
     button: 0,
     tells: {},
     stats: {},
+    notes: [],
     vpipThisHand: new Set(),
     pfrThisHand: new Set(),
     saidLines: {},
@@ -331,10 +338,10 @@ export function visibleTells(code: string, viewer: Viewer): Record<string, Playe
 }
 
 function tellsVisibleTo(t: Table, viewer: Viewer, ownerId: string): boolean {
-  const vis = t.config.tellVisibility;
-  if (viewer.kind === "rail") return vis === "ai_and_rail" || vis === "everyone" || vis === "rail_only";
+  const audiences = tellAudiences(t.config.tellVisibility);
+  if (viewer.kind === "rail") return audiences.rail;
   if (viewer.playerId === ownerId) return false; // own HUD is local
-  return vis === "everyone";
+  return audiences.humans;
 }
 
 function toState(t: Table, viewer: Viewer): TableState {
@@ -411,7 +418,7 @@ function sanitizeConfig(c: TableConfig): TableConfig {
     const n = Math.round(Number(v));
     return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def;
   };
-  const vis: TableConfig["tellVisibility"][] = ["ai_and_rail", "everyone", "ai_only", "rail_only", "off"];
+  const vis: TableConfig["tellVisibility"][] = ["ai_and_rail", "ai_and_humans", "rail_and_humans", "everyone", "ai_only", "rail_only", "human_only", "off"];
   const smallBlind = int(c.smallBlind, 1, 1_000_000, DEFAULT_TABLE.smallBlind);
   return {
     maxSeats: int(c.maxSeats, 2, 9, DEFAULT_TABLE.maxSeats),
@@ -419,7 +426,7 @@ function sanitizeConfig(c: TableConfig): TableConfig {
     smallBlind,
     bigBlind: Math.max(smallBlind, int(c.bigBlind, 1, 2_000_000, DEFAULT_TABLE.bigBlind)),
     handsPerMatch: int(c.handsPerMatch, 0, 1000, DEFAULT_TABLE.handsPerMatch),
-    turnTimerSec: int(c.turnTimerSec, 0, 600, DEFAULT_TABLE.turnTimerSec),
+    turnTimerSec: int(c.turnTimerSec, 0, 120, DEFAULT_TABLE.turnTimerSec),
     tellVisibility: vis.includes(c.tellVisibility) ? c.tellVisibility : DEFAULT_TABLE.tellVisibility,
     aiPlayers: Array.isArray(c.aiPlayers) ? c.aiPlayers.filter((x) => typeof x === "string" && isSeatableModelId(x)).slice(0, 8) : DEFAULT_TABLE.aiPlayers,
     allowLateJoin: c.allowLateJoin !== false,
@@ -543,6 +550,20 @@ function settleHand(t: Table) {
       st.showdowns++;
       if (r.won > 0) st.showdownsWon++;
     }
+    // The notebook: every bet a human made this hand, now that we know what they held. Never let it break settling.
+    try {
+      const tells: ActionTells = new Map();
+      for (const e of getLog(t.code)?.entries ?? []) {
+        if (e.kind !== "action") continue;
+        const d = e.data as { handNumber: number; action: Action; tells: TellVector | null };
+        if (d.handNumber === hand.handNumber) tells.set(actionKey(d.action), d.tells);
+      }
+      const fresh = showdownNotes(hand, t.players, tells);
+      for (const n of fresh) appendLog(t.code, "showdown_note", n);
+      t.notes = [...t.notes, ...fresh].slice(-60);
+    } catch (err) {
+      console.error("notebook: could not write showdown notes for", t.code, err);
+    }
   }
   for (const p of t.players) {
     const s = hand.seats[p.seat];
@@ -582,8 +603,7 @@ async function aiAct(t: Table, seat: number) {
   const lastAggressorPrev = [...hand.actions].reverse().find((a) => a.street !== hand.street && (a.type === "bet" || a.type === "raise" || a.type === "allin"));
   const hasInitiative = hand.street !== "preflop" && lastAggressorPrev?.seat === seat && lastAggressorPrev.street === { flop: "preflop", turn: "flop", river: "turn" }[hand.street as "flop" | "turn" | "river"];
   const raisesThisStreet = hand.actions.filter((a) => a.street === hand.street && (a.type === "raise" || a.type === "bet" || a.type === "allin")).length;
-  const vis = t.config.tellVisibility;
-  const tellsOn = vis === "ai_and_rail" || vis === "everyone" || vis === "ai_only";
+  const tellsOn = tellAudiences(t.config.tellVisibility).ai;
   const names: Record<number, string> = {};
   for (const p of t.players) names[p.seat] = p.name;
   const opponents: OpponentView[] = dealtSeats(hand)
@@ -593,6 +613,7 @@ async function aiAct(t: Table, seat: number) {
       const p = playerAtSeat(t, i);
       return {
         seat: i,
+        id: p?.id,
         name: p?.name ?? `Seat ${i + 1}`,
         kind: p?.kind ?? "human",
         stack: s.stack,
@@ -621,6 +642,8 @@ async function aiAct(t: Table, seat: number) {
     raisesThisStreet,
     modelId: player.modelId ?? DEFAULT_TABLE.aiPlayers[0],
     recentTalk: (t.saidLines[player.id] ?? []).slice(-4),
+    notes: t.notes,
+    meId: player.id,
   });
 
   // The table may have moved on while the LLM was thinking (e.g. host ended it).

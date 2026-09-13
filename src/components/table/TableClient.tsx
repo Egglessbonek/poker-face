@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Copy, Eye, Radio } from "lucide-react";
+import { Copy, Eye, Radio, X } from "lucide-react";
 import ActionBar from "@/components/ActionBar";
 import BluffMeter from "@/components/BluffMeter";
 import Calibration from "@/components/Calibration";
@@ -13,15 +13,17 @@ import JoinForm from "@/components/table/JoinForm";
 import OvalTable from "@/components/table/OvalTable";
 import TableLobby from "@/components/table/TableLobby";
 import { useTable } from "@/hooks/useTable";
+import { useLobbyCameraStatus } from "@/hooks/useLobbyCameraStatus";
 import { useTalk } from "@/hooks/useTalk";
 import { useTells } from "@/hooks/useTells";
 import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/client/identity";
 import { dominantEmotion } from "@/lib/tells/emotion";
 import { AFTER_ACTION_MS, fuseAfterAction, fuseTells } from "@/lib/tells/fuse";
 import { getFaceLandmarker } from "@/lib/tells/landmarker";
+import { tellAudiences } from "@/lib/tells/visibility";
 import TellHUD from "@/components/TellHUD";
 import VoiceControls from "@/components/table/VoiceControls";
-import type { ActionType, Player, PlayerTells, TellVector } from "@/lib/types";
+import type { ActionType, LobbyCameraStatus, Player, PlayerTells, TellVector } from "@/lib/types";
 
 export default function TableClient({ code }: { code: string }) {
   const [identity, setIdentity] = useState<Identity | null | undefined>(undefined);
@@ -74,6 +76,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const handNumberRef = useRef(0);
   const afterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cameraDone, setCameraDone] = useState(false);
+  const [cameraDialogOpen, setCameraDialogOpen] = useState(true);
   /** The callout banner that has finished animating; it unmounts so no blank strip is left above the felt. */
   const [calloutDone, setCalloutDone] = useState<string | null>(null);
   /** The prompt (hand + action count) an action was already sent for; a double-click must not send a second one. */
@@ -91,6 +94,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   const frame = tells.frame;
   const markReveal = tells.markReveal;
   const snapshotTells = tells.snapshot;
+  const ownCameraStatus: LobbyCameraStatus = tells.baseline ? "ready" : cameraDone ? "skipped" : cameraDialogOpen || tells.status !== "idle" ? "setting_up" : "not_started";
+  const cameraStatuses = useLobbyCameraStatus(code, identity.token, ownCameraStatus, state?.phase === "lobby");
 
   useEffect(() => {
     if (baseline) sendTells({ baseline });
@@ -137,7 +142,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     lastTellsSent.current = now;
     if (!baseline || !hand || !lastVector || lastVector.handNumber !== hand.handNumber) {
       liveVectorHistory.current = [];
-      sendTells({ frame, vector: null });
+      sendTells({ frame, live: null });
       return;
     }
 
@@ -151,7 +156,8 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     const history = liveVectorHistory.current.length >= 2 ? liveVectorHistory.current : [lastVector.vector, lastVector.vector];
     const liveVector = fuseTells(liveSnapshot, baseline, history);
     liveVectorHistory.current = [...liveVectorHistory.current.slice(-19), liveVector];
-    sendTells({ frame, vector: liveVector });
+    // Spectators only: the rolling read goes under `live`. The AIs read `vector` (the decision) and `after` (post-bet).
+    sendTells({ frame, live: liveVector });
   }, [baseline, frame, hand, lastVector, sendTells, snapshotTells, state?.phase]);
 
   const onAct = useCallback((type: ActionType, amount?: number) => {
@@ -186,7 +192,19 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     });
   }, [act, hand, sendTells, tells]);
 
-  const finishCamera = useCallback(() => setCameraDone(true), []);
+  const finishCamera = useCallback(() => {
+    setCameraDone(true);
+    setCameraDialogOpen(false);
+  }, []);
+  const skipCamera = useCallback(() => {
+    tells.stop();
+    setCameraDone(true);
+    setCameraDialogOpen(false);
+  }, [tells]);
+  const openCamera = useCallback(() => {
+    if (!tells.baseline) setCameraDone(false);
+    setCameraDialogOpen(true);
+  }, [tells.baseline]);
   // Safety net: if the camera somehow stopped between the lobby and the first hand, bring it back so tells keep flowing.
   const startCamera = tells.start;
   const hasBaseline = !!tells.baseline;
@@ -208,7 +226,7 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     router.push(`/table/${next.code}`);
   }, [identity.name, requestRematch, router]);
 
-  const camera = <CameraSetup tells={tells} done={cameraDone} onDone={finishCamera} />;
+  const camera = <CameraSetup tells={tells} onReady={finishCamera} onSkip={skipCamera} onClose={() => setCameraDialogOpen(false)} />;
 
   if (!state) {
     return (
@@ -218,11 +236,11 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
     );
   }
 
-  if (state.phase === "lobby") return <TableLobby state={state} playerId={identity.playerId} camera={camera} onAddAI={table.addAI} onRemove={table.removePlayer} onStart={table.start} onLeave={leave} />;
+  if (state.phase === "lobby") return <><TableLobby state={state} playerId={identity.playerId} error={table.error} cameraStatuses={cameraStatuses} ownCameraStatus={ownCameraStatus} onOpenCamera={openCamera} onAddAI={table.addAI} onRemove={table.removePlayer} onUpdateConfig={table.updateConfig} onStart={table.start} onLeave={leave} />{cameraDialogOpen && <CameraDialog ready={ownCameraStatus === "ready"} onDismiss={ownCameraStatus === "ready" ? () => setCameraDialogOpen(false) : skipCamera}>{camera}</CameraDialog>}</>;
   if (state.phase === "finished") return <FinishedTable state={state} playerId={identity.playerId} rematchCode={table.rematchCode} onRematch={rematch} error={table.error} />;
 
   const opponents = state.players.filter((player) => player.id !== identity.playerId);
-  const detailedTells = state.config.tellVisibility === "everyone" ? opponents.filter((player) => player.kind === "human" && table.tells[player.id]) : [];
+  const detailedTells = tellAudiences(state.config.tellVisibility).humans ? opponents.filter((player) => player.kind === "human" && table.tells[player.id]) : [];
   const aiReads = opponents.filter((player) => player.kind === "ai" && table.reads[player.id]?.handNumber === hand?.handNumber);
   // The moment: the newest AI decision this hand that used a tell. Keyed by its timestamp so the banner re-animates per read.
   const callout = aiReads
@@ -275,11 +293,22 @@ function Seated({ code, identity }: { code: string; identity: Identity }) {
   );
 }
 
-function CameraSetup({ tells, done, onDone }: { tells: ReturnType<typeof useTells>; done: boolean; onDone: () => void }) {
-  if (done || tells.baseline) {
-    return <div className="rounded-2xl border border-felt-edge p-3"><p className="mb-2 text-xs font-semibold text-gold">Your camera</p><WebcamFeed videoRef={tells.videoRef} className="aspect-[4/3] w-full" /><p className="mt-2 text-xs text-muted">{tells.baseline ? `Baseline captured: ${tells.calibrationReport ?? "you are ready"}.` : tells.status === "running" ? (tells.calibrationReport ?? "Camera on without a baseline.") : "Playing without a camera."}</p>{!tells.baseline && tells.status === "running" && <button onClick={() => tells.calibrate().then((b) => b && onDone())} className="mt-2 w-full rounded-lg border border-felt-edge py-1.5 text-xs">Capture a 10s baseline</button>}</div>;
+function CameraSetup({ tells, onReady, onSkip, onClose }: { tells: ReturnType<typeof useTells>; onReady: () => void; onSkip: () => void; onClose: () => void }) {
+  if (tells.baseline) {
+    return <div className="p-6 text-center"><p className="text-xs uppercase tracking-[0.3em] text-gold">Camera ready</p><h2 className="mt-2 text-2xl font-semibold">Your baseline is captured</h2><WebcamFeed videoRef={tells.videoRef} className="mx-auto mt-5 aspect-[4/3] w-full max-w-sm" /><p className="mx-auto mt-3 max-w-md text-xs text-muted">{tells.calibrationReport ?? "Your camera is ready for the first hand."}</p><button type="button" onClick={onClose} className="mt-5 rounded-full bg-gold px-7 py-2.5 text-sm font-medium text-background">Done</button></div>;
   }
-  return <Calibration videoRef={tells.videoRef} status={tells.status} progress={tells.calibrating?.progress ?? null} facePresent={!!tells.frame?.facePresent} onStartCamera={tells.start} onCalibrate={() => tells.calibrate().then((b) => b && onDone())} onSkip={onDone} message={tells.baseline ? null : tells.calibrationReport} />;
+  return <Calibration videoRef={tells.videoRef} status={tells.status} progress={tells.calibrating?.progress ?? null} facePresent={!!tells.frame?.facePresent} onStartCamera={tells.start} onCalibrate={() => tells.calibrate().then((baseline) => baseline && onReady())} onSkip={onSkip} message={tells.calibrationReport} />;
+}
+
+function CameraDialog({ children, ready, onDismiss }: { children: React.ReactNode; ready: boolean; onDismiss: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4" role="dialog" aria-modal="true" aria-label="Camera setup">
+      <div className="relative w-full max-w-xl rounded-3xl bg-background shadow-2xl">
+        <button type="button" onClick={onDismiss} aria-label={ready ? "Close camera setup" : "Skip camera setup"} className="absolute right-4 top-4 z-10 rounded-full border border-felt-edge bg-background/80 p-2 text-muted hover:text-foreground"><X size={16} /></button>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 function OpponentTells({ player, tells }: { player: Player; tells: PlayerTells }) {

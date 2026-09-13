@@ -65,9 +65,12 @@ function actionText(action: Action): string {
 
 const VISIBILITY: Record<TableState["config"]["tellVisibility"], RailTableSnapshot["tellVisibility"]> = {
   ai_and_rail: "rail",
+  ai_and_humans: "everyone",
+  rail_and_humans: "everyone",
   rail_only: "rail",
   everyone: "everyone",
   ai_only: "ai-only",
+  human_only: "everyone",
   off: "ai-only",
 };
 
@@ -110,7 +113,7 @@ function toSnapshot(state: TableState, tells: ReturnType<typeof useTable>["tells
         equity: playerOdds?.equity,
         bestHand: playerOdds?.bestHand,
         talk: latestTalk.get(p.id),
-        tell: p.kind === "human" && tells[p.id] ? toRailTell(tells[p.id].frame, tells[p.id].vector) : undefined,
+        tell: p.kind === "human" && tells[p.id] ? toRailTell(tells[p.id].frame, tells[p.id].live ?? tells[p.id].vector) : undefined,
         aiRead: read && read.handNumber === hand?.handNumber
           ? { equity: playerOdds?.equity, mathAction: read.decision.mathAction, finalAction: read.decision.action, target: humans.join(", ") || "the table", reasoning: read.decision.reasoning, tellsUsed: read.decision.tellsUsed, at: read.at }
           : undefined,
