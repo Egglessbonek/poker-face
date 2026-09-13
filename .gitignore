@@ -48,3 +48,5 @@ next-env.d.ts
 
 # fake-camera e2e output
 /e2e/
+
+.vscode
