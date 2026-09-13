@@ -23,7 +23,7 @@ const human = (over: Partial<RevealPlayer> = {}): RevealPlayer => ({
 const villain = (over: Partial<VillainDecision> = {}): VillainDecision => ({ action: "fold", reasoning: "", tableTalk: "", tellsUsed: [], mathAction: "fold", llmUsed: false, ...over });
 const moment = (over: Partial<TellMoment> = {}): TellMoment => ({
   handNumber: 1, street: "flop", aiName: "Claude", aiSeat: 1, aiEquity: 0.5,
-  decision: villain(), situation: null, result: null, reads: [], caughtBluff: null, ...over,
+  changedAction: true, decision: villain(), situation: null, result: null, reads: [], caughtBluff: null, ...over,
 });
 const read = (name: string) => ({
   name, bluffLikelihood: 0.8, confidence: 0.8, actual: null,
@@ -178,6 +178,7 @@ describe("buildReveal", () => {
     const data = buildReveal(log as never);
     expect(data.tellMoments).toHaveLength(1);
     expect(data.tellMoments[0].caughtBluff).toMatchObject({ name: "Raghu", bluffLikelihood: 0.82, actual: { isBluff: true } });
+    expect(data.tellMoments[0].changedAction).toBe(true);
     expect(data.tellMoments[0].situation).toMatchObject({ pot: 20, toCall: 10, aiPosition: "BB" });
     expect(data.tellMoments[0].result?.results?.find((entry) => entry.won > 0)?.seat).toBe(1);
   });
@@ -213,5 +214,35 @@ describe("buildReveal", () => {
     expect(data.tellMoments[0].situation).toBeNull();
     expect(data.tellMoments[0].reads[0].confidence).toBeNull();
     expect(data.tellMoments[0].reads[0].actual?.action).toEqual(flopAction);
+  });
+
+  it("keeps a meaningful tell read even when it reinforces the same action", () => {
+    const ai: Player = { id: "a1", seat: 1, name: "Claude", kind: "ai", stack: 1000, connected: true, sittingOut: false };
+    const humanTells = tells(0.78);
+    humanTells.evidence = [{ signal: "freeze", direction: "bluff", strength: 0.7, text: "went unusually still" }];
+    const action = { seat: 0, type: "bet" as const, amount: 20, street: "flop" as const, at: 10 };
+    const log = {
+      code: "SAME", createdAt: 0, endedAt: 30,
+      config: { startingStack: 1000 } as never,
+      players: [player, ai], baselines: {},
+      entries: [
+        { t: 1, kind: "hand_start" as const, data: { handNumber: 1, button: 0, seats: [
+          { seat: 0, playerId: "h1", stack: 1000, holeCards: ["2c", "7d"] },
+          { seat: 1, playerId: "a1", stack: 1000, holeCards: ["As", "Ad"] },
+        ] } },
+        { t: 10, kind: "action" as const, data: { handNumber: 1, playerId: "h1", action, tells: humanTells } },
+        { t: 20, kind: "ai_decision" as const, data: {
+          handNumber: 1, street: "flop", playerId: "a1", equity: 0.85,
+          opponents: [{ id: "h1", seat: 0, name: "Raghu", kind: "human", stack: 980, committed: 20, folded: false, allIn: false, position: "BTN", tells: humanTells }],
+          decision: villain({ action: "call", mathAction: "call", tellAction: "call", tellsUsed: ["Raghu: went unusually still"] }),
+        } },
+        { t: 30, kind: "hand_end" as const, data: { handNumber: 1, board: ["Kh", "Qh", "Jc"], foldedOut: true } },
+      ],
+    };
+
+    const data = buildReveal(log as never);
+    expect(data.tellMoments).toHaveLength(1);
+    expect(data.tellMoments[0]).toMatchObject({ changedAction: false, reads: [{ name: "Raghu", bluffLikelihood: 0.78 }] });
+    expect(data.aiTellChanged).toBe(0);
   });
 });

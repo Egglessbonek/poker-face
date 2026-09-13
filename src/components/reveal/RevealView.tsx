@@ -25,20 +25,20 @@ export type HallRanks = Record<string, { rank: number; of: number }>;
 export default function RevealView({ data, ranks = {} }: { data: RevealData; ranks?: HallRanks }) {
   const [selectedMoment, setSelectedMoment] = useState<TellMoment | null>(null);
   const seatName = (seat: number) => data.players.find((p) => p.seat === seat)?.name ?? `Seat ${seat + 1}`;
-  const importantMoments = [...data.tellMoments].sort((a, b) => Number(!!b.caughtBluff) - Number(!!a.caughtBluff));
+  const importantMoments = [...data.tellMoments].sort((a, b) => Number(!!b.caughtBluff) - Number(!!a.caughtBluff) || Number(b.changedAction) - Number(a.changedAction));
   // The proof the whole product exists for. It leads the page when there is any; the empty state goes last.
   const moments = (
       <section aria-labelledby="important-moments-title">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-gold">Important moments</p>
-            <h2 id="important-moments-title" className="mt-1 text-2xl font-medium">When the tells changed an AI&apos;s mind</h2>
+            <h2 id="important-moments-title" className="mt-1 text-2xl font-medium">How the AIs read the table</h2>
           </div>
           {data.tellMoments.length > 0 && <p className="text-xs text-muted">Select a moment for the full decision breakdown</p>}
         </div>
         {data.tellMoments.length === 0 ? (
           <div className="rounded-2xl border border-felt-edge/60 bg-felt/[0.04] p-5">
-            <p className="text-sm text-muted">The AIs never deviated from the math on a tell. Either nobody leaked, or nobody had a camera on.</p>
+            <p className="text-sm text-muted">No usable camera reads were recorded. This can happen when nobody enabled a camera or every signal stayed near neutral.</p>
           </div>
         ) : (
           <ul className="grid gap-3 md:grid-cols-2">
@@ -128,20 +128,21 @@ export default function RevealView({ data, ranks = {} }: { data: RevealData; ran
 function MomentCard({ moment, onOpen }: { moment: TellMoment; onOpen: () => void }) {
   const read = moment.caughtBluff ?? moment.reads[0];
   const caught = !!moment.caughtBluff;
+  const changed = moment.changedAction;
   return (
     <li>
       <button type="button" onClick={onOpen} className={`group flex h-full w-full flex-col rounded-2xl border p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-gold/60 hover:bg-gold/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${caught ? "border-danger/50 bg-danger/[0.06]" : "border-felt-edge bg-felt/[0.04]"}`}>
         <div className="flex w-full items-center justify-between gap-3">
           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${caught ? "bg-danger/15 text-danger" : "bg-gold/10 text-gold"}`}>
-            {caught ? <Eye size={12} /> : <Sparkles size={12} />}{caught ? "Bluff caught" : "Tell changed the play"}
+            {caught ? <Eye size={12} /> : <Sparkles size={12} />}{caught ? "Bluff caught" : changed ? "Tell changed the play" : "Tell considered"}
           </span>
           <span className="text-xs text-muted">Hand {moment.handNumber} · {moment.street}</span>
         </div>
-        <h3 className="mt-4 text-xl leading-tight">{caught && read ? `${moment.aiName} caught ${read.name}'s bluff` : `${moment.aiName} overruled the math`}</h3>
+        <h3 className="mt-4 text-xl leading-tight">{caught && read ? `${moment.aiName} caught ${read.name}'s bluff` : changed ? `${moment.aiName} overruled the math` : read ? `${moment.aiName} read ${read.name}` : `${moment.aiName} read the table`}</h3>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded-md bg-white/5 px-2 py-1 text-muted">Math: {moment.decision.mathAction}</span>
-          <ArrowRight size={14} className="text-gold" />
-          <span className="rounded-md bg-gold px-2 py-1 font-semibold text-background">Play: {actionText(moment.decision)}</span>
+          {changed ? (
+            <><span className="rounded-md bg-white/5 px-2 py-1 text-muted">Math: {moment.decision.mathAction}</span><ArrowRight size={14} className="text-gold" /><span className="rounded-md bg-gold px-2 py-1 font-semibold text-background">Play: {actionText(moment.decision)}</span></>
+          ) : <span className="rounded-md bg-white/5 px-2 py-1 text-muted">Math and play: <strong className="text-foreground">{actionText(moment.decision)}</strong></span>}
         </div>
         {read && <p className="mt-3 text-sm text-muted">{read.name}&apos;s face read <span className="font-mono text-foreground">{Math.round(read.bluffLikelihood * 100)}% bluff</span>.</p>}
         {read?.evidence.length ? (
@@ -176,9 +177,9 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
         <header className={`sticky top-0 z-10 border-b px-5 py-5 sm:px-7 ${moment.caughtBluff ? "border-danger/30 bg-[#160f0f]" : "border-gold/25 bg-[#15150f]"}`}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className={`text-xs font-semibold uppercase tracking-[0.28em] ${moment.caughtBluff ? "text-danger" : "text-gold"}`}>{moment.caughtBluff ? "Successful bluff catch" : "Tell-driven decision"}</p>
-              <h2 className="mt-1 text-2xl leading-tight sm:text-3xl">Hand {moment.handNumber}: {moment.aiName} changed course</h2>
-              <p className="mt-1 text-sm text-muted">{moment.street} · math said {moment.decision.mathAction}, tells said {actionText(moment.decision)}</p>
+              <p className={`text-xs font-semibold uppercase tracking-[0.28em] ${moment.caughtBluff ? "text-danger" : "text-gold"}`}>{moment.caughtBluff ? "Successful bluff catch" : moment.changedAction ? "Tell-driven change" : "Tell-aware decision"}</p>
+              <h2 className="mt-1 text-2xl leading-tight sm:text-3xl">Hand {moment.handNumber}: {moment.aiName} {moment.changedAction ? "changed course" : "held its course"}</h2>
+              <p className="mt-1 text-sm text-muted">{moment.street} · {moment.changedAction ? `math said ${moment.decision.mathAction}, tells led to ${actionText(moment.decision)}` : `the read reinforced ${actionText(moment.decision)}`}</p>
             </div>
             <button type="button" autoFocus onClick={onClose} aria-label="Close decision breakdown" className="rounded-full border border-white/10 p-2 text-muted transition-colors hover:border-gold/40 hover:text-gold"><X size={17} /></button>
           </div>
@@ -227,7 +228,7 @@ function MomentModal({ moment, seatName, onClose }: { moment: TellMoment; seatNa
                         {moment.decision.tellsUsed.map((tell) => <li key={tell}>• {tell}</li>)}
                       </ul>
                     ) : (
-                      <p className="mt-2 text-sm text-white/65">The tell-adjusted strategy used the combined bluff score; it did not cite an individual signal.</p>
+                      <p className="mt-2 text-sm text-white/65">{moment.changedAction ? "The tell-adjusted strategy used the combined read; it did not cite an individual signal." : "The AI saw the read but did not cite an individual signal or change its action."}</p>
                     )}
                   </div>
                   <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted">Supporting signals captured</p>
