@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { Activity, Bot, Eye, Home, Hourglass, Radio, RefreshCw, Spade, Trophy } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Activity, Bot, CircleDollarSign, Eye, Home, Hourglass, Radio, RefreshCw, Spade, Trophy } from "lucide-react";
 import RailInspector from "./RailInspector";
 import RailTable from "./RailTable";
 import RailTicker from "./RailTicker";
@@ -43,7 +45,15 @@ function ConnectionScreen({ state, code }: { state: Exclude<RailConnectionState,
   );
 }
 
-function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
+function RailSurface({ code, view, autoResults = false }: { code: string; view: RailViewModel; autoResults?: boolean }) {
+  const router = useRouter();
+  const predictionsFinished = view.connection === "live" && view.table?.phase === "finished" && view.predictions?.enabled;
+  useEffect(() => {
+    if (!autoResults || !predictionsFinished) return;
+    const timer = window.setTimeout(() => router.replace(`/rail/${encodeURIComponent(code)}/results`), 1_800);
+    return () => window.clearTimeout(timer);
+  }, [autoResults, code, predictionsFinished, router]);
+
   if (view.connection !== "live" || !view.table) {
     const state = view.connection === "live" ? "disconnected" : view.connection;
     return <ConnectionScreen state={state} code={code} />;
@@ -95,7 +105,7 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
       ) : (
         <div className={`mx-auto grid w-full max-w-[1600px] gap-3 xl:min-h-0 xl:flex-1 xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden ${finished ? "place-items-center" : "xl:grid-cols-[minmax(0,1fr)_360px]"}`}>
           <div className={finished ? "min-w-0" : "flex h-[70dvh] min-h-[480px] min-w-0 flex-col xl:h-auto xl:min-h-0 xl:self-start xl:aspect-video"}>
-            {finished && table.standings?.length ? <FinalStandings table={table} /> : <RailTable table={table} />}
+            {finished && table.standings?.length ? <FinalStandings table={table} predictionsEnabled={!!view.predictions?.enabled} /> : <RailTable table={table} />}
           </div>
           {!finished && (
             <aside className="flex min-h-0 flex-col gap-3 xl:h-full xl:overflow-y-auto xl:overscroll-contain">
@@ -115,7 +125,7 @@ function RailSurface({ code, view }: { code: string; view: RailViewModel }) {
 }
 
 /** Finished view: the felt is gone, the chips are counted. */
-function FinalStandings({ table }: { table: RailTableSnapshot }) {
+function FinalStandings({ table, predictionsEnabled }: { table: RailTableSnapshot; predictionsEnabled: boolean }) {
   const winner = table.standings?.[0];
   return (
     <section aria-label="Final standings" className="rounded-[2rem] border border-white/10 bg-[#0c1210] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.42)] sm:p-6">
@@ -136,10 +146,11 @@ function FinalStandings({ table }: { table: RailTableSnapshot }) {
           </li>
         ))}
       </ol>
-      <div className="mx-auto mt-5 grid w-full max-w-md gap-2 sm:grid-cols-2" aria-live="polite">
+      <div className={`mx-auto mt-5 grid w-full gap-2 ${predictionsEnabled ? "max-w-2xl sm:grid-cols-3" : "max-w-md sm:grid-cols-2"}`} aria-live="polite">
         <Link href={`/reveal/${table.code}`} className="inline-flex items-center justify-center gap-2 rounded-full bg-gold px-5 py-3 text-sm font-semibold text-black transition-transform hover:-translate-y-0.5">
           <Trophy size={15} /> Open the Reveal
         </Link>
+        {predictionsEnabled && <Link href={`/rail/${table.code}/results`} className="inline-flex items-center justify-center gap-2 rounded-full border border-violet-300/30 bg-violet-300/8 px-5 py-3 text-sm font-semibold text-violet-200 transition-colors hover:border-violet-300/60"><CircleDollarSign size={15} /> Prediction results</Link>}
         <Link href="/" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white/70 transition-colors hover:border-gold/50 hover:text-gold">
           <Home size={15} /> Back to home
         </Link>
@@ -173,12 +184,12 @@ function FakeRailDashboard({ code }: { code: string }) {
   return <RailSurface code={code} view={useFakeRail(code)} />;
 }
 
-function LiveRailDashboard({ code }: { code: string }) {
-  return <RailSurface code={code} view={useLiveRail(code)} />;
+function LiveRailDashboard({ code, autoResults }: { code: string; autoResults: boolean }) {
+  return <RailSurface code={code} view={useLiveRail(code)} autoResults={autoResults} />;
 }
 
-export default function RailDashboard({ code, demo = false }: { code: string; demo?: boolean }) {
+export default function RailDashboard({ code, demo = false, autoResults = true }: { code: string; demo?: boolean; autoResults?: boolean }) {
   return demo
     ? <FakeRailDashboard key={`demo-${code}`} code={code} />
-    : <LiveRailDashboard key={`live-${code}`} code={code} />;
+    : <LiveRailDashboard key={`live-${code}`} code={code} autoResults={autoResults} />;
 }

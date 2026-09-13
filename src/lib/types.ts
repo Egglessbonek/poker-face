@@ -202,6 +202,46 @@ export interface PredictionBetReceipt {
   claimSignature?: string;
 }
 
+export interface PredictionBetResult {
+  id: string;
+  marketId: string;
+  marketQuestion: string;
+  outcomeLabel: string;
+  winningOutcomeLabel?: string;
+  stakeLamports: number;
+  payoutLamports: number;
+  result: "pending" | "won" | "lost" | "refunded";
+  placedAt: number;
+  depositSignature: string;
+  payoutSignature?: string;
+}
+
+export interface PredictionResults {
+  code: string;
+  enabled: boolean;
+  complete: boolean;
+  cluster: "devnet";
+  totals: {
+    markets: number;
+    bets: number;
+    bettors: number;
+    stakedLamports: number;
+    returnedLamports: number;
+    paidLamports: number;
+    feeLamports: number;
+  };
+  markets: Array<PredictionMarket & { betCount: number }>;
+  wallet?: {
+    address: string;
+    stakedLamports: number;
+    returnedLamports: number;
+    paidLamports: number;
+    pendingLamports: number;
+    netLamports: number;
+    bets: PredictionBetResult[];
+  };
+}
+
 export interface Player {
   id: string;
   seat: number;

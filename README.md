@@ -14,7 +14,7 @@ A No-Limit Hold'em table for friends and AI players. Create a table, share the 4
 | AI players | Real models via OpenRouter, each playing as itself (no scripted personas): six regulars (Claude, ChatGPT, Grok, Llama, Gemini, DeepSeek) are pinned, the whole catalog is in a dropdown. Equity + tells -> that model -> strict JSON action + table talk in its own voice |
 | Voice | ElevenLabs TTS: every AI line is spoken aloud on every client, one signature voice per model vendor (Claude, GPT, Gemini, Grok, Llama, DeepSeek), no two seats at a table share a voice |
 | Realtime | Server-Sent Events, in-memory bus, per-viewer filtering (private cards, tell visibility) |
-| Rail predictions | Creator-enabled, engine-settled pari-mutuel markets with Phantom-compatible Solana devnet stakes and payouts |
+| Rail predictions | Creator-enabled, engine-settled pari-mutuel markets with Phantom-compatible Solana devnet stakes, automatic payouts and post-game results |
 | Deploy | Railway (single Node process) |
 
 ## How a table works
@@ -22,7 +22,7 @@ A No-Limit Hold'em table for friends and AI players. Create a table, share the 4
 1. **Host** opens `/table/new`: chairs (2-9), blinds, stacks, hands, turn timer, **the guest list** (any OpenRouter models, duplicates allowed), and **who sees the tells** (AIs and rail by default; humans never see their own during play).
 2. **Players** open `/table/<code>`, type a name, and calibrate a required 10s face baseline in the lobby.
 3. The host deals. AI turns run on the server; humans get a turn timer that auto-checks/folds.
-4. **Spectators** open `/rail/<code>`: every card, every human's live tell HUD, the AIs' stated reads and table talk. If the host enabled predictions, the rail can watch markets wallet-free or stake devnet SOL on the next action, hand winner, finish method, and match winner.
+4. **Spectators** open `/rail/<code>`: every card, every human's live tell HUD, the AIs' stated reads and table talk. If the host enabled predictions, the rail can watch markets wallet-free or stake devnet SOL on the next action, hand winner, finish method, and match winner. After the match, `/rail/<code>/results` summarizes every market and the connected wallet's bets while the treasury sends winning payouts automatically.
 5. When the match ends, `/reveal/<code>` grades each human: poker-face score, bluffs caught, biggest leaks, and the moments where a tell changed an AI's action.
 
 During play, SB and BB mark the blind seats (the button is also SB heads-up). Any active player can fold on their own turn, including when checking is free; this is a casual house rule, not the tournament penalty rule for non-standard folds. Timeouts still check when possible. Every player can leave the table; a departed seat folds on its next turn unless already all-in. The host alone can end the match. If the host leaves with another human remaining, hosting passes to that human.
