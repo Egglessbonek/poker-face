@@ -79,25 +79,6 @@
   line-height: 1;
 }
 
-.category {
-  color: #64675d;
-  font-size: 10px;
-  letter-spacing: normal;
-  text-transform: none;
-}
-
-.title {
-  font-family: var(--font-newsreader), Georgia, serif;
-  font-size: 32px;
-  line-height: 1.12;
-}
-
-.hint {
-  color: #3f4740;
-  font-size: 16px;
-  line-height: 1.5;
-}
-
 .entry {
   display: flex;
   gap: 8px;
@@ -121,10 +102,16 @@
 }
 
 .entry input::placeholder {
+  font-family: var(--font-pliant), sans-serif;
+  font-size: 14px;
   color: #7a7c70;
 }
 
 .entry button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   flex: 1;
   min-width: 0;
   border-radius: 6px;
@@ -142,6 +129,7 @@
 }
 
 .cardAction {
+  gap: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -180,8 +168,9 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  margin-top: 12px;
+  margin-top: 0;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   text-align: left;
   scrollbar-width: thin;
   scrollbar-color: #b3ac99 transparent;
@@ -199,10 +188,9 @@
 .row {
   display: grid;
   align-items: center;
-  grid-template-areas: "code action" "meta action";
+  grid-template-areas: "code action";
   grid-template-columns: minmax(0, 1fr) auto;
   column-gap: 10px;
-  row-gap: 2px;
   border: 1px solid #d8d0bc;
   border-radius: 8px;
   background: rgb(255 255 255 / 45%);
@@ -217,14 +205,10 @@
   letter-spacing: normal;
 }
 
-.rowMeta {
-  grid-area: meta;
-  color: #5a6157;
-  font-size: 11px;
-  line-height: 1.35;
-}
-
 .rowAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   grid-area: action;
   border-radius: 6px;
   background: var(--felt);
@@ -245,4 +229,10 @@
   font-size: 13px;
   line-height: 1.5;
   text-align: center;
+}
+
+.list:focus-visible,
+.rowAction:focus-visible {
+  outline: 2px solid var(--felt);
+  outline-offset: 2px;
 }

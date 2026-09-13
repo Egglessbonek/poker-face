@@ -7,16 +7,12 @@ import styles from "./PlayingCard.module.css";
 
 export default function CodeEntry({
   title,
-  hint,
   mode,
-  label,
   rank,
   suit,
 }: {
   title: string;
-  hint: string;
   mode: CodeEntryMode;
-  label: string;
   rank: string;
   suit: string;
 }) {
@@ -29,7 +25,6 @@ export default function CodeEntry({
       className={`${styles.card} ${suit === "♥" || suit === "♦" ? styles.red : ""}`}
     >
       <PlayingCardMarks rank={rank} suit={suit} />
-      <span className={styles.hint}>{hint}</span>
       <div className={styles.entry}>
         <input
           autoCapitalize="characters"
@@ -39,11 +34,11 @@ export default function CodeEntry({
           value={code}
           onChange={(e) => setCode(e.target.value)}
           aria-invalid={!!error}
-          placeholder="HKRC"
+          placeholder="table code"
           aria-label="Table code"
         />
         <button disabled={!valid || checking}>
-          {checking ? "Checking…" : label}
+          {checking ? "checking…" : mode} <span aria-hidden="true">→</span>
         </button>
       </div>
       {error && (
