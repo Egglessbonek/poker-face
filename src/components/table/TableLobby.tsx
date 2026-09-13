@@ -161,8 +161,6 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
           </section>
 
           <TableSettingsEditor config={state.config} disabled={!isHost} onUpdate={updateConfig} />
-<<<<<<< HEAD
-=======
 
           <footer className="flex flex-col gap-4 rounded-3xl border border-felt-edge bg-background/90 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
@@ -173,7 +171,6 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
               {isHost ? <div className="text-center"><p className="mb-1 text-[10px] text-muted">{humanPlayers.length - unreadyPlayers.length}/{humanPlayers.length} humans ready</p><button type="button" onClick={requestStart} disabled={state.players.length < 2 || rosterBusy} className="rounded-full bg-gold px-8 py-3 font-semibold text-background disabled:opacity-40">Deal the first hand</button></div> : <p className="rounded-2xl border border-felt-edge px-5 py-3 text-center text-xs text-muted">The host will deal when everyone is ready.</p>}
             </div>
           </footer>
->>>>>>> refs/remotes/origin/main
           </div>
         <aside aria-label="Camera and measurements" className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto">{cameraPanel}</aside>
         </div>
