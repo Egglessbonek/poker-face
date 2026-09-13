@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { freshDeck, shuffle } from "../cards";
-import { monteCarloEquity, describeHand } from "../equity";
+import { monteCarloEquity, describeHand, knownTableEquities } from "../equity";
 import { newHand } from "../engine";
 
 describe("cards", () => {
@@ -39,6 +39,45 @@ describe("equity", () => {
   });
   it("describes a flush", () => {
     expect(describeHand(["2s", "5s", "9s", "Ks", "Qs", "3d", "7c"]).name).toBe("Flush");
+  });
+  it("calculates exact river equity against the other visible hands", () => {
+    const result = knownTableEquities([
+      { id: "nuts", hole: ["As", "Ah"], folded: false },
+      { id: "pair", hole: ["Ks", "Kh"], folded: false },
+      { id: "folded", hole: ["Qs", "Qh"], folded: true },
+    ], ["2c", "3d", "4h", "8s", "9c"]);
+
+    expect(result.nuts.equity).toBe(1);
+    expect(result.pair.equity).toBe(0);
+    expect(result.folded.equity).toBe(0);
+    expect(result.nuts.bestHand).toBe("Pair");
+    expect(result.nuts.samples).toBe(1);
+  });
+  it("splits equity evenly when the board plays", () => {
+    const result = knownTableEquities([
+      { id: "one", hole: ["2c", "3d"], folded: false },
+      { id: "two", hole: ["4c", "5d"], folded: false },
+    ], ["As", "Ks", "Qs", "Js", "Ts"]);
+
+    expect(result.one.equity).toBe(0.5);
+    expect(result.two.equity).toBe(0.5);
+    expect(result.one.bestHand).toBe("Straight Flush");
+  });
+  it("samples preflop equity deterministically and preserves the whole pot", () => {
+    const players = [
+      { id: "aces", hole: ["As", "Ah"], folded: false },
+      { id: "kings", hole: ["Ks", "Kh"], folded: false },
+      { id: "folded", hole: ["Qs", "Qh"], folded: true },
+    ] as const;
+
+    const input = () => players.map((player) => ({ ...player, hole: [...player.hole] }));
+    const first = knownTableEquities(input(), [], 80);
+    const second = knownTableEquities(input(), [], 80);
+
+    expect(second).toEqual(first);
+    expect(first.aces.samples).toBe(80);
+    expect(first.folded.equity).toBe(0);
+    expect(first.aces.equity + first.kings.equity).toBeCloseTo(1, 10);
   });
 });
 
