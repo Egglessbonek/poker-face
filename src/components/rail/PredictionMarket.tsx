@@ -133,7 +133,7 @@ export default function PredictionMarketPanel({ code, snapshot }: { code: string
   };
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-violet-400/20 bg-[linear-gradient(145deg,rgba(91,33,182,0.16),rgba(12,18,16,0.96)_58%)] text-white" aria-labelledby="prediction-market-title">
+    <section className="shrink-0 overflow-hidden rounded-2xl border border-violet-400/20 bg-[linear-gradient(145deg,rgba(91,33,182,0.16),rgba(12,18,16,0.96)_58%)] text-white" aria-labelledby="prediction-market-title">
       <header className="flex items-start justify-between gap-3 border-b border-white/8 px-4 py-3.5">
         <div>
           <p className="flex items-center gap-1.5 text-[10px] font-semibold text-violet-300"><Zap size={11} fill="currentColor" /> Solana speed market</p>
