@@ -97,9 +97,7 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-4 py-8 sm:px-8">
         <header className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs uppercase tracking-[0.32em] text-gold">The room is open</p>
             <h1 className="mt-2 text-4xl font-semibold">Table <span className="font-mono text-gold">{state.code}</span></h1>
-            <p className="mt-2 text-sm text-muted">List the table publicly or keep it code-only. Seats, guests, and rules stay live.</p>
           </div>
           <div className="flex w-full flex-col items-stretch gap-2 lg:w-[30rem] lg:items-end">
             <div className="grid h-10 w-full grid-cols-3 gap-2">
@@ -116,21 +114,16 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
         <section className="rounded-3xl border border-felt-edge bg-felt/20 p-5 sm:p-7" aria-labelledby="capacity-title">
           <div className="flex items-end justify-between gap-4">
             <div><p className="text-xs uppercase tracking-[0.24em] text-gold">Table capacity</p><h2 id="capacity-title" className="mt-1 text-2xl">{state.config.maxSeats} seats</h2></div>
-            <p className="text-right text-xs text-muted">{state.players.length} seated · {openSeats} open</p>
+            <p className="text-right text-s text-muted">{state.players.length} seated · {openSeats} open</p>
           </div>
           {isHost ? (
             <div className="mt-5">
               <input type="range" aria-label="Maximum number of seats" min={minimumSeats} max={9} step={1} defaultValue={state.config.maxSeats} onChange={(event) => void updateConfig({ maxSeats: Number(event.target.value) })} className="w-full accent-gold" />
-              <div className="mt-1 flex justify-between font-mono text-[10px] text-muted"><span>{minimumSeats} minimum now</span><span>9 maximum</span></div>
             </div>
           ) : <p className="mt-4 text-xs text-muted">Only the host can change the table capacity.</p>}
         </section>
 
         <section className="rounded-3xl border border-felt-edge bg-felt/20 p-4 sm:p-6">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <div><h2 className="flex items-center gap-2 font-medium"><Users size={17} className="text-gold" /> Live guest list</h2><p className="mt-1 text-xs text-muted">Camera, connection, and ready status update live.</p></div>
-            <span className="shrink-0 rounded-full border border-felt-edge bg-background/40 px-3 py-1 font-mono text-xs text-muted">{state.players.length}/{state.config.maxSeats} seated</span>
-          </div>
           <div className="rounded-[2.25rem] bg-[#3a281d] p-2 shadow-[0_12px_28px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-2.5">
             <div className="relative overflow-hidden rounded-[1.8rem] border border-gold/20 bg-felt px-3 py-4 shadow-[inset_0_0_34px_rgba(0,0,0,0.34)] sm:px-4">
               <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.07]"><span className="font-mono text-3xl tracking-[0.24em] text-card sm:text-5xl">{state.code}</span></div>

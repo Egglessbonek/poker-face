@@ -1,5 +1,6 @@
 "use client";
 
+import { CameraOff } from "lucide-react";
 import type { Ref } from "react";
 import WebcamFeed from "@/components/WebcamFeed";
 import type { CameraStatus } from "@/hooks/useTells";
@@ -18,12 +19,16 @@ interface Props {
 
 export default function Calibration({ videoRef, status, progress, facePresent, onStartCamera, onCalibrate, onSkip, message }: Props) {
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-5 rounded-3xl border border-felt-edge p-6 text-center">
-      <p className="text-xs uppercase tracking-[0.3em] text-gold">Before you sit down</p>
+    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-3xl border border-felt-edge bg-background p-6 text-center">
       <h2 className="text-2xl font-semibold">Let the table get a read on you</h2>
-      <p className="text-sm text-muted">We take a 10-second baseline of your resting face. Every tell is measured against it.</p>
-      <div className="relative">
-        <WebcamFeed videoRef={videoRef} className="aspect-[4/3] w-80" />
+      <div className="relative aspect-[4/3] w-full max-w-80 overflow-hidden rounded-xl bg-felt/30">
+        <WebcamFeed videoRef={videoRef} className="h-full w-full rounded-none" />
+        {status !== "running" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-felt/70 to-background text-muted" aria-label="Camera preview unavailable">
+            <CameraOff size={40} strokeWidth={1.5} aria-hidden="true" />
+            <span className="text-xs uppercase tracking-[0.2em]">Camera is off</span>
+          </div>
+        )}
         {status === "running" && (
           <span className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider ${facePresent ? "bg-ok/80" : "bg-danger/80"}`}>
             {facePresent ? "face locked" : "no face"}
