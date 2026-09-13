@@ -17,6 +17,7 @@ const INK = { primary: "#ece7dc", muted: "#8a8f8b", grid: "#1d5c47" };
 const BLUFF = "#e5484d"; // status: caught
 const VALUE = "#46a758"; // status: honest
 const NEUTRAL = "#d4af37";
+const MAX_IMPORTANT_MOMENTS = 4;
 const TONE: Record<Achievement["tone"], string> = { gold: "text-gold", danger: "text-danger", ok: "text-ok", muted: "text-muted" };
 
 /** Per human player id: where this match's face stands among every face read since the server started. */
@@ -42,7 +43,7 @@ export default function RevealView({ data, ranks = {} }: { data: RevealData; ran
           </div>
         ) : (
           <ul className="grid gap-3 md:grid-cols-2">
-            {importantMoments.slice(0, 12).map((moment, i) => <MomentCard key={`${moment.handNumber}-${moment.street}-${i}`} moment={moment} onOpen={() => setSelectedMoment(moment)} />)}
+            {importantMoments.slice(0, MAX_IMPORTANT_MOMENTS).map((moment, i) => <MomentCard key={`${moment.handNumber}-${moment.street}-${i}`} moment={moment} onOpen={() => setSelectedMoment(moment)} />)}
           </ul>
         )}
       </section>
