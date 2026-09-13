@@ -2,12 +2,67 @@ import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { spawn } from "node:child_process";
-import { pushVitals, readVitals, startVitals, stopVitals } from "../server";
+import { pushVitals, readVitals, startVitals, stopVitals, VitalsError } from "../server";
 vi.mock("server-only", () => ({}));
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 afterEach(() => { stopVitals("TEST", "a", undefined, true); stopVitals("TEST", "b", undefined, true); vi.unstubAllEnvs(); });
 function worker() { const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), kill: vi.fn() }); vi.mocked(spawn).mockReturnValue(child as unknown as ReturnType<typeof spawn>); return child; }
 describe("private native sessions", () => {
+  it("preserves history across processing recovery, warms up again, and keeps SDK details server-side", () => {
+    vi.stubEnv("SMARTSPECTRA_API_KEY", "fake");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const date = vi.spyOn(Date, "now"); let clock = 1_000_000;
+    date.mockImplementation(() => clock);
+    const first = worker(); let second: ReturnType<typeof worker> | undefined;
+    try {
+      const oldId = startVitals("TEST", "a"); clock += 40_000;
+      const emit = (data: unknown) => first.stdout.write(JSON.stringify(data) + "\n");
+      emit({ type: "ready" });
+      emit({ type: "sample", pulse: { value: 80, stable: true, confidence: 95, at: clock }, validation: { code: 0, hint: "" } });
+      emit({ type: "diagnostic", code: 8, retryable: true, detail: "Native processing detail", stage: "sdk" });
+      emit({ type: "error", message: "Presage camera processing was interrupted.", retryable: true });
+      expect(readVitals("TEST", "a").latest).toBeNull();
+      expect(() => pushVitals("TEST", "a", oldId, new Uint8Array(), 0, [])).toThrow(VitalsError);
+      stopVitals("TEST", "a", oldId); first.emit("exit", 1);
+      // An EPIPE during teardown must not overwrite the useful SDK failure.
+      first.stdin.emit("error", new Error("EPIPE"));
+      expect(readVitals("TEST", "a").message).toBe("Presage camera processing was interrupted.");
+      clock += 1000; second = worker(); const newId = startVitals("TEST", "a");
+      expect(newId).not.toBe(oldId);
+      second.stdout.write(JSON.stringify({ type: "ready" }) + "\n");
+      second.stdout.write(JSON.stringify({ type: "validation", code: 0, hint: "" }) + "\n");
+      stopVitals("TEST", "a", oldId);
+      const view = readVitals("TEST", "a", true);
+      expect(view.status).toBe("measuring");
+      expect(view.history).toHaveLength(1);
+      expect(view.latest?.pulse.value).toBeNull();
+      expect(view.diagnostics?.restarts).toBe(1);
+      expect(view.diagnostics?.lastFailure?.code).toBe(8);
+      expect(JSON.stringify(view)).not.toContain("Native processing detail");
+      expect(log).toHaveBeenCalledWith("[presage] SDK failure", expect.objectContaining({ detail: "Native processing detail" }));
+    } finally {
+      stopVitals("TEST", "a", undefined, true); second?.emit("exit", 0);
+      date.mockRestore(); log.mockRestore();
+    }
+  });
+  it("makes an unexpected native exit recoverable", () => {
+    vi.stubEnv("SMARTSPECTRA_API_KEY", "fake");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const child = worker(); startVitals("TEST", "a"); child.emit("exit", null, "SIGSEGV");
+      expect(readVitals("TEST", "a")).toMatchObject({ status: "error", retryable: true, latest: null });
+    } finally { log.mockRestore(); }
+  });
+  it("recovers a native startup that never becomes ready", () => {
+    vi.stubEnv("SMARTSPECTRA_API_KEY", "fake"); vi.useFakeTimers();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const child = worker();
+    try {
+      startVitals("TEST", "a"); vi.advanceTimersByTime(30_000);
+      expect(readVitals("TEST", "a")).toMatchObject({ status: "error", retryable: true, message: expect.stringContaining("too long") });
+      expect(child.stdin.writableEnded).toBe(true);
+    } finally { child.emit("exit", 1); vi.useRealTimers(); log.mockRestore(); }
+  });
   it("drops delayed uploads under backpressure and resumes without ending the session", () => {
     vi.stubEnv("SMARTSPECTRA_API_KEY", "fake");
     const child = worker(); const id = startVitals("TEST", "a");

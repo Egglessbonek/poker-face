@@ -51,12 +51,26 @@ export function startVitals(code: string, playerId: string): string {
   const limit = Number.isFinite(configuredLimit) ? Math.max(1, Math.min(8, configuredLimit)) : 2;
   if (workers.size >= limit) throw new VitalsError("Camera measurements are at capacity. Poker and facial tells are still available.", 503, true);
   const session: Session = { id: randomUUID(), key, startedAt: Date.now(), lastSeen: Date.now(), lastFrameAt: 0, status: "starting", message: "Starting pulse and breathing measurement", history: [], events: [], handNumber: 0, diagnostics: createDiagnostics(confidencePolicy(process.env.PRESAGE_PULSE_CONFIDENCE, process.env.PRESAGE_BREATHING_CONFIDENCE)), artifacts: {}, validation: { code: null, hint: "Waiting for a clear view of your face and chest" } };
+  if (existing) {
+    // Preserve completed measurements; the new pipeline still gets a fresh warm-up.
+    session.history = existing.history;
+    session.events = existing.events;
+    session.handNumber = existing.handNumber;
+    session.diagnostics = { ...existing.diagnostics, pipeline: null, restarts: (existing.diagnostics.restarts ?? 0) + 1 };
+  }
   sessions.set(key, session);
   // A separate process is required: native SDK state is process-global. No LLM/voice keys passed through.
   const worker = spawn(process.execPath, [path.join(process.cwd(), "scripts/presage-worker.mjs")], {
     env: { NODE_ENV: process.env.NODE_ENV, PATH: process.env.PATH, SMARTSPECTRA_API_KEY: process.env.SMARTSPECTRA_API_KEY }, stdio: ["pipe", "pipe", "pipe"],
   });
   session.worker = worker; workers.add(worker);
+  const startupTimer = setTimeout(() => {
+    if (session.worker !== worker || session.status !== "starting") return;
+    session.status = "error"; session.retryable = true;
+    console.error("[presage] Native startup timed out");
+    stop(session, "Presage took too long to start camera processing.");
+  }, 30_000);
+  startupTimer.unref();
   let output = "";
   worker.stdout.on("data", (chunk: Buffer) => {
     output += chunk.toString();
@@ -66,17 +80,20 @@ export function startVitals(code: string, playerId: string): string {
       const line = output.slice(0, end); output = output.slice(end + 1);
       if (!line.startsWith("{")) continue;
       try {
-        const data = JSON.parse(line) as { type: string; at: number; pulse?: RawRate; breathing?: RawRate; validation: Session["validation"]; code: number; hint: string; message: string; retryable?: boolean; stats?: PipelineStats };
+        const data = JSON.parse(line) as { type: string; at: number; pulse?: RawRate; breathing?: RawRate; validation: Session["validation"]; code: number; hint: string; message: string; detail?: string; stage?: string; retryable?: boolean; stats?: PipelineStats };
         if (!session.worker) continue;
-        if (data.type === "ready") { session.status = "measuring"; session.message = "Gathering measurements"; }
+        if (data.type === "diagnostic") {
+          session.diagnostics.lastFailure = { at: Date.now(), code: data.code ?? null, stage: data.stage ?? "sdk", retryable: data.retryable === true };
+          console.error("[presage] SDK failure", { ...session.diagnostics.lastFailure, detail: data.detail });
+        }
+        if (data.type === "ready") { clearTimeout(startupTimer); session.status = "measuring"; session.message = "Gathering measurements"; }
         if (data.type === "validation") {
           session.validation = { code: data.code, hint: data.hint };
           if (data.code === 12) session.artifacts.motionAt = Date.now();
         }
         if (data.type === "pipeline" && data.stats) session.diagnostics.pipeline = data.stats;
-        if (data.type === "recovering") { session.status = "starting"; session.message = data.message; session.validation = { code: null, hint: data.message }; }
         if (data.type === "reset") { session.startedAt = data.at; session.status = "measuring"; }
-        if (data.type === "error") { session.status = "error"; session.retryable = data.retryable ?? true; stop(session, data.message); }
+        if (data.type === "error") { clearTimeout(startupTimer); session.status = "error"; session.retryable = data.retryable ?? true; stop(session, data.message); }
         if (data.type === "sample") {
           const now = Date.now();
           if (data.validation.code === 12) session.artifacts.motionAt = now;
@@ -95,11 +112,20 @@ export function startVitals(code: string, playerId: string): string {
     }
   });
   worker.stderr.on("data", () => {});
-  worker.stdin.on("error", () => { session.status = "error"; stop(session, "Camera processing disconnected. Check the connection and try again."); });
-  worker.on("error", () => { workers.delete(worker); session.status = "error"; session.retryable = false; stop(session, "Presage runtime could not launch on this server."); });
-  worker.on("exit", () => {
+  worker.stdin.on("error", () => {
+    if (session.worker !== worker) return;
+    session.status = "error"; session.retryable = true;
+    stop(session, "Camera processing disconnected. Check the connection and try again.");
+  });
+  worker.on("error", () => { clearTimeout(startupTimer); workers.delete(worker); session.status = "error"; session.retryable = false; stop(session, "Presage runtime could not launch on this server."); });
+  worker.on("exit", (code, signal) => {
+    clearTimeout(startupTimer);
     workers.delete(worker);
-    if (session.worker === worker) { session.worker = undefined; session.status = "error"; session.message = "Presage stopped. Check the server key, entitlement and runtime."; }
+    if (session.worker === worker) {
+      console.error("[presage] Worker exited unexpectedly", { code, signal });
+      session.worker = undefined; session.status = "error"; session.retryable = true;
+      session.message = "Presage camera processing was interrupted.";
+    }
   });
   return session.id;
 }
