@@ -13,7 +13,7 @@ import type { ActionType, VillainDecision, VillainDecisionInput } from "@/lib/ty
 import { completeJSON, llmAvailable, perSeatModels } from "@/lib/llm/provider";
 import { decisionRoll, recommend, type Recommendation } from "@/lib/poker/strategy";
 import { canonicalTells } from "./guard";
-import { publicTableTalk } from "./speech";
+import { fallbackTableTalk, publicTableTalk } from "./speech";
 import { getProfile } from "./profile";
 import { villainSystemPrompt, villainUserPrompt } from "./prompt";
 
@@ -85,7 +85,7 @@ export async function decide(input: VillainDecisionInput, deadline?: number): Pr
     action: baseline,
     amount: clampAmount(baseline, rec.amount, input),
     reasoning: why,
-    tableTalk: "",
+    tableTalk: fallbackTableTalk(input, baseline),
     tellsUsed: [],
     mathAction: pure,
     tellAction: baseline,
@@ -106,8 +106,6 @@ export async function decide(input: VillainDecisionInput, deadline?: number): Pr
       // Bigger pots can get more thought (AI_BIG_POT_EFFORT=medium|high); default low keeps every turn under a few seconds.
       reasoningEffort: input.hand.pot + input.bounds.toCall >= 0.3 * (input.me.stack + input.me.committed) ? bigPotEffort() : "low",
     });
-    // This request is independent of the private decision and can run alongside it.
-    const speech = publicTableTalk(input, deadline);
     // One deadline covers every provider and any retry. Late responses cannot act on the table.
     const out = deadline === undefined ? await request : await Promise.race([
       request,
@@ -116,8 +114,9 @@ export async function decide(input: VillainDecisionInput, deadline?: number): Pr
       }),
     ]);
     const action = input.legalActions.includes(out.action) ? out.action : baseline;
-    // Never publish speech from a completion that had access to private poker information.
-    const tableTalk = await speech;
+    // The isolated speech request starts only after the action is final. It sees the chosen action,
+    // but never the cards, equity, private reasoning or raw tell measurements.
+    const tableTalk = await publicTableTalk(input, action, deadline);
     return {
       action,
       amount: clampAmount(action, out.amount ?? (action === baseline ? rec.amount : undefined), input),

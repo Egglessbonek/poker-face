@@ -744,8 +744,8 @@ async function aiAct(t: Table, seat: number) {
   applyAndPublish(t, req, null);
   if (decision.tableTalk) {
     const said = (t.saidLines[player.id] ??= []);
-    // Drop an exact repeat rather than say it twice; the prompt already asks the model not to.
-    if (said.some((l) => l.trim().toLowerCase() === decision.tableTalk.trim().toLowerCase())) decision.tableTalk = "";
+    // Avoid back-to-back repetition while allowing an old line to return later in a long match.
+    if (said.slice(-4).some((l) => l.trim().toLowerCase() === decision.tableTalk.trim().toLowerCase())) decision.tableTalk = "";
     else said.push(decision.tableTalk);
   }
   if (decision.tableTalk) {

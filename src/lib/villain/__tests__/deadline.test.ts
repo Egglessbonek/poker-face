@@ -23,8 +23,7 @@ describe("AI turn deadline", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     let answer!: (value: unknown) => void;
     vi.mocked(completeJSON)
-      .mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }))
-      .mockResolvedValueOnce({ text: "" });
+      .mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
     const pending = decide(input, Date.now() + 1500);
     await vi.advanceTimersByTimeAsync(1500);
     const result = await pending;

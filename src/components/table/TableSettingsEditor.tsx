@@ -1,8 +1,10 @@
 "use client";
 
-import { Bot, Eye, Mic2, Radio, TrendingUp, Users } from "lucide-react";
+import { Bot, Eye, Mic2, Minus, Plus, Radio, TrendingUp, Users } from "lucide-react";
+import { useRef } from "react";
 import { tellAudiences, tellVisibilityFor, type TellAudiences } from "@/lib/tells/visibility";
 import type { TableConfig } from "@/lib/types";
+import styles from "./TableSettingsEditor.module.css";
 
 type NumericKey = "startingStack" | "smallBlind" | "bigBlind" | "handsPerMatch" | "turnTimerSec";
 
@@ -64,16 +66,30 @@ export default function TableSettingsEditor({ config, disabled = false, onUpdate
   );
 }
 
-const inputClass = "w-full rounded-xl border border-felt-edge bg-background px-3 py-2.5 text-sm outline-none transition focus:border-gold";
-
 function Field({ label, icon, hint, children }: { label: string; icon?: React.ReactNode; hint?: string; children: React.ReactNode }) {
-  return <label className="flex flex-col gap-2"><span className="flex items-center gap-2 text-xs text-muted">{icon}{label}</span>{children}{hint && <span className="text-[10px] text-muted">{hint}</span>}</label>;
+  return <div className="flex flex-col gap-2"><span className="flex items-center gap-2 text-xs text-muted">{icon}{label}</span>{children}{hint && <span className="text-[10px] text-muted">{hint}</span>}</div>;
 }
 
 function NumberField({ label, hint, value, min, max, step, disabled, onCommit }: { label: string; hint?: string; value: number; min: number; max: number; step?: number; disabled?: boolean; onCommit: (raw: string) => number }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const commit = (raw: string) => {
+    const next = onCommit(raw);
+    if (inputRef.current) inputRef.current.value = String(next);
+  };
+  const adjust = (direction: -1 | 1) => {
+    const raw = inputRef.current?.value ?? String(value);
+    const parsed = Number(raw);
+    const current = Number.isFinite(parsed) ? parsed : value;
+    commit(String(current + direction * (step ?? 1)));
+  };
+
   return (
     <Field label={label} hint={hint}>
-      <input key={value} disabled={disabled} type="number" defaultValue={value} min={min} max={max} step={step} onBlur={(event) => { event.currentTarget.value = String(onCommit(event.currentTarget.value)); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`} />
+      <div className={`flex overflow-hidden rounded-xl border border-felt-edge bg-background transition focus-within:border-gold ${disabled ? "opacity-60" : ""}`}>
+        <button type="button" disabled={disabled} aria-label={`Decrease ${label}`} onClick={() => adjust(-1)} className="flex w-11 shrink-0 items-center justify-center border-r border-felt-edge bg-felt/45 text-gold transition hover:bg-gold/15 disabled:cursor-not-allowed"><Minus size={15} /></button>
+        <input ref={inputRef} key={value} aria-label={label} disabled={disabled} type="number" defaultValue={value} min={min} max={max} step={step} onBlur={(event) => commit(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} className={`${styles.numberInput} min-w-0 flex-1 bg-transparent px-2 py-2.5 text-center font-mono text-sm outline-none disabled:cursor-not-allowed`} />
+        <button type="button" disabled={disabled} aria-label={`Increase ${label}`} onClick={() => adjust(1)} className="flex w-11 shrink-0 items-center justify-center border-l border-felt-edge bg-felt/45 text-gold transition hover:bg-gold/15 disabled:cursor-not-allowed"><Plus size={15} /></button>
+      </div>
     </Field>
   );
 }

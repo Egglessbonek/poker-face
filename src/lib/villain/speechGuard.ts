@@ -2,7 +2,7 @@
 export function safeTableTalk(value: unknown): string {
   if (typeof value !== "string") return "";
   const text = value.normalize("NFKC").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/[’‘]/g, "'").trim();
-  if (!text || text.length > 240) return "";
+  if (!text || text.length > 100 || text.split(/\s+/).length > 12) return "";
   // English banter only; reject markup, card symbols, encoded payloads, numbers and percentages.
   if (/[^a-zA-Z\s.,!?';:()\-—–]/.test(text)) return "";
   if (/\b(?:ace|aces|king|kings|queen|queens|jack|jacks|ten|tens|nine|nines|eight|eights|seven|sevens|six|sixes|five|fives|four|fours|three|threes|two|twos|deuce|deuces|trey|treys|spade|spades|heart|hearts|diamond|diamonds|club|clubs)\b/i.test(text)) return "";

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bot, ChevronDown, LoaderCircle, Plus, Search } from "lucide-react";
-import { FEATURED_MODEL_IDS, OPENROUTER_ID, describeModelId, formatPrice, groupCatalogByProvider, modelSpeed, type CatalogModel } from "@/lib/llm/models";
+import { ChevronDown, LoaderCircle, Plus, Search } from "lucide-react";
+import { FEATURED_MODEL_IDS, OPENROUTER_ID, describeModelId, groupCatalogByProvider, type CatalogModel } from "@/lib/llm/models";
+import AIModelCardContent from "./AIModelCardContent";
 
 interface Props {
   onAdd: (id: string) => void;
@@ -56,9 +57,8 @@ export default function ModelPicker({ onAdd, disabled }: Props) {
       <div>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {regulars.map((model) => (
-            <button type="button" key={model.id} disabled={disabled} onClick={() => add(model.id)} title={model.id} className="group flex min-h-14 items-center gap-2 rounded-xl border border-felt-edge bg-background/35 p-2 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-chip-blue/50 text-foreground"><Bot size={13} /></span>
-              <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium">{model.name}</span><span className="block truncate text-[9px] text-muted">{model.vendor}</span><span className="mt-1 flex flex-wrap gap-1"><ModelBadge>{modelSpeed(model.id)}</ModelBadge><ModelBadge>{all ? formatPrice(model) : "Pricing…"}</ModelBadge></span></span>
+            <button type="button" key={model.id} disabled={disabled} onClick={() => add(model.id)} title={model.id} className="group flex min-h-[5.5rem] items-center gap-2 rounded-xl border border-felt-edge bg-background/35 p-2.5 text-left transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-40">
+              <AIModelCardContent name={model.name} vendor={model.vendor} />
               <Plus size={13} className="shrink-0 text-muted transition group-hover:text-gold" />
             </button>
           ))}
@@ -67,7 +67,7 @@ export default function ModelPicker({ onAdd, disabled }: Props) {
 
       <section aria-labelledby="model-catalog-title" className="rounded-2xl border border-felt-edge bg-background/45 p-3 sm:p-4">
         <button type="button" aria-expanded={catalogOpen} aria-controls="model-catalog-content" onClick={() => setCatalogOpen((current) => !current)} className="flex w-full items-center justify-between gap-4 text-left">
-          <span><span id="model-catalog-title" className="block text-xs uppercase tracking-[0.2em] text-gold">Full model catalog</span><span className="mt-1 block text-[10px] text-muted">All available models, grouped alphabetically by provider.</span></span>
+          <span><span id="model-catalog-title" className="block text-xs uppercase tracking-[0.2em] text-gold">Full model catalog</span></span>
           <span className="flex shrink-0 items-center gap-2">{all && <span className="hidden font-mono text-[10px] text-muted sm:inline">{query ? `${matches.length} matches` : `${all.length} models · ${providerGroups.length} providers`}</span>}<ChevronDown size={16} className={`text-muted transition-transform ${catalogOpen ? "rotate-180" : ""}`} /></span>
         </button>
 
@@ -88,8 +88,8 @@ export default function ModelPicker({ onAdd, disabled }: Props) {
                     <ul className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {group.models.map((model) => (
                         <li key={model.id}>
-                          <button type="button" disabled={disabled} onClick={() => add(model.id)} title={model.id} className="group flex min-h-11 w-full items-center gap-2 rounded-lg border border-felt-edge/70 bg-background/25 p-2 text-left transition hover:border-gold disabled:opacity-40">
-                            <span className="min-w-0 flex-1"><span className="block truncate text-[11px] font-medium">{model.name}</span><span className="mt-1 flex flex-wrap gap-1"><ModelBadge>{modelSpeed(model.id)}</ModelBadge><ModelBadge>{formatPrice(model)}</ModelBadge></span></span>
+                          <button type="button" disabled={disabled} onClick={() => add(model.id)} title={model.id} className="group flex min-h-[5.5rem] w-full items-center gap-2 rounded-xl border border-felt-edge/70 bg-background/25 p-2.5 text-left transition hover:border-gold disabled:opacity-40">
+                            <AIModelCardContent name={model.name} vendor={model.vendor} />
                             <Plus size={12} className="shrink-0 text-muted group-hover:text-gold" />
                           </button>
                         </li>
@@ -115,10 +115,6 @@ export default function ModelPicker({ onAdd, disabled }: Props) {
 function fallback(id: string): CatalogModel {
   const { label, vendor } = describeModelId(id);
   return { id, name: label, vendor, contextLength: 0, promptPerM: 0, completionPerM: 0 };
-}
-
-function ModelBadge({ children }: { children: React.ReactNode }) {
-  return <span className="rounded-full border border-felt-edge bg-background/60 px-1 py-0.5 text-[8px] leading-none text-muted">{children}</span>;
 }
 
 function providerSlug(provider: string): string {

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Bot, CameraOff, CheckCircle2, CircleAlert, CircleDashed, Copy, Crown, Globe2, LoaderCircle, Lock, LogOut, QrCode, Trash2, X } from "lucide-react";
+import { CameraOff, CheckCircle2, CircleAlert, CircleDashed, Copy, Crown, Globe2, LoaderCircle, Lock, LogOut, QrCode, Trash2, X } from "lucide-react";
+import AIModelCardContent from "@/components/table/AIModelCardContent";
 import ModelPicker from "@/components/table/ModelPicker";
 import TableSettingsEditor from "@/components/table/TableSettingsEditor";
 import { TIERS, describeModelId } from "@/lib/llm/models";
@@ -95,11 +96,13 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
     <>
       <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-5 px-4 py-8 sm:px-8">
         <header className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="min-w-0 whitespace-nowrap text-2xl font-semibold sm:text-4xl">Table <span className="font-mono text-gold">{state.code}</span></h1>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button type="button" disabled={!isHost} aria-pressed={state.isPublic} aria-label={state.isPublic ? "Public table; make private" : "Private table; make public"} title={isHost ? (state.isPublic ? "Hide this table from Browse the tables" : "List this table in Browse the tables") : "Only the host can change table visibility"} onClick={() => void updateVisibility()} className={`flex h-10 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border px-2 text-sm transition disabled:cursor-default sm:px-3 ${state.isPublic ? "border-ok/50 text-ok" : "border-felt-edge text-muted"}`}>{state.isPublic ? <Globe2 size={15} /> : <Lock size={15} />} {state.isPublic ? "Public" : "Private"}</button>
-              <button type="button" onClick={() => setShowQR(true)} className="flex h-10 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-felt-edge px-2 text-sm transition hover:border-gold sm:px-3"><QrCode size={15} /> QR code</button>
+              <button type="button" onClick={() => setShowQR(true)} className="flex h-10 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-felt-edge px-3 text-sm transition hover:border-gold"><QrCode size={15} /> QR</button>
+              <button type="button" onClick={onLeave} className="flex h-10 items-center justify-center gap-2 rounded-full border border-felt-edge px-3 text-sm text-muted transition hover:border-danger hover:text-danger"><LogOut size={14} /> Leave</button>
+              {isHost && <button type="button" aria-label="Deal the first hand" onClick={requestStart} disabled={state.players.length < 2 || rosterBusy} className="h-10 rounded-full bg-gold px-5 text-sm font-semibold text-background transition hover:brightness-110 disabled:opacity-40">Start</button>}
             </div>
           </div>
           {isHost && <div className="flex justify-end"><SaveIndicator status={saveStatus} /></div>}
@@ -125,11 +128,12 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
             <div className="rounded-[2.25rem] bg-[#3a281d] p-2 shadow-[0_12px_28px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-2.5">
               <div className="relative overflow-hidden rounded-[1.8rem] border border-gold/20 bg-felt px-3 py-4 shadow-[inset_0_0_34px_rgba(0,0,0,0.34)] sm:px-4">
                 <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.07]"><span className="font-mono text-3xl text-card sm:text-5xl">{state.code}</span></div>
+                <p className="relative mb-3 text-center text-[10px] uppercase tracking-[0.18em] text-card/65">{humanPlayers.length - unreadyPlayers.length}/{humanPlayers.length} humans ready</p>
                 <div className="relative grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   {Array.from({ length: state.config.maxSeats }, (_, seat) => {
                     const player = playersBySeat.get(seat);
                     return player
-                      ? <LobbySeat key={player.id} player={player} viewerId={playerId} hostId={state.hostId} isHost={isHost} busy={rosterBusy} cameraStatus={cameraStatuses[player.id] ?? "not_started"} ready={!!readyPlayers[player.id]} onRemove={() => void updateRoster(() => onRemove(player.id))} />
+                      ? <LobbySeat key={player.id} player={player} viewerId={playerId} hostId={state.hostId} isHost={isHost} busy={rosterBusy} cameraStatus={cameraStatuses[player.id] ?? "not_started"} ready={!!readyPlayers[player.id]} onToggleReady={() => void onReadyChange(!ownReady)} onRemove={() => void updateRoster(() => onRemove(player.id))} />
                       : <OpenSeat key={seat} seat={seat} />;
                   })}
                 </div>
@@ -156,16 +160,6 @@ export default function TableLobby({ state, playerId, error, cameraStatuses, rea
           </section>
 
           <TableSettingsEditor config={state.config} disabled={!isHost} onUpdate={updateConfig} />
-
-          <footer className="flex flex-col gap-4 rounded-3xl border border-felt-edge bg-background/90 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
-              <button type="button" aria-pressed={ownReady} onClick={() => void onReadyChange(!ownReady)} className={`flex items-center justify-center gap-2 rounded-full border px-4 py-2 text-sm transition ${ownReady ? "border-ok bg-ok/10 text-ok" : "border-felt-edge hover:border-gold"}`}><CheckCircle2 size={15} /> {ownReady ? "Ready" : "I’m ready"}</button>
-            </div>
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
-              <button type="button" onClick={onLeave} className="flex items-center justify-center gap-2 px-4 py-2 text-xs text-muted hover:text-foreground"><LogOut size={13} /> Leave table</button>
-              {isHost ? <div className="text-center"><p className="mb-1 text-[10px] text-muted">{humanPlayers.length - unreadyPlayers.length}/{humanPlayers.length} humans ready</p><button type="button" onClick={requestStart} disabled={state.players.length < 2 || rosterBusy} className="rounded-full bg-gold px-8 py-3 font-semibold text-background disabled:opacity-40">Deal the first hand</button></div> : <p className="rounded-2xl border border-felt-edge px-5 py-3 text-center text-xs text-muted">The host will deal when everyone is ready.</p>}
-            </div>
-          </footer>
           </div>
         <aside aria-label="Camera and measurements" className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto">{cameraPanel}</aside>
         </div>
@@ -211,19 +205,29 @@ const cameraDetails: Record<LobbyCameraStatus, { label: string; className: strin
   ready: { label: "Camera ready", className: "text-ok", icon: <CheckCircle2 size={13} /> },
 };
 
-function LobbySeat({ player, viewerId, hostId, isHost, busy, cameraStatus, ready, onRemove }: { player: Player; viewerId: string; hostId: string; isHost: boolean; busy: boolean; cameraStatus: LobbyCameraStatus; ready: boolean; onRemove: () => void }) {
-  const model = player.modelId ? describeModelId(player.modelId) : null;
-  const description = model ? `${model.vendor} · ${player.modelId}` : player.connected ? "Human · connected" : "Human · reconnecting";
-  const seatAccent = player.kind === "ai" ? "border-chip-blue/35" : !player.connected ? "border-danger/35" : ready ? "border-ok/35" : "border-white/10";
+function LobbySeat({ player, viewerId, hostId, isHost, busy, cameraStatus, ready, onToggleReady, onRemove }: { player: Player; viewerId: string; hostId: string; isHost: boolean; busy: boolean; cameraStatus: LobbyCameraStatus; ready: boolean; onToggleReady: () => void; onRemove: () => void }) {
+  if (player.kind === "ai") {
+    const model = player.modelId ? describeModelId(player.modelId) : { vendor: "AI" };
+    return (
+      <div className="flex min-h-[4.5rem] items-center gap-2 rounded-xl border border-chip-blue/35 bg-background/75 p-2.5 shadow-md shadow-black/20 backdrop-blur-sm sm:min-h-[5.5rem]">
+        <AIModelCardContent name={player.name} vendor={model.vendor} />
+        {isHost && <button type="button" disabled={busy} aria-label={`Remove ${player.name}`} onClick={onRemove} className="shrink-0 rounded-lg p-1.5 text-muted transition hover:bg-danger/10 hover:text-danger disabled:opacity-40"><Trash2 size={13} /></button>}
+      </div>
+    );
+  }
+
+  const description = player.connected ? "Human · connected" : "Human · reconnecting";
+  const seatAccent = !player.connected ? "border-danger/35" : ready ? "border-ok/35" : "border-white/10";
   return (
     <div className={`flex min-h-[4.5rem] items-center gap-2 rounded-xl border bg-background/75 p-2.5 shadow-md shadow-black/20 backdrop-blur-sm sm:min-h-[5.5rem] ${seatAccent}`}>
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-xs font-semibold ${player.kind === "ai" ? "bg-chip-blue/70" : "bg-felt-edge"}`}>{player.kind === "ai" ? <Bot size={16} /> : player.name.slice(0, 1).toUpperCase()}</div>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-felt-edge text-xs font-semibold">{player.name.slice(0, 1).toUpperCase()}</div>
       <div className="min-w-0 flex-1">
         <p className="text-[9px] text-gold/75">Seat {player.seat + 1}</p>
         <p className="flex items-center gap-1 truncate text-xs font-medium"><span className="truncate">{player.name}</span>{player.id === viewerId && <span className="shrink-0 text-[10px] text-muted">(you)</span>}{player.id === hostId && <Crown size={11} className="shrink-0 text-gold" />}</p>
         <p title={description} className="truncate text-[10px] text-muted">{description}</p>
-        {player.kind === "human" && <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5"><CameraBadge status={cameraStatus} /><ReadyBadge ready={ready} /></div>}
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5"><CameraBadge status={cameraStatus} />{player.id !== viewerId && <ReadyBadge ready={ready} />}</div>
       </div>
+      {player.id === viewerId && <button type="button" aria-pressed={ready} onClick={onToggleReady} className={`flex shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] transition ${ready ? "border-ok bg-ok/10 text-ok" : "border-card/25 text-card hover:border-gold"}`}><CheckCircle2 size={13} /> {ready ? "Ready" : "Ready up"}</button>}
       {isHost && player.id !== hostId && <button type="button" disabled={busy} aria-label={`Remove ${player.name}`} onClick={onRemove} className="shrink-0 rounded-lg p-1.5 text-muted transition hover:bg-danger/10 hover:text-danger disabled:opacity-40"><Trash2 size={13} /></button>}
     </div>
   );
