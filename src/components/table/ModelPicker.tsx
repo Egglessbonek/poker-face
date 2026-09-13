@@ -78,10 +78,10 @@ export default function ModelPicker({ onAdd, disabled }: Props) {
         {!all && !failed && <p className="flex items-center justify-center gap-2 py-7 text-xs text-muted"><LoaderCircle size={14} className="animate-spin" /> Loading the catalog…</p>}
         {failed && <p className="py-4 text-xs text-muted">The live catalog is unavailable. You can still enter a valid OpenRouter model id.</p>}
         {all && providerGroups.length > 0 && (
-          <div className="mt-4 space-y-4">
+          <div role="region" aria-label="Models by provider" tabIndex={0} className="mt-4 max-h-[65vh] space-y-4 overflow-y-auto overscroll-contain pr-1 outline-none focus-visible:ring-1 focus-visible:ring-gold sm:max-h-[36rem]">
             {providerGroups.map((group) => (
               <section key={group.provider} aria-labelledby={`provider-${providerSlug(group.provider)}`}>
-                <div className="mb-1.5 flex items-center gap-2 border-b border-felt-edge/60 pb-1.5"><h4 id={`provider-${providerSlug(group.provider)}`} className="text-sm font-medium">{group.provider}</h4><span className="rounded-full bg-felt-edge/35 px-1.5 py-0.5 font-mono text-[9px] text-muted">{group.models.length}</span></div>
+                <div className="sticky top-0 z-10 mb-1.5 flex items-center gap-2 border-b border-felt-edge/60 bg-background/95 py-1.5 backdrop-blur-sm"><h4 id={`provider-${providerSlug(group.provider)}`} className="text-sm font-medium">{group.provider}</h4><span className="rounded-full bg-felt-edge/35 px-1.5 py-0.5 font-mono text-[9px] text-muted">{group.models.length}</span></div>
                 <ul className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {group.models.map((model) => (
                     <li key={model.id}>
