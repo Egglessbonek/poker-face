@@ -10,24 +10,27 @@ const MODEL_PATH =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
 let instance: FaceLandmarker | null = null;
-let consoleFiltered = false;
 
 /**
  * MediaPipe's WASM runtime writes its stderr through console.error, including plain status lines
  * like "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." The Next dev overlay shows every
- * console.error as an error, so drop the INFO/WARNING chatter and let real errors through.
+ * console.error as an error, so drop the INFO/WARNING chatter while the runtime initializes. Restore
+ * the original method immediately afterward so unrelated application errors keep their real source.
  */
-function filterMediaPipeChatter() {
-  if (consoleFiltered || typeof console === "undefined") return;
-  consoleFiltered = true;
-  const original = console.error.bind(console);
-  console.error = (...args: unknown[]) => {
+function filterMediaPipeChatter(): () => void {
+  if (typeof console === "undefined") return () => {};
+  const original = console.error;
+  const filtered = (...args: unknown[]) => {
     const first = args[0];
     if (typeof first === "string" && /^(INFO|WARNING|W\d{4}|I\d{4}):/.test(first.trimStart())) {
       console.debug(...args);
       return;
     }
-    original(...args);
+    original.apply(console, args);
+  };
+  console.error = filtered;
+  return () => {
+    if (console.error === filtered) console.error = original;
   };
 }
 
@@ -40,16 +43,20 @@ let loading: Promise<FaceLandmarker> | null = null;
 export function getFaceLandmarker(): Promise<FaceLandmarker> {
   if (instance) return Promise.resolve(instance);
   loading ??= (async () => {
-    filterMediaPipeChatter();
-    const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
-    instance = await FaceLandmarker.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" },
-      runningMode: "VIDEO",
-      numFaces: 1,
-      outputFaceBlendshapes: true,
-      outputFacialTransformationMatrixes: true,
-    });
-    return instance;
+    const restoreConsole = filterMediaPipeChatter();
+    try {
+      const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
+      instance = await FaceLandmarker.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" },
+        runningMode: "VIDEO",
+        numFaces: 1,
+        outputFaceBlendshapes: true,
+        outputFacialTransformationMatrixes: true,
+      });
+      return instance;
+    } finally {
+      restoreConsole();
+    }
   })().catch((err: unknown) => {
     loading = null;
     throw err;

@@ -96,8 +96,9 @@ export function canonicalTells(raw: string[], opponents: OpponentView[]): string
       }
       if (matched) break;
     }
-    if (!matched && /bluff|arousal|confiden|read|likel/.test(lower) && pool.length === 1 && pool[0].tells) {
-      push(`${pool[0].name}: ${Math.round(pool[0].tells.bluffLikelihood * 100)}% bluff likelihood overall`);
+    const overall = pool.length === 1 ? pool[0].tells : null;
+    if (!matched && /bluff|arousal|confiden|read|likel/.test(lower) && overall && overall.confidence > 0.2 && Math.abs(overall.bluffLikelihood - 0.5) >= 0.05) {
+      push(`${pool[0].name}: ${Math.round(overall.bluffLikelihood * 100)}% bluff likelihood overall`);
     }
   }
   return out.slice(0, 4);

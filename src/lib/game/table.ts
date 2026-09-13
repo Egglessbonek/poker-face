@@ -688,7 +688,26 @@ async function aiAct(t: Table, seat: number) {
     decision.amount = undefined;
   }
 
-  appendLog(t.code, "ai_decision", { handNumber: hand.handNumber, street: hand.street, playerId: player.id, equity: eq.equity, opponents, decision });
+  appendLog(t.code, "ai_decision", {
+    handNumber: hand.handNumber,
+    street: hand.street,
+    playerId: player.id,
+    equity: eq.equity,
+    opponents,
+    decision,
+    situation: {
+      board: [...hand.board],
+      pot: hand.pot,
+      currentBet: hand.currentBet,
+      toCall: b.toCall,
+      aiSeat: seat,
+      aiStack: me.stack,
+      aiCommitted: me.committed,
+      aiPosition: positionLabel(hand, seat),
+      aiHoleCards: [...me.holeCards],
+      actions: hand.actions.map((action) => ({ ...action })),
+    },
+  });
   publish(t.code, { type: "ai_decision", playerId: player.id, decision, handNumber: hand.handNumber, street: hand.street });
   applyAndPublish(t, req, null);
   if (decision.tableTalk) {

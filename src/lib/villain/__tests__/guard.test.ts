@@ -60,6 +60,10 @@ describe("canonicalTells", () => {
     expect(canonicalTells(["Claude is tight"], [raghu, opp("Claude", null, "ai")])).toEqual([]);
   });
 
+  it("does not turn a neutral low-confidence read into a cited tell", () => {
+    expect(canonicalTells(["Raghu looks bluffish"], [opp("Raghu", { ...tells([], 0.5), confidence: 0.2 })])).toEqual([]);
+  });
+
   it("never attributes a tell to a folded seat or an AI, and does not repeat", () => {
     const folded = opp("Sam", tells([["freeze", "went unusually still (20% of usual motion)"]]), "human", true);
     expect(canonicalTells(["Sam froze"], [raghu, folded])).toEqual([]);

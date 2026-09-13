@@ -124,7 +124,9 @@ export async function decide(input: VillainDecisionInput): Promise<VillainDecisi
       llmUsed: true,
     };
   } catch (err) {
-    console.error(`${profile.name} (${profile.id}) failed, using math action:`, (err as Error).message);
+    // This is a supported degradation path: the table keeps moving with its local strategy.
+    // Keep it out of Next's red dev overlay while retaining a useful server-side warning.
+    console.warn(`${profile.name} (${profile.id}) unavailable, using math action:`, (err as Error).message);
     return mathOnly("Model unavailable; math-only decision.");
   }
 }
